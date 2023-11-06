@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import json
 import logging
 import os
@@ -132,6 +133,24 @@ def update_collection(collection_filepath, dataset_name, dataset_path):
         json.dump(collection, f)
 
 
+@dataclass
+class ColorizerMetadata:
+    """Class representing metadata for a Colorizer dataset."""
+
+    width_units: float
+    height_units: float
+    units: str
+
+    def to_json(self):
+        return {
+            "frameDims": {
+                "width": self.width_units,
+                "height": self.height_units,
+                "units": self.units,
+            }
+        }
+
+
 class ColorizerDatasetWriter:
     """
     Writes provided data as Colorizer-compatible dataset files to the configured output directory.
@@ -215,6 +234,7 @@ class ColorizerDatasetWriter:
         num_frames: int,
         feature_names: List[str],
         feature_metadata: List[FeatureMetadata] = [],
+        metadata: ColorizerMetadata = None,
     ):
         """
         Writes the final manifest file for the dataset in the configured output directory.

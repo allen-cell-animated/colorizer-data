@@ -24,6 +24,7 @@ from nuc_morph_analysis.lib.visualization.plotting_tools import (
 from data_writer_utils import (
     INITIAL_INDEX_COLUMN,
     ColorizerDatasetWriter,
+    ColorizerMetadata,
     FeatureMetadata,
     configureLogging,
     scale_image,
@@ -129,7 +130,10 @@ def make_frames(
 
 
 def make_features(
-    dataset: pd.DataFrame, feature_names: List[str], dataset_name: str, writer: ColorizerDatasetWriter
+    dataset: pd.DataFrame,
+    feature_names: List[str],
+    dataset_name: str,
+    writer: ColorizerDatasetWriter,
 ):
     """
     Generate the outlier, track, time, centroid, and feature data files.
@@ -145,7 +149,9 @@ def make_features(
     feature_data = []
     for feature in feature_names:
         # Scale feature to use actual units
-        (scale_factor, label, unit) = get_plot_labels_for_metric(feature, dataset=dataset_name)
+        (scale_factor, label, unit) = get_plot_labels_for_metric(
+            feature, dataset=dataset_name
+        )
         f = dataset[feature].to_numpy() * scale_factor
         feature_data.append(f)
 
@@ -157,6 +163,20 @@ def make_features(
         centroids_y,
         outliers,
     )
+
+
+def get_dataset_dimensions(
+    grouped_frames: DataFrameGroupBy, pixsize: float
+) -> (float, float):
+    """Get the dimensions of the dataset from the first frame, in units."""
+    row = grouped_frames.get_group(0).iloc[0]
+    zstackpath = row[SEGMENTED_IMAGE_COLUMN]
+    if platform.system() == "Windows":
+        zstackpath = "/" + zstackpath
+    zstack = AICSImage(zstackpath).get_image_data("ZYX", S=0, T=0, C=0)
+    seg2d = zstack.max(axis=0)
+
+    return seg2d.shape * pixsize
 
 
 def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scale=1):
@@ -199,6 +219,8 @@ def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scal
         if unit:
             metadata["units"] = unit
         feature_metadata.append(metadata)
+    dataset_dimensions = get_dataset_dimensions(grouped_frames, pixsize)
+    metadata = ColorizerMetadata(dataset_dimensions[0], dataset_dimensions[1], "µm")
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)

@@ -2,7 +2,7 @@
 
 Timelapse-Colorizer can only load datasets that follow the defined data specification.
 
-The easiest way to get started is to modify one of our existing data processing scripts, like [`convert_nucmorph_data.py`](../scripts/timelapse-colorizer-data/convert_nucmorph_data.py)!
+The easiest way to get started is to modify one of our existing data processing scripts, like [`convert_nucmorph_data.py`](../timelapse-colorizer-data/convert_nucmorph_data.py)!
 
 (Check with your team or one of the developers on the Animated Cell team to see if there's already a data generation script for your project!)
 
@@ -135,7 +135,7 @@ Besides the details shown above, these are additional parameters that the manife
 
 These metadata parameters are used to configure additional features of the Timelapse Colorizer UI, such as showing the unit types of features and scale bars on the main display. Additional metadata will likely be added as the project progresses.
 
-Note that the interface will directly show the unit labels and does not scale or convert units from one type to another (for example, it will not convert 1000 µm to 1 mm). If you need to present your data with different units, create a duplicate of the feature with a different unit label.
+Note that the interface will directly show the unit labels and does not scale or convert units from one type to another (for example, it will not convert 1000 µm to 1 mm). If you need to present your data with different units, create a (scaled) duplicate of the feature with a different unit label.
 
 <details>
 <summary><b>[Show me an example!]</b></summary>
