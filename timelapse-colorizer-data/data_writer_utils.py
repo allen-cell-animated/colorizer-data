@@ -292,6 +292,10 @@ class ColorizerDatasetWriter:
                     "Feature metadata length does not match number of features. Skipping metadata."
                 )
 
+        # Add the metadata
+        if metadata:
+            output_json["metadata"] = metadata.to_json()
+
         with open(self.outpath + "/manifest.json", "w") as f:
             json.dump(output_json, f)
 

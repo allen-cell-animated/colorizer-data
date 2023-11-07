@@ -176,7 +176,8 @@ def get_dataset_dimensions(
     zstack = AICSImage(zstackpath).get_image_data("ZYX", S=0, T=0, C=0)
     seg2d = zstack.max(axis=0)
 
-    return seg2d.shape * pixsize
+    shape = seg2d.shape
+    return (shape[0] * pixsize, shape[1] * pixsize)
 
 
 def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scale=1):
@@ -227,7 +228,7 @@ def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scal
     make_features(full_dataset, FEATURE_COLUMNS, dataset, writer)
     if do_frames:
         make_frames(grouped_frames, scale, writer)
-    writer.write_manifest(nframes, feature_labels, feature_metadata)
+    writer.write_manifest(nframes, feature_labels, feature_metadata, metadata)
 
 
 parser = argparse.ArgumentParser()
