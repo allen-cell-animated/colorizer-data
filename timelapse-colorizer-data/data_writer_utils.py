@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import pathlib
+import platform
 import re
 from PIL import Image
 from typing import List, TypedDict, Union
@@ -46,6 +47,13 @@ def configureLogging(output_dir: Union[str, pathlib.Path], log_name="debug.log")
             logging.StreamHandler(),
         ],
     )
+
+
+def sanitize_path_by_platform(path: str) -> str:
+    """Sanitizes paths for specific platforms."""
+    if platform.system() == "Windows":
+        return "/" + path
+    return path
 
 
 def scale_image(seg2d: np.ndarray, scale: float) -> np.ndarray:
