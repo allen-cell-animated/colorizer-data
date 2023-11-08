@@ -25,13 +25,13 @@ from data_writer_utils import (
     INITIAL_INDEX_COLUMN,
     ColorizerDatasetWriter,
     ColorizerMetadata,
-    FeatureMetadata,
     configureLogging,
     scale_image,
     remap_segmented_image,
 )
 
 # Example Commands:
+# pip install https://artifactory.corp.alleninstitute.org/artifactory/api/pypi/pypi-release-local/aicsfiles/5.1.0/aicsfiles-5.1.0.tar.gz git+https://github.com/aics-int/nuc-morph-analysis.git
 # python timelapse-colorizer-data/convert_nucmorph_data.py --output_dir /allen/aics/animated-cell/Dan/fileserver/colorizer/data --dataset mama_bear --scale 0.25
 # python timelapse-colorizer-data/convert_nucmorph_data.py --output_dir /allen/aics/animated-cell/Dan/fileserver/colorizer/data --dataset baby_bear --scale 0.25
 # python timelapse-colorizer-data/convert_nucmorph_data.py --output_dir /allen/aics/animated-cell/Dan/fileserver/colorizer/data --dataset goldilocks --scale 0.25
@@ -221,7 +221,7 @@ def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scal
             metadata["units"] = unit
         feature_metadata.append(metadata)
     dataset_dimensions = get_dataset_dimensions(grouped_frames, pixsize)
-    metadata = ColorizerMetadata(dataset_dimensions[0], dataset_dimensions[1], "µm")
+    metadata = ColorizerMetadata(dataset_dimensions[1], dataset_dimensions[0], "µm")
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
