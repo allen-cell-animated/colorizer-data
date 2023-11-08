@@ -173,7 +173,6 @@ def get_dataset_dimensions(grouped_frames: DataFrameGroupBy) -> (float, float):
     row = grouped_frames.get_group(0).iloc[0]
     aics_image = get_image_from_row(row)
     seg2d = aics_image.get_image_data("YX", S=0, T=0, C=0)
-    breakpoint()
     return (
         seg2d.shape[1] * aics_image.physical_pixel_sizes.X,
         seg2d.shape[0] * aics_image.physical_pixel_sizes.Y,
@@ -216,8 +215,6 @@ def make_dataset(
         feature_metadata.append({"units": unit})
     dataset_dimensions = get_dataset_dimensions(grouped_frames)
     metadata = ColorizerMetadata(dataset_dimensions[0], dataset_dimensions[1], "µm")
-
-    breakpoint()
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
