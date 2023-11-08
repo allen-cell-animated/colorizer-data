@@ -171,16 +171,16 @@ def make_features(
 
 def get_dataset_dimensions(
     grouped_frames: DataFrameGroupBy, pixsize: float
-) -> (float, float):
+) -> (float, float, str):
     """Get the dimensions of the dataset from the first frame, in units.
-    Returns (width, height)."""
+    Returns (width, height, unit)."""
     row = grouped_frames.get_group(0).iloc[0]
     aics_image = get_image_from_row(row)
     zstack = aics_image.get_image_data("ZYX", S=0, T=0, C=0)
     seg2d = zstack.max(axis=0)
 
     shape = seg2d.shape
-    return (shape[1] * pixsize, shape[0] * pixsize)
+    return (shape[1] * pixsize, shape[0] * pixsize, "µm")
 
 
 def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scale=1):
@@ -223,8 +223,8 @@ def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scal
         if unit:
             metadata["units"] = unit
         feature_metadata.append(metadata)
-    dataset_dimensions = get_dataset_dimensions(grouped_frames, pixsize)
-    metadata = ColorizerMetadata(dataset_dimensions[0], dataset_dimensions[1], "µm")
+    dims = get_dataset_dimensions(grouped_frames, pixsize)
+    metadata = ColorizerMetadata(dims[0], dims[1], dims[2])
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
