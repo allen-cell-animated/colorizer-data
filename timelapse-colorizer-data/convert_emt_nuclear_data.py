@@ -175,9 +175,15 @@ def get_dataset_dimensions(grouped_frames: DataFrameGroupBy) -> (float, float, s
     seg2d = aics_image.get_image_data("YX", S=0, T=0, C=0)
     # TODO: Physical pixel size is not defined in this dataset's metadata.
     # AICSImage defaults to 1 unit/pixel.
+    # return (
+    #     seg2d.shape[1] * aics_image.physical_pixel_sizes.X,
+    #     seg2d.shape[0] * aics_image.physical_pixel_sizes.Y,
+    #     "µm",
+    # )
+    # For now, use hard-coded conversion value (1 pixel = 0.271 µm)
     return (
-        seg2d.shape[1] * aics_image.physical_pixel_sizes.X,
-        seg2d.shape[0] * aics_image.physical_pixel_sizes.Y,
+        seg2d.shape[1] * 0.271,
+        seg2d.shape[0] * 0.271,
         "µm",
     )
 
