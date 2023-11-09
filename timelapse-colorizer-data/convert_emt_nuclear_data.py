@@ -172,20 +172,15 @@ def get_dataset_dimensions(grouped_frames: DataFrameGroupBy) -> (float, float, s
     Returns (width, height, units)."""
     row = grouped_frames.get_group(0).iloc[0]
     aics_image = get_image_from_row(row)
-    seg2d = aics_image.get_image_data("YX", S=0, T=0, C=0)
-    # TODO: Physical pixel size is not defined in this dataset's metadata.
-    # AICSImage defaults to 1 unit/pixel.
+    dims = aics_image.dims
     # return (
-    #     seg2d.shape[1] * aics_image.physical_pixel_sizes.X,
-    #     seg2d.shape[0] * aics_image.physical_pixel_sizes.Y,
-    #     "µm",
+    #     dims.X * aics_image.physical_pixel_sizes.X,
+    #     dims.Y * aics_image.physical_pixel_sizes.Y,
+    #     "µm"
     # )
-    # For now, use hard-coded conversion value (1 pixel = 0.271 µm)
-    return (
-        seg2d.shape[1] * 0.271,
-        seg2d.shape[0] * 0.271,
-        "µm",
-    )
+    # TODO: This conversion is hardcoded for now but should be updated with a LUT.
+    # This value will change based on microscope objective and scope.
+    return (dims.X * 0.271, dims.Y * 0.271, "µm")
 
 
 def make_dataset(

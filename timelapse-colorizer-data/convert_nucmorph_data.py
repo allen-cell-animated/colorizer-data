@@ -176,11 +176,8 @@ def get_dataset_dimensions(
     Returns (width, height, unit)."""
     row = grouped_frames.get_group(0).iloc[0]
     aics_image = get_image_from_row(row)
-    zstack = aics_image.get_image_data("ZYX", S=0, T=0, C=0)
-    seg2d = zstack.max(axis=0)
-
-    shape = seg2d.shape
-    return (shape[1] * pixsize, shape[0] * pixsize, "µm")
+    dims = aics_image.dims
+    return (dims.X * pixsize, dims.Y * pixsize, "µm")
 
 
 def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scale=1):
