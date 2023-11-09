@@ -68,6 +68,9 @@ FEATURE_COLUMNS_TO_NAMES = {
     "Mean_Fluor": "Mean Fluorescence",
 }
 
+PHYSICAL_PIXEL_SIZE_XY = 0.271
+PHYSICAL_PIXEL_UNIT_XY = "µm"
+
 
 def get_image_from_row(row: pd.DataFrame) -> AICSImage:
     zstackpath = row[SEGMENTED_IMAGE_COLUMN]
@@ -173,14 +176,13 @@ def get_dataset_dimensions(grouped_frames: DataFrameGroupBy) -> (float, float, s
     row = grouped_frames.get_group(0).iloc[0]
     aics_image = get_image_from_row(row)
     dims = aics_image.dims
-    # return (
-    #     dims.X * aics_image.physical_pixel_sizes.X,
-    #     dims.Y * aics_image.physical_pixel_sizes.Y,
-    #     "µm"
-    # )
     # TODO: This conversion is hardcoded for now but should be updated with a LUT.
     # This value will change based on microscope objective and scope.
-    return (dims.X * 0.271, dims.Y * 0.271, "µm")
+    return (
+        dims.X * PHYSICAL_PIXEL_SIZE_XY,
+        dims.Y * PHYSICAL_PIXEL_SIZE_XY,
+        PHYSICAL_PIXEL_UNIT_XY,
+    )
 
 
 def make_dataset(
