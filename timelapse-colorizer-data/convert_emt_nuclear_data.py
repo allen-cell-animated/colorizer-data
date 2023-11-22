@@ -23,8 +23,10 @@ import time
 from data_writer_utils import (
     INITIAL_INDEX_COLUMN,
     ColorizerDatasetWriter,
+    ColorizerMetadata,
     FeatureMetadata,
     configureLogging,
+    sanitize_path_by_platform,
     scale_image,
     remap_segmented_image,
     update_collection,
@@ -66,6 +68,16 @@ FEATURE_COLUMNS_TO_NAMES = {
     "Mean_Fluor": "Mean Fluorescence",
 }
 
+PHYSICAL_PIXEL_SIZE_XY = 0.271
+PHYSICAL_PIXEL_UNIT_XY = "µm"
+
+
+def get_image_from_row(row: pd.DataFrame) -> AICSImage:
+    zstackpath = row[SEGMENTED_IMAGE_COLUMN]
+    zstackpath = zstackpath.strip('"')
+    zstackpath = sanitize_path_by_platform(zstackpath)
+    return AICSImage(zstackpath)
+
 
 def make_frames(
     grouped_frames: DataFrameGroupBy,
@@ -88,9 +100,8 @@ def make_frames(
         row = frame.iloc[0]
         frame_number = row[TIMES_COLUMN]
         # Flatten the z-stack to a 2D image.
-        zstackpath = row[SEGMENTED_IMAGE_COLUMN]
-        zstackpath = zstackpath.strip('"')
-        zstack = AICSImage(zstackpath).get_image_data("ZYX", S=0, T=0, C=0)
+        aics_image = get_image_from_row(row)
+        zstack = aics_image.get_image_data("ZYX", S=0, T=0, C=0)
         # Do a min projection instead of a max projection to prioritize objects which have lower IDs (which for this dataset,
         # indicates lower z-indices). This is due to the nature of the data, where lower cell nuclei have greater confidence,
         # and should be visualized when overlapping instead of higher nuclei.
@@ -159,6 +170,21 @@ def make_features(
     )
 
 
+def get_dataset_dimensions(grouped_frames: DataFrameGroupBy) -> (float, float, str):
+    """Get the dimensions of the dataset from the first frame, in units.
+    Returns (width, height, units)."""
+    row = grouped_frames.get_group(0).iloc[0]
+    aics_image = get_image_from_row(row)
+    dims = aics_image.dims
+    # TODO: This conversion is hardcoded for now but should be updated with a LUT.
+    # This value will change based on microscope objective and scope.
+    return (
+        dims.X * PHYSICAL_PIXEL_SIZE_XY,
+        dims.Y * PHYSICAL_PIXEL_SIZE_XY,
+        PHYSICAL_PIXEL_UNIT_XY,
+    )
+
+
 def make_dataset(
     data: pd.DataFrame,
     output_dir="./data/",
@@ -193,13 +219,17 @@ def make_dataset(
         unit = FEATURE_COLUMNS_TO_UNITS.get(feature, None)
         feature_labels.append(label[0:1].upper() + label[1:])  # Capitalize first letter
         feature_metadata.append({"units": unit})
+    dims = get_dataset_dimensions(grouped_frames)
+    metadata = ColorizerMetadata(dims[0], dims[1], dims[2])
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
     make_features(full_dataset, FEATURE_COLUMNS, writer)
     if do_frames:
         make_frames(grouped_frames, scale, writer)
-    writer.write_manifest(nframes, feature_labels, feature_metadata)
+    writer.write_manifest(
+        nframes, feature_labels, feature_metadata=feature_metadata, metadata=metadata
+    )
 
 
 # This is stuff scientists are responsible for!!

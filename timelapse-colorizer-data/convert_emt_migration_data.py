@@ -11,9 +11,11 @@ import time
 from data_writer_utils import (
     INITIAL_INDEX_COLUMN,
     ColorizerDatasetWriter,
+    ColorizerMetadata,
     FeatureMetadata,
     configureLogging,
     extract_units_from_feature_name,
+    sanitize_path_by_platform,
     scale_image,
     remap_segmented_image,
 )
@@ -47,6 +49,16 @@ FEATURE_COLUMNS = [
 ]
 """Columns of feature data to include in the dataset. Each column will be its own feature file."""
 
+PHYSICAL_PIXEL_SIZE_XY = 0.271
+PHYSICAL_PIXEL_UNIT_XY = "µm"
+
+
+def get_image_from_row(row: pd.DataFrame) -> AICSImage:
+    zstackpath = row[SEGMENTED_IMAGE_COLUMN]
+    zstackpath = zstackpath.strip('"')
+    zstackpath = sanitize_path_by_platform(zstackpath)
+    return AICSImage(zstackpath)
+
 
 def make_frames(
     grouped_frames: DataFrameGroupBy,
@@ -67,10 +79,8 @@ def make_frames(
         row = frame.iloc[0]
         frame_number = row[TIMES_COLUMN]
         # Flatten the z-stack to a 2D image.
-        zstackpath = row[SEGMENTED_IMAGE_COLUMN]
-        zstackpath = zstackpath.strip('"')
-        zstack = AICSImage(zstackpath).get_image_data("YX", S=0, T=0, C=0)
-        seg2d = zstack
+        aics_image = get_image_from_row(row)
+        seg2d = aics_image.get_image_data("YX", S=0, T=0, C=0)
 
         # Scale the image and format as integers.
         seg2d = scale_image(seg2d, scale)
@@ -128,6 +138,26 @@ def make_features(
     )
 
 
+def get_dataset_dimensions(grouped_frames: DataFrameGroupBy) -> (float, float, str):
+    """Get the dimensions of the dataset from the first frame, in units.
+    Returns (width, height, unit)."""
+    row = grouped_frames.get_group(0).iloc[0]
+    aics_image = get_image_from_row(row)
+    dims = aics_image.dims
+    # return (
+    #     dims.X * aics_image.physical_pixel_sizes.X,
+    #     dims.Y * aics_image.physical_pixel_sizes.Y,
+    #     "µm"
+    # )
+    # TODO: This conversion is hardcoded for now but should be updated with a LUT.
+    # This value will change based on microscope objective and scope.
+    return (
+        dims.X * PHYSICAL_PIXEL_SIZE_XY,
+        dims.Y * PHYSICAL_PIXEL_SIZE_XY,
+        PHYSICAL_PIXEL_UNIT_XY,
+    )
+
+
 def make_dataset(
     data: pd.DataFrame,
     output_dir="./data/",
@@ -164,13 +194,17 @@ def make_dataset(
         if unit is not None:
             unit = unit.replace("um", "µm")
         feature_metadata.append({"units": unit})
+    dims = get_dataset_dimensions(grouped_frames)
+    metadata = ColorizerMetadata(dims[0], dims[1], dims[2])
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
     make_features(full_dataset, FEATURE_COLUMNS, writer)
     if do_frames:
         make_frames(grouped_frames, scale, writer)
-    writer.write_manifest(nframes, feature_labels, feature_metadata)
+    writer.write_manifest(
+        nframes, feature_labels, feature_metadata=feature_metadata, metadata=metadata
+    )
 
 
 # TODO: Make top-level function

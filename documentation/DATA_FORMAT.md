@@ -1,8 +1,8 @@
-# Nucmorph-Colorizer Data Format
+# Timelapse-Colorizer Data Format
 
-Nucmorph-Colorizer can only load datasets that follow the defined data specification.
+Timelapse-Colorizer can only load datasets that follow the defined data specification.
 
-The easiest way to get started is to modify one of our existing data processing scripts, like [`convert_nucmorph_data.py`](../scripts/timelapse-colorizer-data/convert_nucmorph_data.py)!
+The easiest way to get started is to modify one of our existing data processing scripts, like [`convert_nucmorph_data.py`](../timelapse-colorizer-data/convert_nucmorph_data.py)!
 
 (Check with your team or one of the developers on the Animated Cell team to see if there's already a data generation script for your project!)
 
@@ -44,9 +44,9 @@ The most important file is the **manifest**, which is a JSON file that describes
 *Note: all paths are relative to the location of the manifest file.
 ```
 
-Note that the `outliers`, `centroids`, and `bounds` files are optional, but certain features of Nucmorph-Colorizer won't work without them.
+Note that the `outliers`, `centroids`, and `bounds` files are optional, but certain features of Timelapse-Colorizer won't work without them.
 
-A complete example dataset is also available in the [`documentation`](./example_dataset) directory of this project, and can be [viewed on Nucmorph Colorizer](https://dev-aics-dtp-001.int.allencell.org/nucmorph-colorizer/dist/?dataset=https://raw.githubusercontent.com/allen-cell-animated/nucmorph-colorizer/main/documentation/example_dataset/manifest.json).
+A complete example dataset is also available in the [`documentation`](./example_dataset) directory of this project, and can be [viewed on Timelapse-Colorizer](https://dev-aics-dtp-001.int.allencell.org/nucmorph-colorizer/dist/?dataset=https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/example_dataset/manifest.json).
 
 <details>
 <summary><b>[Show me an example!]</b></summary>
@@ -103,7 +103,77 @@ The `manifest.json` file would look something like this:
 
 </details>
 
-### 1. Tracks
+### 1. Metadata
+
+Manifests can also include some optional **metadata** about the dataset and its features.
+
+Besides the details shown above, these are additional parameters that the manifest can include:
+
+```
+---manifest.json---
+{
+    ...
+    "featureMetadata" : {
+        <feature name 1>: {
+            "units": <unit label for feature 1>
+        },
+        <feature name 2>: {
+            "units": <unit label for feature 2>
+        },
+        ...
+    },
+    "metadata": {
+        "frameDims": {
+            "units": <unit label for frame dimensions>
+            "width": <width of frame in units>,
+            "height": <height of frame in units>
+        }
+    }
+
+}
+```
+
+These metadata parameters are used to configure additional features of the Timelapse Colorizer UI, such as showing the unit types of features and scale bars on the main display. Additional metadata will likely be added as the project progresses.
+
+Note that the interface will directly show the unit labels and does not scale or convert units from one type to another (for example, it will not convert 1000 µm to 1 mm). If you need to present your data with different units, create a (scaled) duplicate of the feature with a different unit label.
+
+<details>
+<summary><b>[Show me an example!]</b></summary>
+
+---
+
+Let's say a dataset has one feature called `Volume` that is measured in cubic microns (µm³), saved as `volume.json`. Additionally, our microscope viewing area is 3200 µm wide by 2400 µm tall.
+
+The manifest file would look something like this:
+
+```
+--manifest.json--
+{
+    ...
+    "features": {
+        "Volume": "volume.json"
+    }
+    "featureMetadata" : {
+        "Volume": {
+            "units": "µm³"
+        }
+    },
+    "metadata": {
+        "frameDims": {
+            "width": 3200,
+            "height": 2400,
+            "units": "µm"
+        }
+    }
+}
+
+```
+
+---
+
+</details>
+
+### 2. Tracks
 
 Every segmented object in each time step has an **object ID**, an integer identifier that is unique across all time steps. To recognize the same object across multiple frames, these object IDs must be grouped together into a **track** with a single **track number/track ID**.
 
@@ -153,7 +223,7 @@ Note that the object IDs in a track are not guaranteed to be sequential!
 
 </details>
 
-### 2. Times
+### 3. Times
 
 The times JSON is similar to the tracks JSON. It also contains a `data` array that maps from object IDs to the frame number that they appear on.
 
@@ -169,7 +239,7 @@ The times JSON is similar to the tracks JSON. It also contains a `data` array th
 }
 ```
 
-### 3. Frames
+### 4. Frames
 
 _Example frame:_
 ![](./frame_example.png)
@@ -181,7 +251,7 @@ Additional notes:
 
 - Encoded object ID's in the frame data start at `1` instead of `0`, because `#000000` (black) is reserved for the background.
 - The highest object ID that can currently be represented is `16,843,007`.
-  - If the **total number of segmented objects** for an entire time series exceeds this number, it is possible to remove this limit. [Submit an issue](https://github.com/allen-cell-animated/nucmorph-colorizer/issues) or send us a message!
+  - If the **total number of segmented objects** for an entire time series exceeds this number, it is possible to remove this limit. [Submit an issue](https://github.com/allen-cell-animated/colorizer-data/issues) or send us a message!
 
 There should be one frame for every time step in the time series, and they must all be listed in order in the **manifest** file to be included in the dataset.
 
@@ -209,9 +279,9 @@ The resulting frame would look like this:
 
 </details>
 
-### 4. Features
+### 5. Features
 
-Datasets can contain any number of `features`, which are a numeric value assigned to each object ID in the dataset. Features are used by the Nucmorph-Colorizer to colorize objects, and each feature file corresponds to a single column of data. Examples of relevant features might include the volume, depth, number of neighbors, age, etc. of each object.
+Datasets can contain any number of `features`, which are a numeric value assigned to each object ID in the dataset. Features are used by the Timelapse-Colorizer to colorize objects, and each feature file corresponds to a single column of data. Examples of relevant features might include the volume, depth, number of neighbors, age, etc. of each object.
 
 Features include a `data` array, specifying the feature value for each object ID, and should also provide a `min` and `max` range property.
 
@@ -229,7 +299,7 @@ Features include a `data` array, specifying the feature value for each object ID
 }
 ```
 
-### 5. Centroids (optional)
+### 6. Centroids (optional)
 
 The centroids file defines the center of each object ID in the dataset. It follows the same format as the feature file, but each ID has two entries corresponding to the `x` and `y` coordinates of the object's centroid, making the `data` array twice as long.
 
@@ -249,7 +319,7 @@ Coordinates are defined in pixels in the frame, where the upper left corner of t
 }
 ```
 
-### 6. Bounds (optional)
+### 7. Bounds (optional)
 
 The bounds file defines the rectangular boundary occupied by each object ID. Like centroids and features, the file defines a `data` array, but has four entries for each object ID to represent the `x` and `y` coordinates of the upper left and lower right corners of the bounding box.
 
@@ -272,9 +342,9 @@ Again, coordinates are defined in pixels in the image frame, where the upper lef
 }
 ```
 
-### 7. Outliers (optional)
+### 8. Outliers (optional)
 
-The outliers file stores whether a given object ID should be marked as an outlier using an array of booleans (`true`/`false`). Indices that are `true` indicate outlier values, and are given a unique color in Nucmorph-Colorizer.
+The outliers file stores whether a given object ID should be marked as an outlier using an array of booleans (`true`/`false`). Indices that are `true` indicate outlier values, and are given a unique color in Timelapse-Colorizer.
 
 ```
 --outliers.json--
@@ -320,13 +390,13 @@ For example, if a dataset had the following tracks and outliers, the file might 
 
 ## Collections
 
-Collections are defined by an optional JSON file and group one or more datasets for easy access. Nucmorph-Colorizer can parse collection files and present its datasets for easier comparison and analysis from the UI.
+Collections are defined by an optional JSON file and group one or more datasets for easy access. Timelapse-Colorizer can parse collection files and present its datasets for easier comparison and analysis from the UI.
 
 By default, collection files should be named `collection.json`.
 
 Collections are an array of JSON objects, each of which define the `name` (an **alias**) and the `path` of a dataset. This can either be a relative path from the location of the collection file, or a complete URL.
 
-If the path does not define a `.json` file specifically, Nucmorph-Colorizer will assume that the dataset's manifest is named `manifest.json` by default.
+If the path does not define a `.json` file specifically, Timelapse-Colorizer will assume that the dataset's manifest is named `manifest.json` by default.
 
 ```
 --collection.json--
@@ -355,7 +425,7 @@ For example, let's say a collection is located at `https://example.com/data/coll
 ]
 ```
 
-Here's a list of where Nucmorph-Colorizer will check for the manifest files for all of the datasets:
+Here's a list of where Timelapse-Colorizer will check for the manifest files for all of the datasets:
 
 | Dataset      | Expected URL Path                                         |
 | ------------ | --------------------------------------------------------- |

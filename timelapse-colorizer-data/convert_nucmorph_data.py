@@ -4,7 +4,6 @@ from aicsimageio import AICSImage
 import argparse
 import logging
 import numpy as np
-import platform
 import pandas as pd
 from pandas.core.groupby.generic import DataFrameGroupBy
 import time
@@ -24,13 +23,15 @@ from nuc_morph_analysis.lib.visualization.plotting_tools import (
 from data_writer_utils import (
     INITIAL_INDEX_COLUMN,
     ColorizerDatasetWriter,
-    FeatureMetadata,
+    ColorizerMetadata,
     configureLogging,
+    sanitize_path_by_platform,
     scale_image,
     remap_segmented_image,
 )
 
 # Example Commands:
+# pip install https://artifactory.corp.alleninstitute.org/artifactory/api/pypi/pypi-release-local/aicsfiles/5.1.0/aicsfiles-5.1.0.tar.gz git+https://github.com/aics-int/nuc-morph-analysis.git
 # python timelapse-colorizer-data/convert_nucmorph_data.py --output_dir /allen/aics/animated-cell/Dan/fileserver/colorizer/data --dataset mama_bear --scale 0.25
 # python timelapse-colorizer-data/convert_nucmorph_data.py --output_dir /allen/aics/animated-cell/Dan/fileserver/colorizer/data --dataset baby_bear --scale 0.25
 # python timelapse-colorizer-data/convert_nucmorph_data.py --output_dir /allen/aics/animated-cell/Dan/fileserver/colorizer/data --dataset goldilocks --scale 0.25
@@ -80,6 +81,12 @@ FEATURE_COLUMNS = ["NUC_shape_volume_lcc", "NUC_position_depth_lcc"]
 """Columns of feature data to include in the dataset. Each column will be its own feature file."""
 
 
+def get_image_from_row(row: pd.DataFrame) -> AICSImage:
+    zstackpath = row[SEGMENTED_IMAGE_COLUMN]
+    zstackpath = sanitize_path_by_platform(zstackpath)
+    return AICSImage(zstackpath)
+
+
 def make_frames(
     grouped_frames: DataFrameGroupBy,
     scale: float,
@@ -99,10 +106,8 @@ def make_frames(
         row = frame.iloc[0]
         frame_number = row[TIMES_COLUMN]
         # Flatten the z-stack to a 2D image.
-        zstackpath = row[SEGMENTED_IMAGE_COLUMN]
-        if platform.system() == "Windows":
-            zstackpath = "/" + zstackpath
-        zstack = AICSImage(zstackpath).get_image_data("ZYX", S=0, T=0, C=0)
+        aics_image = get_image_from_row(row)
+        zstack = aics_image.get_image_data("ZYX", S=0, T=0, C=0)
         seg2d = zstack.max(axis=0)
 
         # Scale the image and format as integers.
@@ -129,7 +134,10 @@ def make_frames(
 
 
 def make_features(
-    dataset: pd.DataFrame, feature_names: List[str], dataset_name: str, writer: ColorizerDatasetWriter
+    dataset: pd.DataFrame,
+    feature_names: List[str],
+    dataset_name: str,
+    writer: ColorizerDatasetWriter,
 ):
     """
     Generate the outlier, track, time, centroid, and feature data files.
@@ -145,7 +153,9 @@ def make_features(
     feature_data = []
     for feature in feature_names:
         # Scale feature to use actual units
-        (scale_factor, label, unit) = get_plot_labels_for_metric(feature, dataset=dataset_name)
+        (scale_factor, label, unit) = get_plot_labels_for_metric(
+            feature, dataset=dataset_name
+        )
         f = dataset[feature].to_numpy() * scale_factor
         feature_data.append(f)
 
@@ -157,6 +167,17 @@ def make_features(
         centroids_y,
         outliers,
     )
+
+
+def get_dataset_dimensions(
+    grouped_frames: DataFrameGroupBy, pixsize: float
+) -> (float, float, str):
+    """Get the dimensions of the dataset from the first frame, in units.
+    Returns (width, height, unit)."""
+    row = grouped_frames.get_group(0).iloc[0]
+    aics_image = get_image_from_row(row)
+    dims = aics_image.dims
+    return (dims.X * pixsize, dims.Y * pixsize, "µm")
 
 
 def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scale=1):
@@ -199,13 +220,17 @@ def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scal
         if unit:
             metadata["units"] = unit
         feature_metadata.append(metadata)
+    dims = get_dataset_dimensions(grouped_frames, pixsize)
+    metadata = ColorizerMetadata(dims[0], dims[1], dims[2])
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
     make_features(full_dataset, FEATURE_COLUMNS, dataset, writer)
     if do_frames:
         make_frames(grouped_frames, scale, writer)
-    writer.write_manifest(nframes, feature_labels, feature_metadata)
+    writer.write_manifest(
+        nframes, feature_labels, feature_metadata=feature_metadata, metadata=metadata
+    )
 
 
 parser = argparse.ArgumentParser()

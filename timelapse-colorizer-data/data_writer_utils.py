@@ -1,7 +1,9 @@
+from dataclasses import dataclass
 import json
 import logging
 import os
 import pathlib
+import platform
 import re
 from PIL import Image
 from typing import List, TypedDict, Union
@@ -45,6 +47,13 @@ def configureLogging(output_dir: Union[str, pathlib.Path], log_name="debug.log")
             logging.StreamHandler(),
         ],
     )
+
+
+def sanitize_path_by_platform(path: str) -> str:
+    """Sanitizes paths for specific platforms."""
+    if platform.system() == "Windows":
+        return "/" + path
+    return path
 
 
 def scale_image(seg2d: np.ndarray, scale: float) -> np.ndarray:
@@ -132,6 +141,24 @@ def update_collection(collection_filepath, dataset_name, dataset_path):
         json.dump(collection, f)
 
 
+@dataclass
+class ColorizerMetadata:
+    """Class representing metadata for a Colorizer dataset."""
+
+    width_units: float
+    height_units: float
+    units: str
+
+    def to_json(self):
+        return {
+            "frameDims": {
+                "width": self.width_units,
+                "height": self.height_units,
+                "units": self.units,
+            }
+        }
+
+
 class ColorizerDatasetWriter:
     """
     Writes provided data as Colorizer-compatible dataset files to the configured output directory.
@@ -215,6 +242,7 @@ class ColorizerDatasetWriter:
         num_frames: int,
         feature_names: List[str],
         feature_metadata: List[FeatureMetadata] = [],
+        metadata: ColorizerMetadata = None,
     ):
         """
         Writes the final manifest file for the dataset in the configured output directory.
@@ -271,6 +299,10 @@ class ColorizerDatasetWriter:
                 logging.warn(
                     "Feature metadata length does not match number of features. Skipping metadata."
                 )
+
+        # Add the metadata
+        if metadata:
+            output_json["metadata"] = metadata.to_json()
 
         with open(self.outpath + "/manifest.json", "w") as f:
             json.dump(output_json, f)
