@@ -52,7 +52,8 @@ def configureLogging(output_dir: Union[str, pathlib.Path], log_name="debug.log")
 def sanitize_path_by_platform(path: str) -> str:
     """Sanitizes paths for specific platforms."""
     if platform.system() == "Windows":
-        return "/" + path
+        if path.startswith("/") and not path.startswith("//"):
+            return "/" + path
     return path
 
 
