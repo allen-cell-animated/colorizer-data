@@ -36,7 +36,7 @@ from data_writer_utils import (
 # relabeled as constants here for clarity/intent of the column name.
 OBJECT_ID_COLUMN = "R0Nuclei_Number_Object_Number"
 """Column of object IDs (or unique row number)."""
-TRACK_ID_COLUMN = ""
+TRACK_ID_COLUMN = "R0Nuclei_Number_Object_Number"
 """Column of track ID for each object."""
 TIMES_COLUMN = "Image_Metadata_Timepoint"
 """Column of frame number that the object ID appears in."""
@@ -220,9 +220,9 @@ def make_features(
     centroids_x = dataset[CENTROIDS_X_COLUMN].to_numpy()
     centroids_y = dataset[CENTROIDS_Y_COLUMN].to_numpy()
 
-    # tracks = dataset[TRACK_ID_COLUMN].to_numpy()
+    tracks = dataset[TRACK_ID_COLUMN].to_numpy()
     shape = dataset.shape
-    tracks = np.array([*range(shape[0])])
+    # tracks = np.array([*range(shape[0])])
 
     feature_data = []
     for i in range(len(features)):
@@ -276,7 +276,7 @@ def make_dataset(
 
     # Make a reduced dataframe grouped by time (frame number).
     columns = [
-        # TRACK_ID_COLUMN, add this back in if data is tracked
+        TRACK_ID_COLUMN, # add this back in if data is tracked
         TIMES_COLUMN,
         SEGMENTED_IMAGE_COLUMN,
         OBJECT_ID_COLUMN,
