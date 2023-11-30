@@ -61,6 +61,7 @@ FEATURE_COLUMNS = [
 PHYSICAL_PIXEL_SIZE_XY = 0.271
 PHYSICAL_PIXEL_UNIT_XY = "µm"
 
+
 def detect_encoding(file_path, sample_size=1024):
     """
     Detect the encoding of a given file by sampling a portion of it.
@@ -68,13 +69,13 @@ def detect_encoding(file_path, sample_size=1024):
     Args:
         file_path (str): The path of the file whose encoding needs to be detected.
         sample_size (int): The number of bytes to sample for encoding detection.
-    
+
     Returns:
         str: The detected encoding.
     """
-    with open(file_path, 'rb') as f:
+    with open(file_path, "rb") as f:
         sample = f.read(sample_size)
-    return chardet.detect(sample)['encoding']
+    return chardet.detect(sample)["encoding"]
 
 
 def read_csv_generator(file_path):
@@ -88,8 +89,8 @@ def read_csv_generator(file_path):
         list: A row from the CSV file.
     """
     encoding = detect_encoding(file_path)
-    
-    with open(file_path, mode='r', encoding=encoding) as f:
+
+    with open(file_path, mode="r", encoding=encoding) as f:
         csv_reader = csv.reader(f)
         for row in csv_reader:
             yield row
@@ -102,9 +103,13 @@ def get_image_from_row(row: pd.DataFrame) -> AICSImage:
     return AICSImage(zstackpath)
 
 
-def make_frame(grouped_frames, group_name: int, frame: pd.DataFrame,
-        scale: float,
-        writer: ColorizerDatasetWriter):
+def make_frame(
+    grouped_frames,
+    group_name: int,
+    frame: pd.DataFrame,
+    scale: float,
+    writer: ColorizerDatasetWriter,
+):
     start_time = time.time()
 
     # Get the path to the segmented zstack image frame from the first row (should be the same for
@@ -126,15 +131,11 @@ def make_frame(grouped_frames, group_name: int, frame: pd.DataFrame,
         OBJECT_ID_COLUMN,
     )
 
-    writer.write_image_and_bounds_data(
-        seg_remapped, grouped_frames, frame_number, lut
-    )
+    writer.write_image_and_bounds_data(seg_remapped, grouped_frames, frame_number, lut)
 
     time_elapsed = time.time() - start_time
     logging.info(
-        "Frame {} finished in {:5.2f} seconds.".format(
-            int(frame_number), time_elapsed
-        )
+        "Frame {} finished in {:5.2f} seconds.".format(int(frame_number), time_elapsed)
     )
 
 
@@ -276,7 +277,7 @@ def make_dataset(
 
     # Make a reduced dataframe grouped by time (frame number).
     columns = [
-        TRACK_ID_COLUMN, # add this back in if data is tracked
+        TRACK_ID_COLUMN,  # add this back in if data is tracked
         TIMES_COLUMN,
         SEGMENTED_IMAGE_COLUMN,
         OBJECT_ID_COLUMN,
@@ -318,7 +319,7 @@ def make_collection(output_dir="./data/", do_frames=True, scale=1, dataset=""):
     file_path = "//allen/aics/microscopy/ClusterOutput/H2B_LabelFree_Deliverable_MIP_Zrange/H2BLabelFree_Deliverable/EMT_Deliverable_ColorizerVisualizationTable_AddedMeanNeighborDistanceAndCentroids.csv"
 
     encoding = detect_encoding(file_path)
-    a = pd.read_csv(file_path, encoding = encoding)
+    a = pd.read_csv(file_path, encoding=encoding)
 
     if dataset != "":
         # convert just the described dataset.
