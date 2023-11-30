@@ -101,7 +101,12 @@ def remap_segmented_image(
     lut = np.zeros((max_object_id + 1), dtype=np.uint32)
     for row_index, row in frame.iterrows():
         # build our remapping LUT:
-        object_id = int(row[object_id_column])
+        object_id = 0
+        if isinstance(row[object_id_column], pd.Series):
+            # Catch malformed data
+            object_id = int(row[object_id_column][0])
+        else:
+            object_id = int(row[object_id_column])
         # unique row ID for each object -> remap to unique index for whole dataset
         rowind = int(row[absolute_id_column])
         lut[object_id] = rowind + RESERVED_INDICES
