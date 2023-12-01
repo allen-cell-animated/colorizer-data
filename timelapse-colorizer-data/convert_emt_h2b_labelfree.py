@@ -1,4 +1,5 @@
-from typing import List
+import ctypes
+from typing import Any, List
 from aicsimageio import AICSImage
 import argparse
 import json
@@ -16,9 +17,10 @@ from data_writer_utils import (
     ColorizerDatasetWriter,
     ColorizerMetadata,
     FeatureMetadata,
-    SharedArray,
+    SharedArrayWrapper,
     configureLogging,
     extract_units_from_feature_name,
+    get_total_objects,
     make_bounding_box_shared_array,
     sanitize_path_by_platform,
     scale_image,
@@ -111,7 +113,7 @@ def make_frame(
     group_name: int,
     frame: pd.DataFrame,
     scale: float,
-    shared_bounds_arr: SharedArray,
+    bounds_arr: Any,
     writer: ColorizerDatasetWriter,
 ):
     start_time = time.time()
@@ -138,9 +140,7 @@ def make_frame(
     # Write the image and bounds data
     writer.write_image(seg_remapped, frame_number)
 
-    bounds_data, shared_mem = shared_bounds_arr.get_array()
-    update_bounding_box_data(bounds_data, seg_remapped, lut)
-    shared_mem.close()
+    update_bounding_box_data(bounds_arr, seg_remapped, lut)
 
     time_elapsed = time.time() - start_time
     logging.info(
@@ -152,22 +152,27 @@ def make_frames_parallel(
     grouped_frames: DataFrameGroupBy,
     scale: float,
     writer: ColorizerDatasetWriter,
-    shared_bounds_arr: SharedArray,
 ):
     """
     Generate the images and bounding boxes for each time step in the dataset.
+
+    Returns the bounds object when completed.
     """
     nframes = len(grouped_frames)
     logging.info("Making {} frames...".format(nframes))
 
-    with multiprocessing.Pool() as pool:
-        pool.starmap(
-            make_frame,
-            [
-                (grouped_frames, group_name, frame, scale, shared_bounds_arr, writer)
-                for group_name, frame in grouped_frames
-            ],
-        )
+    with multiprocessing.Manager() as manager:
+        total_objects = get_total_objects(grouped_frames)
+        bounds_arr = manager.Array("i", [0] * int(total_objects * 4))
+        with multiprocessing.Pool() as pool:
+            pool.starmap(
+                make_frame,
+                [
+                    (grouped_frames, group_name, frame, scale, bounds_arr, writer)
+                    for group_name, frame in grouped_frames
+                ],
+            )
+        writer.write_data(bounds=np.array(bounds_arr, dtype=np.uint32))
 
 
 def make_frames(
@@ -242,8 +247,13 @@ def make_features(
         f = dataset[features[i]].to_numpy()
         feature_data.append(f)
 
-    writer.write_feature_data(
-        feature_data, tracks, times, centroids_x, centroids_y, outliers, bounds
+    writer.write_data(
+        features=feature_data,
+        tracks=tracks,
+        times=times,
+        centroids_x=centroids_x,
+        centroids_y=centroids_y,
+        outliers=outliers,
     )
 
 
@@ -294,12 +304,6 @@ def make_dataset(
 
     writer = ColorizerDatasetWriter(output_dir, dataset, scale=scale)
 
-    # TODO: Make shared array
-    # Update make_frames_parallel to take in shared array as an arg
-    # Update make_frame to use shared bounds array
-    # Updated make_features to take in and save array
-    # Cleanup array when done
-
     # Get the units and human-readable label for each feature; we include this as
     # metadata inside the dataset manifest.
     feature_labels = []
@@ -316,12 +320,8 @@ def make_dataset(
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
     if do_frames:
-        bounds_shared_array = make_bounding_box_shared_array(grouped_frames)
-        bounds, shared_mem = bounds_shared_array.get_array()
-        make_frames_parallel(grouped_frames, scale, writer, bounds_shared_array)
-        make_features(full_dataset, FEATURE_COLUMNS, writer, bounds)
-        shared_mem.close()
-        bounds_shared_array.close()
+        make_frames_parallel(grouped_frames, scale, writer)
+        make_features(full_dataset, FEATURE_COLUMNS, writer)
     else:
         make_features(full_dataset, FEATURE_COLUMNS, writer)
 
