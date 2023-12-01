@@ -1,4 +1,3 @@
-import ctypes
 from typing import Any, List
 from aicsimageio import AICSImage
 import argparse
@@ -17,11 +16,9 @@ from data_writer_utils import (
     ColorizerDatasetWriter,
     ColorizerMetadata,
     FeatureMetadata,
-    SharedArrayWrapper,
     configureLogging,
     extract_units_from_feature_name,
     get_total_objects,
-    make_bounding_box_shared_array,
     sanitize_path_by_platform,
     scale_image,
     remap_segmented_image,
