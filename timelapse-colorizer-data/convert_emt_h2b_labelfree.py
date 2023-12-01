@@ -316,10 +316,12 @@ def make_dataset(
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
     if do_frames:
-        bounds_array = make_bounding_box_shared_array(grouped_frames)
-        make_frames_parallel(grouped_frames, scale, writer)
-        make_features(full_dataset, FEATURE_COLUMNS, writer)
-        bounds_array.close()
+        bounds_shared_array = make_bounding_box_shared_array(grouped_frames)
+        bounds, shared_mem = bounds_shared_array.get_array()
+        make_frames_parallel(grouped_frames, scale, writer, bounds_shared_array)
+        make_features(full_dataset, FEATURE_COLUMNS, writer, bounds)
+        shared_mem.close()
+        bounds_shared_array.close()
     else:
         make_features(full_dataset, FEATURE_COLUMNS, writer)
 

@@ -43,7 +43,7 @@ class SharedArray:
     example usage:
     ```
     # -- main process --
-    shared_array = SharedArray(100, np.int64)
+    shared_array = SharedArray(100, np.dtype(np.uint32))
 
     # -- subprocess --
     data, shared_mem = shared_array.get_array()
@@ -55,6 +55,7 @@ class SharedArray:
     # do something with the data
     data, shared_mem = shared_array.get_array()
     print(data[0])
+    shared_mem.close()
     # close the array when finished
     shared_array.close()
     ```
@@ -69,11 +70,9 @@ class SharedArray:
         self.size = size
 
         # Allocate space in memory for the array.
-        shared_memory = shared_memory.SharedMemory(
-            create=True, size=size * dtype.itemsize
-        )
-        self.shared_memory_name = shared_memory.name
-        shared_memory.close()
+        shared_mem = shared_memory.SharedMemory(create=True, size=size * dtype.itemsize)
+        self.shared_memory_name = shared_mem.name
+        shared_mem.close()
 
     def get_array(self) -> Tuple[np.ndarray, shared_memory.SharedMemory]:
         """
@@ -84,14 +83,14 @@ class SharedArray:
         in use.
         """
 
-        shared_memory = shared_memory.SharedMemory(name=self.shared_memory_name)
+        shared_mem = shared_memory.SharedMemory(name=self.shared_memory_name)
         return (
             np.ndarray(
                 shape=(self.size),
                 dtype=self.dtype,
-                buffer=shared_memory.buf,
+                buffer=shared_mem.buf,
             ),
-            lambda: shared_memory.close(),
+            shared_mem,
         )
 
     def close(self):
@@ -102,9 +101,9 @@ class SharedArray:
         """
         # Free the shared memory.
         try:
-            shared_memory = shared_memory.SharedMemory(name=self.shared_memory_name)
-            shared_memory.close()
-            shared_memory.unlink()
+            shared_mem = shared_memory.SharedMemory(name=self.shared_memory_name)
+            shared_mem.close()
+            shared_mem.unlink()
         except:
             pass
 
@@ -235,7 +234,15 @@ def make_bounding_box_shared_array(grouped_frames: pd.DataFrame) -> SharedArray:
     be used safely with multiprocessing.
     """
     total_objects = get_total_objects(grouped_frames)
-    return SharedArray(size=total_objects * 4, dtype=np.uint32)
+    return SharedArray(size=total_objects * 4, dtype=np.dtype(np.uint32))
+
+
+def make_bounding_box_array(grouped_frames: pd.DataFrame) -> np.array:
+    """
+    Makes an appropriately-sized numpy array for bounding box data
+    """
+    total_objects = get_total_objects(grouped_frames)
+    return np.array(size=total_objects * 4, dtype=np.uint32)
 
 
 def update_bounding_box_data(
