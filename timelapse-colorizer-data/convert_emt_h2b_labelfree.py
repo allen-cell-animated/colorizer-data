@@ -158,6 +158,7 @@ def make_frames_parallel(
                 for group_name, frame in grouped_frames
             ],
         )
+    writer.write_bbox_data()
 
 
 def make_frames(
@@ -271,7 +272,6 @@ def make_dataset(
     """Make a new dataset from the given data, and write the complete dataset
     files to the given output directory.
     """
-    writer = ColorizerDatasetWriter(output_dir, dataset, scale=scale)
     full_dataset = data
     logging.info("Loaded dataset '" + str(dataset) + "'.")
 
@@ -286,6 +286,8 @@ def make_dataset(
     reduced_dataset = reduced_dataset.reset_index(drop=True)
     reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
     grouped_frames = reduced_dataset.groupby(TIMES_COLUMN)
+
+    writer = ColorizerDatasetWriter(output_dir, dataset, grouped_frames, scale=scale)
 
     # Get the units and human-readable label for each feature; we include this as
     # metadata inside the dataset manifest.

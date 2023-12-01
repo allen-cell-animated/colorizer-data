@@ -5,12 +5,13 @@ import os
 import pathlib
 import platform
 import re
-from PIL import Image
 from typing import List, TypedDict, Union
+from multiprocessing import shared_memory
 
 import numpy as np
 import pandas as pd
 import skimage
+from PIL import Image
 
 INITIAL_INDEX_COLUMN = "initialIndex"
 """Column added to reduced datasets, holding the original indices of each row."""
@@ -147,6 +148,13 @@ def update_collection(collection_filepath, dataset_name, dataset_path):
         json.dump(collection, f)
 
 
+def get_total_objects(grouped_frames: pd.DataFrame) -> int:
+    """Get the total number of object IDs in the dataset."""
+    # .max() gives the highest object ID, but not the total number of indices
+    # (we have to add 1.)
+    return grouped_frames[INITIAL_INDEX_COLUMN].max().max() + 1
+
+
 @dataclass
 class ColorizerMetadata:
     """Class representing metadata for a Colorizer dataset."""
@@ -176,16 +184,61 @@ class ColorizerDatasetWriter:
     """
 
     outpath: Union[str, pathlib.Path]
-    bbox_data: Union[np.array, None]
+    total_objects: int
+    bbox_shared_memory_name: str
+    """
+    Shared memory allocated for the bounding box data. The writer tracks this so it can
+    write to the bounding box data safely across processes.
+    """
+
     scale: float
 
     def __init__(
-        self, output_dir: Union[str, pathlib.Path], dataset: str, scale: float = 1
+        self,
+        output_dir: Union[str, pathlib.Path],
+        dataset: str,
+        grouped_frames: pd.DataFrame,
+        scale: float = 1,
     ):
         self.outpath = os.path.join(output_dir, dataset)
         os.makedirs(self.outpath, exist_ok=True)
         self.scale = scale
-        self.bbox_data = None
+
+        # Determine the size of the bounding box data and allocate shared memory for it.
+        self.total_objects = get_total_objects(grouped_frames)
+        print(self.total_objects)
+        # Use uint32 (4 bytes/int), and four coordinates per bounds
+        bbox_memory_buffer = shared_memory.SharedMemory(
+            create=True, size=self.total_objects * 4 * 4
+        )
+        self.bbox_shared_memory_name = bbox_memory_buffer.name
+        bbox_data = np.ndarray(
+            shape=(self.total_objects * 4,),
+            dtype=np.uint32,
+            buffer=bbox_memory_buffer.buf,
+        )
+        print(self.bbox_shared_memory_name)
+        bbox_memory_buffer.close()
+
+    def get_bbox_data(self) -> (shared_memory.SharedMemory, np.ndarray):
+        """
+        Returns the bounds data as a writeable numpy array that is backed by shared memory,
+        and a reference to the shared memory object.
+        The array can be safely written to across processes in parallel.
+
+        When finished, call shared_memory.close() release shared memory.
+        """
+        shared_mem_buffer = shared_memory.SharedMemory(
+            name=self.bbox_shared_memory_name
+        )
+        return (
+            shared_mem_buffer,
+            np.ndarray(
+                shape=(self.total_objects * 4,),
+                dtype=np.uint32,
+                buffer=shared_mem_buffer.buf,
+            ),
+        )
 
     def write_feature_data(
         self,
@@ -325,11 +378,12 @@ class ColorizerDatasetWriter:
         """
         Writes the current segmented image to a PNG file and also updates the bounding box data
         for the frame.
-        This is identical to calling `write_image()` and then `update_and_write_bbox_data()`
+        This is identical to calling `write_image()` and then `update_bbox_data()`
         successively.
+        Note that you must still call `write_bbox_data()` once all frames have been processed.
         """
         self.write_image(seg_remapped, frame_num)
-        self.update_and_write_bbox_data(grouped_frames, seg_remapped, lut)
+        self.update_bbox_data(grouped_frames, seg_remapped, lut)
 
     def write_image(
         self,
@@ -354,30 +408,21 @@ class ColorizerDatasetWriter:
         img = Image.fromarray(seg_rgba)  # new("RGBA", (xres, yres), seg2d)
         img.save(self.outpath + "/frame_" + str(frame_num) + ".png")
 
-    def update_and_write_bbox_data(
+    def update_bbox_data(
         self,
         grouped_frames: pd.DataFrame,
         seg_remapped: np.ndarray,
         lut: np.ndarray,
     ):
         """
-        Gets the bounding box data for all the indices in the current segmented image
-        and progressively writes data to a JSON file in the output directory named `bounds.json`.
+        Updates the tracked bounding box data for all the indices in the current segmented image.
+
+        You must call `write_bbox_data()` once all frames have been processed to write
+        the resulting data to the output directory as a JSON file.
 
         [documentation](https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md#6-bounds-optional)
         """
-        # Create new bbox data array if needed
-        if self.bbox_data is None:
-            # .max() gives the highest object ID, but not the total number of indices
-            # (we have to add 1.) 0 is a reserved index (no cells), so add 1.
-            totalIndices = (
-                grouped_frames[INITIAL_INDEX_COLUMN].max().max() + 1 + RESERVED_INDICES
-            )
-            # Create an array, where for each segmentation index
-            # we have 4 indices representing the bounds (2 sets of x,y coordinates).
-            # ushort can represent up to 65_535. Images with a larger resolution than this
-            # will need to replace the datatype.
-            self.bbox_data = np.zeros(shape=(totalIndices * 2 * 2), dtype=np.ushort)
+        shared_mem, bbox_data = self.get_bbox_data()
 
         # Capture bounding boxes
         # Optimize by skipping i = 0, since it's used as a null value in every frame
@@ -386,16 +431,33 @@ class ColorizerDatasetWriter:
             cell = np.argwhere(seg_remapped == lut[i])
 
             if cell.size > 0:
-                write_index = lut[i] * 4
+                write_index = (lut[i] - 1) * 4
+                if write_index < 0:  # some values are 0 by default
+                    continue
                 # Reverse min and max so it is written in x, y order
                 bbox_min = cell.min(0).tolist()
                 bbox_max = cell.max(0).tolist()
                 bbox_min.reverse()
                 bbox_max.reverse()
-                self.bbox_data[write_index : write_index + 2] = bbox_min
-                self.bbox_data[write_index + 2 : write_index + 4] = bbox_max
+                bbox_data[write_index : write_index + 2] = bbox_min
+                bbox_data[write_index + 2 : write_index + 4] = bbox_max
+        shared_mem.close()
 
+    def write_bbox_data(self):
+        """
+        Writes the bounding box data to a JSON file in the output directory
+        named `bounds.json`. Must only be called once!
+        """
         # Save bounding box to JSON (write for each frame in case of crashing.)
-        bbox_json = {"data": np.ravel(self.bbox_data).tolist()}  # flatten to 2D
+        shared_mem, bbox_data = self.get_bbox_data()
+        bbox_json = {"data": np.ravel(bbox_data).tolist()}  # flatten to 2D
         with open(self.outpath + "/bounds.json", "w") as f:
             json.dump(bbox_json, f)
+
+        # Unlinks the memory used by the buffer.
+        # TODO: There is likely a better place to put this
+        # but it can't go in a destructor since it'll be called by any process
+        # that finishes, causing the rest of the processes to crash.
+        # flush + close? with syntax? ????
+        shared_mem.close()
+        shared_mem.unlink()
