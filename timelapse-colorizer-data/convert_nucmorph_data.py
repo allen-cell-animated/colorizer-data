@@ -159,7 +159,7 @@ def make_features(
         f = dataset[feature].to_numpy() * scale_factor
         feature_data.append(f)
 
-    writer.write_feature_data(
+    writer.write_data(
         feature_data,
         tracks,
         times,

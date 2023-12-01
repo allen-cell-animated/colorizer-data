@@ -6,7 +6,7 @@ import pathlib
 import platform
 import re
 import multiprocessing
-from typing import List, Tuple, TypedDict, Union
+from typing import Dict, List, Tuple, TypedDict, Union
 from multiprocessing import shared_memory
 
 import numpy as np
@@ -36,7 +36,7 @@ class NumpyValuesEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-class SharedArray:
+class SharedArrayWrapper:
     """
     A multiprocessing-safe array backed by shared memory.
 
@@ -73,6 +73,11 @@ class SharedArray:
         shared_mem = shared_memory.SharedMemory(create=True, size=size * dtype.itemsize)
         self.shared_memory_name = shared_mem.name
         shared_mem.close()
+
+    def __init__(self, array: np.ndarray):
+        # array = SharedArrayWrapper(np.ndarray(size=(4,), ...))
+
+        pass
 
     def get_array(self) -> Tuple[np.ndarray, shared_memory.SharedMemory]:
         """
@@ -228,13 +233,13 @@ def get_total_objects(grouped_frames: pd.DataFrame) -> int:
     return grouped_frames[INITIAL_INDEX_COLUMN].max().max() + 1
 
 
-def make_bounding_box_shared_array(grouped_frames: pd.DataFrame) -> SharedArray:
+def make_bounding_box_shared_array(grouped_frames: pd.DataFrame) -> SharedArrayWrapper:
     """
     Makes an appropriately-sized SharedArray for bounding box data that can
     be used safely with multiprocessing.
     """
     total_objects = get_total_objects(grouped_frames)
-    return SharedArray(size=total_objects * 4, dtype=np.dtype(np.uint32))
+    return SharedArrayWrapper(size=total_objects * 4, dtype=np.dtype(np.uint32))
 
 
 def make_bounding_box_array(grouped_frames: pd.DataFrame) -> np.array:
@@ -246,7 +251,7 @@ def make_bounding_box_array(grouped_frames: pd.DataFrame) -> np.array:
 
 
 def update_bounding_box_data(
-    bbox_data: np.ndarray,
+    bbox_data: np.array,
     seg_remapped: np.ndarray,
     lut: np.ndarray,
 ):
@@ -265,12 +270,12 @@ def update_bounding_box_data(
             write_index = (lut[i] - 1) * 4
 
             # Reverse min and max so it is written in x, y order
-            bbox_min = cell.min(0).tolist()
-            bbox_max = cell.max(0).tolist()
-            bbox_min.reverse()
-            bbox_max.reverse()
-            bbox_data[write_index : write_index + 2] = bbox_min
-            bbox_data[write_index + 2 : write_index + 4] = bbox_max
+            bbox_min = cell.min(0)
+            bbox_max = cell.max(0)
+            bbox_data[write_index] = bbox_min[1]
+            bbox_data[write_index + 1] = bbox_min[0]
+            bbox_data[write_index + 2] = bbox_max[1]
+            bbox_data[write_index + 3] = bbox_max[0]
 
 
 @dataclass
@@ -304,7 +309,7 @@ class ColorizerDatasetWriter:
     # TODO: Update all of the documentation links to point to the new repo
 
     outpath: Union[str, pathlib.Path]
-
+    manifest: Dict[str, str]
     scale: float
 
     def __init__(
@@ -316,8 +321,9 @@ class ColorizerDatasetWriter:
         self.outpath = os.path.join(output_dir, dataset)
         os.makedirs(self.outpath, exist_ok=True)
         self.scale = scale
+        self.manifest = {}
 
-    def write_feature_data(
+    def write_data(
         self,
         features: List[np.array] = None,
         tracks: np.array = None,
@@ -328,7 +334,7 @@ class ColorizerDatasetWriter:
         bounds: np.array = None,
     ):
         """
-        Writes feature, track, centroid, time, and outlier data to JSON files.
+        Writes feature, track, centroid, time, or outlier data to JSON files.
         Accepts numpy arrays for each file type and writes them to the configured
         output directory according to the data format.
 
@@ -341,21 +347,27 @@ class ColorizerDatasetWriter:
         if outliers is not None:
             logging.info("Writing outliers.json...")
             ojs = {"data": outliers.tolist(), "min": False, "max": True}
-            with open(self.outpath + "/outliers.json", "w") as f:
+            path = self.outpath + "/outliers.json"
+            with open(path, "w") as f:
                 json.dump(ojs, f)
+            self.manifest["outliers"] = path
 
         # Note these must be in same order as features and same row order as the dataframe.
         if tracks is not None:
             logging.info("Writing track.json...")
             trjs = {"data": tracks.tolist()}
-            with open(self.outpath + "/tracks.json", "w") as f:
+            path = self.outpath + "/tracks.json"
+            with open(path, "w") as f:
                 json.dump(trjs, f)
+            self.manifest["tracks"] = path
 
         if times is not None:
             logging.info("Writing times.json...")
             tijs = {"data": times.tolist()}
-            with open(self.outpath + "/times.json", "w") as f:
+            path = self.outpath + "/times.json"
+            with open(path, "w") as f:
                 json.dump(tijs, f)
+            self.manifest["times"] = path
 
         if centroids_x is not None or centroids_y is not None:
             if centroids_x is None or centroids_y is None:
@@ -367,16 +379,21 @@ class ColorizerDatasetWriter:
             centroids_stacked = centroids_stacked * self.scale
             centroids_stacked = centroids_stacked.astype(int)
             centroids_json = {"data": centroids_stacked.tolist()}
-            with open(self.outpath + "/centroids.json", "w") as f:
+            path = self.outpath + "/centroids.json"
+            with open(path, "w") as f:
                 json.dump(centroids_json, f)
+            self.manifest["centroids"] = path
 
         if bounds is not None:
             logging.info("Writing bounds.json...")
             bounds_json = {"data": bounds.tolist()}
-            with open(self.outpath + "/bounds.json", "w") as f:
+            path = self.outpath + "/bounds.json"
+            with open(path, "w") as f:
                 json.dump(bounds_json, f)
+            self.manifest["bounds"] = path
 
         if features is not None:
+            # TODO: Write to self.manifest
             logging.info("Writing feature json...")
             for i in range(len(features)):
                 f = features[i]
@@ -436,12 +453,8 @@ class ColorizerDatasetWriter:
         output_json = {
             "frames": ["frame_" + str(i) + ".png" for i in range(num_frames)],
             "features": featmap,
-            "outliers": "outliers.json",
-            "tracks": "tracks.json",
-            "times": "times.json",
-            "centroids": "centroids.json",
-            "bounds": "bounds.json",
         }
+        output_json.update(self.manifest)
 
         # Merge the feature metadata together and include it in the output if present
         if feature_metadata:
@@ -460,7 +473,7 @@ class ColorizerDatasetWriter:
             output_json["metadata"] = metadata.to_json()
 
         with open(self.outpath + "/manifest.json", "w") as f:
-            json.dump(output_json, f)
+            json.dump(output_json, f, indent=2)
 
         logging.info("Finished writing dataset.")
 

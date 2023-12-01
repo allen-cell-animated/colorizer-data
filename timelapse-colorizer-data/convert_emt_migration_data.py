@@ -128,7 +128,7 @@ def make_features(
         f = dataset[features[i]].to_numpy()
         feature_data.append(f)
 
-    writer.write_feature_data(
+    writer.write_data(
         feature_data,
         tracks,
         times,
