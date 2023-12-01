@@ -6,7 +6,7 @@ import pathlib
 import platform
 import re
 import multiprocessing
-from typing import List, TypedDict, Union
+from typing import List, Tuple, TypedDict, Union
 from multiprocessing import shared_memory
 
 import numpy as np
@@ -75,7 +75,7 @@ class SharedArray:
         self.shared_memory_name = shared_memory.name
         shared_memory.close()
 
-    def get_array(self) -> (np.ndarray, shared_memory.SharedMemory):
+    def get_array(self) -> Tuple[np.ndarray, shared_memory.SharedMemory]:
         """
         Returns a numpy array backed by shared memory, and the SharedMemory
         object used to create it.
@@ -297,14 +297,6 @@ class ColorizerDatasetWriter:
     # TODO: Update all of the documentation links to point to the new repo
 
     outpath: Union[str, pathlib.Path]
-    total_objects: int
-    bbox_shared_memory_name: str
-    """
-    Shared memory allocated for the bounding box data. The writer tracks this so it can
-    write to the bounding box data safely across processes.
-    """
-
-    has_written_bbox_data: bool
 
     scale: float
 
@@ -312,50 +304,11 @@ class ColorizerDatasetWriter:
         self,
         output_dir: Union[str, pathlib.Path],
         dataset: str,
-        grouped_frames: pd.DataFrame,
         scale: float = 1,
     ):
         self.outpath = os.path.join(output_dir, dataset)
         os.makedirs(self.outpath, exist_ok=True)
         self.scale = scale
-
-        self.has_written_bbox_data = False
-
-        # Determine the size of the bounding box data and allocate shared memory for it.
-        self.total_objects = get_total_objects(grouped_frames)
-        print(self.total_objects)
-        # Use uint32 (4 bytes/int), and four coordinates per bounds
-        bbox_memory_buffer = shared_memory.SharedMemory(
-            create=True, size=self.total_objects * 4 * 4
-        )
-        self.bbox_shared_memory_name = bbox_memory_buffer.name
-        bbox_data = np.ndarray(
-            shape=(self.total_objects * 4,),
-            dtype=np.uint32,
-            buffer=bbox_memory_buffer.buf,
-        )
-        print(self.bbox_shared_memory_name)
-        bbox_memory_buffer.close()
-
-    def get_bbox_data(self) -> (shared_memory.SharedMemory, np.ndarray):
-        """
-        Returns the bounds data as a writeable numpy array that is backed by shared memory,
-        and a reference to the shared memory object.
-        The array can be safely written to across processes in parallel.
-
-        When finished, call shared_memory.close() release shared memory.
-        """
-        shared_mem_buffer = shared_memory.SharedMemory(
-            name=self.bbox_shared_memory_name
-        )
-        return (
-            shared_mem_buffer,
-            np.ndarray(
-                shape=(self.total_objects * 4,),
-                dtype=np.uint32,
-                buffer=shared_mem_buffer.buf,
-            ),
-        )
 
     def write_feature_data(
         self,
@@ -504,23 +457,6 @@ class ColorizerDatasetWriter:
 
         logging.info("Finished writing dataset.")
 
-    def write_image_and_bounds_data(
-        self,
-        seg_remapped: np.ndarray,
-        grouped_frames: pd.DataFrame,
-        frame_num: int,
-        lut: np.ndarray,
-    ):
-        """
-        Writes the current segmented image to a PNG file and also updates the bounding box data
-        for the frame.
-        This is identical to calling `write_image()` and then `update_bbox_data()`
-        successively.
-        Note that you must still call `write_bbox_data()` once all frames have been processed.
-        """
-        self.write_image(seg_remapped, frame_num)
-        self.update_bbox_data(grouped_frames, seg_remapped, lut)
-
     def write_image(
         self,
         seg_remapped: np.ndarray,
@@ -543,69 +479,3 @@ class ColorizerDatasetWriter:
         seg_rgba[:, :, 3] = 255  # (seg2d & 0xFF000000) >> 24
         img = Image.fromarray(seg_rgba)  # new("RGBA", (xres, yres), seg2d)
         img.save(self.outpath + "/frame_" + str(frame_num) + ".png")
-
-    def update_bbox_data(
-        self,
-        grouped_frames: pd.DataFrame,
-        seg_remapped: np.ndarray,
-        lut: np.ndarray,
-    ):
-        """
-        Updates the tracked bounding box data for all the indices in the current segmented image.
-
-        You must call `write_bbox_data()` once all frames have been processed to write
-        the resulting data to the output directory as a JSON file.
-
-        [documentation](https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md#6-bounds-optional)
-        """
-        shared_mem, bbox_data = self.get_bbox_data()
-
-        # Capture bounding boxes
-        # Optimize by skipping i = 0, since it's used as a null value in every frame
-        for i in range(1, lut.size):
-            # Boolean array that represents all pixels segmented with this index
-            cell = np.argwhere(seg_remapped == lut[i])
-
-            if cell.size > 0:
-                write_index = (lut[i] - 1) * 4
-                if write_index < 0:  # some values are 0 by default
-                    continue
-                # Reverse min and max so it is written in x, y order
-                bbox_min = cell.min(0).tolist()
-                bbox_max = cell.max(0).tolist()
-                bbox_min.reverse()
-                bbox_max.reverse()
-                bbox_data[write_index : write_index + 2] = bbox_min
-                bbox_data[write_index + 2 : write_index + 4] = bbox_max
-        self.has_written_bbox_data = True
-        shared_mem.close()
-
-    def write_bbox_data(self):
-        """
-        Writes the bounding box data to a JSON file in the output directory
-        named `bounds.json`.
-        """
-        # Save bounding box to JSON (write for each frame in case of crashing.)
-        shared_mem, bbox_data = self.get_bbox_data()
-        bbox_json = {"data": np.ravel(bbox_data).tolist()}  # flatten to 2D
-        with open(self.outpath + "/bounds.json", "w") as f:
-            json.dump(bbox_json, f)
-        shared_mem.close()
-
-    def __del__(self):
-        # Do not do cleanup steps for writer instances off the main
-        # process. This prevents writers in subprocesses from freeing the shared
-        # memory when closing along with their process thread.
-
-        # TODO: This is unsafe if this class is used OFF of the main process, like
-        # if a user was to try and process multiple datasets at once.
-        if multiprocessing.parent_process() is not None:
-            return
-
-        # Free the shared memory.
-        try:
-            shared_mem, bbox_data = self.get_bbox_data()
-            shared_mem.close()
-            shared_mem.unlink()
-        except:
-            pass
