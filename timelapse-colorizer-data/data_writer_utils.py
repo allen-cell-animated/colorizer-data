@@ -36,6 +36,79 @@ class NumpyValuesEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
+class SharedArray:
+    """
+    A multiprocessing-safe array backed by shared memory.
+
+    example usage:
+    ```
+    # -- main process --
+    shared_array = SharedArray(100, np.int64)
+
+    # -- subprocess --
+    data, shared_mem = shared_array.get_array()
+    # do something with the data
+    data[0] = 299
+    shared_mem.close()
+
+    # -- main process --
+    # do something with the data
+    data, shared_mem = shared_array.get_array()
+    print(data[0])
+    # close the array when finished
+    shared_array.close()
+    ```
+    """
+
+    shared_memory_name: str
+    dtype: np.dtype
+    size: int
+
+    def __init__(self, size: int, dtype: np.dtype):
+        self.dtype = dtype
+        self.size = size
+
+        # Allocate space in memory for the array.
+        shared_memory = shared_memory.SharedMemory(
+            create=True, size=size * dtype.itemsize
+        )
+        self.shared_memory_name = shared_memory.name
+        shared_memory.close()
+
+    def get_array(self) -> (np.ndarray, shared_memory.SharedMemory):
+        """
+        Returns a numpy array backed by shared memory, and the SharedMemory
+        object used to create it.
+
+        SharedMemory.close() must be called once the numpy array is no longer
+        in use.
+        """
+
+        shared_memory = shared_memory.SharedMemory(name=self.shared_memory_name)
+        return (
+            np.ndarray(
+                shape=(self.size),
+                dtype=self.dtype,
+                buffer=shared_memory.buf,
+            ),
+            lambda: shared_memory.close(),
+        )
+
+    def close(self):
+        """
+        Permanently cleans up the memory allocated by the SharedArray.
+        This should only be done once, when all processes are finished using
+        the SharedArray.
+        """
+        # Free the shared memory.
+        try:
+            shared_memory = shared_memory.SharedMemory(name=self.shared_memory_name)
+            shared_memory.close()
+            shared_memory.unlink()
+        except:
+            pass
+
+
 def configureLogging(output_dir: Union[str, pathlib.Path], log_name="debug.log"):
     # Set up logging so logs are written to a file in the output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -156,6 +229,43 @@ def get_total_objects(grouped_frames: pd.DataFrame) -> int:
     return grouped_frames[INITIAL_INDEX_COLUMN].max().max() + 1
 
 
+def make_bounding_box_shared_array(grouped_frames: pd.DataFrame) -> SharedArray:
+    """
+    Makes an appropriately-sized SharedArray for bounding box data that can
+    be used safely with multiprocessing.
+    """
+    total_objects = get_total_objects(grouped_frames)
+    return SharedArray(size=total_objects * 4, dtype=np.uint32)
+
+
+def update_bounding_box_data(
+    bbox_data: np.ndarray,
+    seg_remapped: np.ndarray,
+    lut: np.ndarray,
+):
+    """
+    Updates the tracked bounding box data for all the indices in the provided segmented image.
+
+    [Documentation for bounds data format](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#7-bounds-optional)
+    """
+    # Capture bounding boxes
+    # Optimize by skipping i = 0, since it's used as a null value in every frame
+    for i in range(1, lut.size):
+        # Boolean array that represents all pixels segmented with this index
+        cell = np.argwhere(seg_remapped == lut[i])
+
+        if cell.size > 0 and lut[i] > 0:
+            write_index = (lut[i] - 1) * 4
+
+            # Reverse min and max so it is written in x, y order
+            bbox_min = cell.min(0).tolist()
+            bbox_max = cell.max(0).tolist()
+            bbox_min.reverse()
+            bbox_max.reverse()
+            bbox_data[write_index : write_index + 2] = bbox_min
+            bbox_data[write_index + 2 : write_index + 4] = bbox_max
+
+
 @dataclass
 class ColorizerMetadata:
     """Class representing metadata for a Colorizer dataset."""
@@ -174,79 +284,6 @@ class ColorizerMetadata:
         }
 
 
-class SharedArray:
-    """
-    A multiprocessing-safe array backed by shared memory.
-
-    example usage:
-    ```
-    # -- main process --
-    shared_array = SharedArray(100, np.int64)
-
-    # -- subprocess --
-    data, shared_mem = shared_array.get_array()
-    # do something with the data
-    data[0] = 299
-    shared_mem.close()
-
-    # -- main process --
-    # do something with the data
-    data, shared_mem = shared_array.get_array()
-    print(data[0])
-    # close the array when finished
-    shared_array.close()
-    ```
-    """
-
-    shared_memory_name: str
-    dtype: np.dtype
-    size: int
-
-    def __init__(self, size: int, dtype: np.dtype):
-        self.dtype = dtype
-        self.size = size
-
-        # Allocate space in memory for the array.
-        shared_memory = shared_memory.SharedMemory(
-            create=True, size=size * dtype.itemsize
-        )
-        self.shared_memory_name = shared_memory.name
-        shared_memory.close()
-
-    def get_array(self) -> (np.ndarray, shared_memory.SharedMemory):
-        """
-        Returns a numpy array backed by shared memory, and the SharedMemory
-        object used to create it.
-
-        SharedMemory.close() must be called once the numpy array is no longer
-        in use.
-        """
-
-        shared_memory = shared_memory.SharedMemory(name=self.shared_memory_name)
-        return (
-            np.ndarray(
-                shape=(self.size),
-                dtype=self.dtype,
-                buffer=shared_memory.buf,
-            ),
-            lambda: shared_memory.close(),
-        )
-
-    def close(self):
-        """
-        Permanently cleans up the memory allocated by the SharedArray.
-        This should only be done once, when all processes are finished using
-        the SharedArray.
-        """
-        # Free the shared memory.
-        try:
-            shared_memory = shared_memory.SharedMemory(name=self.shared_memory_name)
-            shared_memory.close()
-            shared_memory.unlink()
-        except:
-            pass
-
-
 class ColorizerDatasetWriter:
     """
     Writes provided data as Colorizer-compatible dataset files to the configured output directory.
@@ -256,6 +293,8 @@ class ColorizerDatasetWriter:
     [DATA_FORMAT.md](https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md)
     for more details.)
     """
+
+    # TODO: Update all of the documentation links to point to the new repo
 
     outpath: Union[str, pathlib.Path]
     total_objects: int
@@ -320,12 +359,13 @@ class ColorizerDatasetWriter:
 
     def write_feature_data(
         self,
-        features: List[np.array],
-        tracks: np.array,
-        times: np.array,
-        centroids_x: np.array,
-        centroids_y: np.array,
-        outliers: np.array,
+        features: List[np.array] = None,
+        tracks: np.array = None,
+        times: np.array = None,
+        centroids_x: np.array = None,
+        centroids_y: np.array = None,
+        outliers: np.array = None,
+        bounds: np.array = None,
     ):
         """
         Writes feature, track, centroid, time, and outlier data to JSON files.
@@ -338,46 +378,62 @@ class ColorizerDatasetWriter:
         [documentation](https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md#1-tracks)
         """
         # TODO check outlier and replace values with NaN or something!
-        logging.info("Writing outliers.json...")
-        ojs = {"data": outliers.tolist(), "min": False, "max": True}
-        with open(self.outpath + "/outliers.json", "w") as f:
-            json.dump(ojs, f)
+        if outliers is not None:
+            logging.info("Writing outliers.json...")
+            ojs = {"data": outliers.tolist(), "min": False, "max": True}
+            with open(self.outpath + "/outliers.json", "w") as f:
+                json.dump(ojs, f)
 
         # Note these must be in same order as features and same row order as the dataframe.
-        logging.info("Writing track.json...")
-        trjs = {"data": tracks.tolist()}
-        with open(self.outpath + "/tracks.json", "w") as f:
-            json.dump(trjs, f)
+        if tracks is not None:
+            logging.info("Writing track.json...")
+            trjs = {"data": tracks.tolist()}
+            with open(self.outpath + "/tracks.json", "w") as f:
+                json.dump(trjs, f)
 
-        logging.info("Writing times.json...")
-        tijs = {"data": times.tolist()}
-        with open(self.outpath + "/times.json", "w") as f:
-            json.dump(tijs, f)
+        if times is not None:
+            logging.info("Writing times.json...")
+            tijs = {"data": times.tolist()}
+            with open(self.outpath + "/times.json", "w") as f:
+                json.dump(tijs, f)
 
-        logging.info("Writing centroids.json...")
-        centroids_stacked = np.ravel(np.dstack([centroids_x, centroids_y]))
-        centroids_stacked = centroids_stacked * self.scale
-        centroids_stacked = centroids_stacked.astype(int)
+        if centroids_x is not None or centroids_y is not None:
+            if centroids_x is None or centroids_y is None:
+                raise Exception(
+                    "Both arguments centroids_x and centroids_y must be defined."
+                )
+            logging.info("Writing centroids.json...")
+            centroids_stacked = np.ravel(np.dstack([centroids_x, centroids_y]))
+            centroids_stacked = centroids_stacked * self.scale
+            centroids_stacked = centroids_stacked.astype(int)
+            centroids_json = {"data": centroids_stacked.tolist()}
+            with open(self.outpath + "/centroids.json", "w") as f:
+                json.dump(centroids_json, f)
 
-        centroids_json = {"data": centroids_stacked.tolist()}
-        with open(self.outpath + "/centroids.json", "w") as f:
-            json.dump(centroids_json, f)
+        if bounds is not None:
+            logging.info("Writing bounds.json...")
+            bounds_json = {"data": bounds.tolist()}
+            with open(self.outpath + "/bounds.json", "w") as f:
+                json.dump(bounds_json, f)
 
-        logging.info("Writing feature json...")
-        for i in range(len(features)):
-            f = features[i]
-            fmin = np.nanmin(f)
-            fmax = np.nanmax(f)
-            # TODO normalize output range excluding outliers?
-            js = {"data": f.tolist(), "min": fmin, "max": fmax}
-            with open(self.outpath + "/feature_" + str(i) + ".json", "w") as f:
-                json.dump(js, f, cls=NumpyValuesEncoder)
-        logging.info("Done writing features.")
+        if features is not None:
+            logging.info("Writing feature json...")
+            for i in range(len(features)):
+                f = features[i]
+                fmin = np.nanmin(f)
+                fmax = np.nanmax(f)
+                # TODO normalize output range excluding outliers?
+                js = {"data": f.tolist(), "min": fmin, "max": fmax}
+                with open(self.outpath + "/feature_" + str(i) + ".json", "w") as f:
+                    json.dump(js, f, cls=NumpyValuesEncoder)
+            logging.info("Done writing features.")
 
     def write_manifest(
         self,
         num_frames: int,
         feature_names: List[str],
+        # TODO: feature metadata should probably go in args of write_feature_data
+        # and be tracked by the writer.
         feature_metadata: List[FeatureMetadata] = [],
         metadata: ColorizerMetadata = None,
     ):
@@ -415,6 +471,8 @@ class ColorizerDatasetWriter:
         for i in range(len(feature_names)):
             featmap[feature_names[i]] = "feature_" + str(i) + ".json"
 
+        # TODO: Write these progressively to an internal map during feature writing
+        # so we only write the files that are known?
         output_json = {
             "frames": ["frame_" + str(i) + ".png" for i in range(num_frames)],
             "features": featmap,
