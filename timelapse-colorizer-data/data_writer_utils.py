@@ -174,6 +174,79 @@ class ColorizerMetadata:
         }
 
 
+class SharedArray:
+    """
+    A multiprocessing-safe array backed by shared memory.
+
+    example usage:
+    ```
+    # -- main process --
+    shared_array = SharedArray(100, np.int64)
+
+    # -- subprocess --
+    data, shared_mem = shared_array.get_array()
+    # do something with the data
+    data[0] = 299
+    shared_mem.close()
+
+    # -- main process --
+    # do something with the data
+    data, shared_mem = shared_array.get_array()
+    print(data[0])
+    # close the array when finished
+    shared_array.close()
+    ```
+    """
+
+    shared_memory_name: str
+    dtype: np.dtype
+    size: int
+
+    def __init__(self, size: int, dtype: np.dtype):
+        self.dtype = dtype
+        self.size = size
+
+        # Allocate space in memory for the array.
+        shared_memory = shared_memory.SharedMemory(
+            create=True, size=size * dtype.itemsize
+        )
+        self.shared_memory_name = shared_memory.name
+        shared_memory.close()
+
+    def get_array(self) -> (np.ndarray, shared_memory.SharedMemory):
+        """
+        Returns a numpy array backed by shared memory, and the SharedMemory
+        object used to create it.
+
+        SharedMemory.close() must be called once the numpy array is no longer
+        in use.
+        """
+
+        shared_memory = shared_memory.SharedMemory(name=self.shared_memory_name)
+        return (
+            np.ndarray(
+                shape=(self.size),
+                dtype=self.dtype,
+                buffer=shared_memory.buf,
+            ),
+            lambda: shared_memory.close(),
+        )
+
+    def close(self):
+        """
+        Permanently cleans up the memory allocated by the SharedArray.
+        This should only be done once, when all processes are finished using
+        the SharedArray.
+        """
+        # Free the shared memory.
+        try:
+            shared_memory = shared_memory.SharedMemory(name=self.shared_memory_name)
+            shared_memory.close()
+            shared_memory.unlink()
+        except:
+            pass
+
+
 class ColorizerDatasetWriter:
     """
     Writes provided data as Colorizer-compatible dataset files to the configured output directory.
