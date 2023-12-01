@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import List, Sequence
 from aicsimageio import AICSImage
 import argparse
 import json
@@ -110,7 +110,7 @@ def make_frame(
     group_name: int,
     frame: pd.DataFrame,
     scale: float,
-    bounds_arr: Any,
+    bounds_arr: Sequence[int],
     writer: ColorizerDatasetWriter,
 ):
     start_time = time.time()
@@ -284,6 +284,7 @@ def make_dataset(
     """Make a new dataset from the given data, and write the complete dataset
     files to the given output directory.
     """
+    writer = ColorizerDatasetWriter(output_dir, dataset, scale=scale)
     full_dataset = data
     logging.info("Loaded dataset '" + str(dataset) + "'.")
 
@@ -298,8 +299,6 @@ def make_dataset(
     reduced_dataset = reduced_dataset.reset_index(drop=True)
     reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
     grouped_frames = reduced_dataset.groupby(TIMES_COLUMN)
-
-    writer = ColorizerDatasetWriter(output_dir, dataset, scale=scale)
 
     # Get the units and human-readable label for each feature; we include this as
     # metadata inside the dataset manifest.
@@ -316,11 +315,9 @@ def make_dataset(
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
+    make_features(full_dataset, FEATURE_COLUMNS, writer)
     if do_frames:
         make_frames_parallel(grouped_frames, scale, writer)
-        make_features(full_dataset, FEATURE_COLUMNS, writer)
-    else:
-        make_features(full_dataset, FEATURE_COLUMNS, writer)
 
     writer.write_manifest(
         nframes, feature_labels, feature_metadata=feature_metadata, metadata=metadata

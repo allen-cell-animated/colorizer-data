@@ -183,7 +183,6 @@ def update_bounding_box_data(
             write_index = (lut[i] - 1) * 4
 
             # Reverse min and max so it is written in x, y order
-            # This could be more compact, but
             bbox_min = cell.min(0)
             bbox_max = cell.max(0)
             bbox_data[write_index] = bbox_min[1]
