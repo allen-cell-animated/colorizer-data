@@ -30,7 +30,7 @@ from data_writer_utils import (
 
 # DATASET SPEC: See DATA_FORMAT.md for more details on the dataset format!
 # You can find the most updated version on GitHub here:
-# https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md
+# https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md
 
 # R0Nuclei_AreaShape_Center_X
 # R0Nuclei_AreaShape_Center_Y

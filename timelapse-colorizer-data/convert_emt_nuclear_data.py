@@ -34,7 +34,7 @@ from data_writer_utils import (
 
 # DATASET SPEC: See DATA_FORMAT.md for more details on the dataset format!
 # You can find the most updated version on GitHub here:
-# https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md
+# https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md
 
 # OVERWRITE THESE!! These values should change based on your dataset. These are
 # relabeled as constants here for clarity/intent of the column name.

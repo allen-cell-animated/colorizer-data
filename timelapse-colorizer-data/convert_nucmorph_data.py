@@ -38,7 +38,7 @@ from data_writer_utils import (
 
 # DATASET SPEC: See DATA_FORMAT.md for more details on the dataset format!
 # You can find the most updated version on GitHub here:
-# https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md
+# https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md
 
 # NUCMORPH DATA REFERENCE:
 # dataset	string	In FMS manifest	Name of which dataset this row of data belongs to (baby_bear, goldilocks, or mama_bear)

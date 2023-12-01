@@ -5,9 +5,7 @@ import os
 import pathlib
 import platform
 import re
-import multiprocessing
-from typing import Dict, List, Tuple, TypedDict, Union
-from multiprocessing import shared_memory
+from typing import Dict, List, Sequence, TypedDict, Union
 
 import numpy as np
 import pandas as pd
@@ -34,83 +32,6 @@ class NumpyValuesEncoder(json.JSONEncoder):
         elif isinstance(obj, np.int64):
             return int(obj)
         return json.JSONEncoder.default(self, obj)
-
-
-class SharedArrayWrapper:
-    """
-    A multiprocessing-safe array backed by shared memory.
-
-    example usage:
-    ```
-    # -- main process --
-    shared_array = SharedArray(100, np.dtype(np.uint32))
-
-    # -- subprocess --
-    data, shared_mem = shared_array.get_array()
-    # do something with the data
-    data[0] = 299
-    shared_mem.close()
-
-    # -- main process --
-    # do something with the data
-    data, shared_mem = shared_array.get_array()
-    print(data[0])
-    shared_mem.close()
-    # close the array when finished
-    shared_array.close()
-    ```
-    """
-
-    shared_memory_name: str
-    dtype: np.dtype
-    size: int
-
-    def __init__(self, size: int, dtype: np.dtype):
-        self.dtype = dtype
-        self.size = size
-
-        # Allocate space in memory for the array.
-        shared_mem = shared_memory.SharedMemory(create=True, size=size * dtype.itemsize)
-        self.shared_memory_name = shared_mem.name
-        shared_mem.close()
-
-    def __init__(self, array: np.ndarray):
-        # array = SharedArrayWrapper(np.ndarray(size=(4,), ...))
-
-        pass
-
-    def get_array(self) -> Tuple[np.ndarray, shared_memory.SharedMemory]:
-        """
-        Returns a numpy array backed by shared memory, and the SharedMemory
-        object used to create it.
-
-        SharedMemory.close() must be called once the numpy array is no longer
-        in use.
-        """
-
-        shared_mem = shared_memory.SharedMemory(name=self.shared_memory_name)
-        return (
-            np.ndarray(
-                shape=(self.size),
-                dtype=self.dtype,
-                buffer=shared_mem.buf,
-            ),
-            shared_mem,
-        )
-
-    def close(self):
-        """
-        Permanently cleans up the memory allocated by the SharedArray.
-        This should only be done once, when all processes are finished using
-        the SharedArray.
-        """
-        # Free the shared memory.
-        try:
-            shared_mem = shared_memory.SharedMemory(name=self.shared_memory_name)
-            shared_mem.close()
-            shared_mem.unlink()
-        except:
-            pass
 
 
 def configureLogging(output_dir: Union[str, pathlib.Path], log_name="debug.log"):
@@ -233,15 +154,6 @@ def get_total_objects(grouped_frames: pd.DataFrame) -> int:
     return grouped_frames[INITIAL_INDEX_COLUMN].max().max() + 1
 
 
-def make_bounding_box_shared_array(grouped_frames: pd.DataFrame) -> SharedArrayWrapper:
-    """
-    Makes an appropriately-sized SharedArray for bounding box data that can
-    be used safely with multiprocessing.
-    """
-    total_objects = get_total_objects(grouped_frames)
-    return SharedArrayWrapper(size=total_objects * 4, dtype=np.dtype(np.uint32))
-
-
 def make_bounding_box_array(grouped_frames: pd.DataFrame) -> np.array:
     """
     Makes an appropriately-sized numpy array for bounding box data
@@ -251,12 +163,13 @@ def make_bounding_box_array(grouped_frames: pd.DataFrame) -> np.array:
 
 
 def update_bounding_box_data(
-    bbox_data: np.array,
+    bbox_data: Union[np.array, Sequence[int]],
     seg_remapped: np.ndarray,
     lut: np.ndarray,
 ):
     """
-    Updates the tracked bounding box data for all the indices in the provided segmented image.
+    Updates the tracked bounding box data array for all the indices in the provided
+    segmented image.
 
     [Documentation for bounds data format](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#7-bounds-optional)
     """
@@ -270,6 +183,7 @@ def update_bounding_box_data(
             write_index = (lut[i] - 1) * 4
 
             # Reverse min and max so it is written in x, y order
+            # This could be more compact, but
             bbox_min = cell.min(0)
             bbox_max = cell.max(0)
             bbox_data[write_index] = bbox_min[1]
@@ -302,11 +216,9 @@ class ColorizerDatasetWriter:
 
     The output directory will contain a `manifest.json` and additional dataset files,
     following the data schema described in the project documentation. (See
-    [DATA_FORMAT.md](https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md)
+    [DATA_FORMAT.md](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md)
     for more details.)
     """
-
-    # TODO: Update all of the documentation links to point to the new repo
 
     outpath: Union[str, pathlib.Path]
     manifest: Dict[str, str]
@@ -341,7 +253,7 @@ class ColorizerDatasetWriter:
         Features will be written to files in order of the `features` list,
         starting from 0 (e.g., `feature_0.json`, `feature_1.json`, ...)
 
-        [documentation](https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md#1-tracks)
+        [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#1-tracks)
         """
         # TODO check outlier and replace values with NaN or something!
         if outliers is not None:
@@ -417,7 +329,7 @@ class ColorizerDatasetWriter:
         """
         Writes the final manifest file for the dataset in the configured output directory.
 
-        [documentation](https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md#Dataset)
+        [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#Dataset)
 
         `manifest.json:`
         ```
@@ -488,7 +400,7 @@ class ColorizerDatasetWriter:
 
         IDs for each pixel are stored in the RGBA channels of the image.
 
-        [documentation](https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md#3-frames)
+        [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#3-frames)
         """
         seg_rgba = np.zeros(
             (seg_remapped.shape[0], seg_remapped.shape[1], 4), dtype=np.uint8
