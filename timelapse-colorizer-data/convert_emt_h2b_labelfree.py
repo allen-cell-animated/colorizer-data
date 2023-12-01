@@ -16,11 +16,14 @@ from data_writer_utils import (
     ColorizerDatasetWriter,
     ColorizerMetadata,
     FeatureMetadata,
+    SharedArray,
     configureLogging,
     extract_units_from_feature_name,
+    make_bounding_box_shared_array,
     sanitize_path_by_platform,
     scale_image,
     remap_segmented_image,
+    update_bounding_box_data,
 )
 
 # DATASET SPEC: See DATA_FORMAT.md for more details on the dataset format!
@@ -108,6 +111,7 @@ def make_frame(
     group_name: int,
     frame: pd.DataFrame,
     scale: float,
+    shared_bounds_arr: SharedArray,
     writer: ColorizerDatasetWriter,
 ):
     start_time = time.time()
@@ -131,7 +135,12 @@ def make_frame(
         OBJECT_ID_COLUMN,
     )
 
-    writer.write_image_and_bounds_data(seg_remapped, grouped_frames, frame_number, lut)
+    # Write the image and bounds data
+    writer.write_image(seg_remapped, frame_number)
+
+    bounds_data, shared_mem = shared_bounds_arr.get_array()
+    update_bounding_box_data(bounds_data, seg_remapped, lut)
+    shared_mem.close()
 
     time_elapsed = time.time() - start_time
     logging.info(
@@ -143,6 +152,7 @@ def make_frames_parallel(
     grouped_frames: DataFrameGroupBy,
     scale: float,
     writer: ColorizerDatasetWriter,
+    shared_bounds_arr: SharedArray,
 ):
     """
     Generate the images and bounding boxes for each time step in the dataset.
@@ -154,11 +164,10 @@ def make_frames_parallel(
         pool.starmap(
             make_frame,
             [
-                (grouped_frames, group_name, frame, scale, writer)
+                (grouped_frames, group_name, frame, scale, shared_bounds_arr, writer)
                 for group_name, frame in grouped_frames
             ],
         )
-    writer.write_bbox_data()
 
 
 def make_frames(
@@ -210,6 +219,7 @@ def make_features(
     dataset: pd.DataFrame,
     features: List[str],
     writer: ColorizerDatasetWriter,
+    bounds: np.ndarray = None,
 ):
     """
     Generate the outlier, track, time, centroid, and feature data files.
@@ -233,12 +243,7 @@ def make_features(
         feature_data.append(f)
 
     writer.write_feature_data(
-        feature_data,
-        tracks,
-        times,
-        centroids_x,
-        centroids_y,
-        outliers,
+        feature_data, tracks, times, centroids_x, centroids_y, outliers, bounds
     )
 
 
@@ -287,7 +292,13 @@ def make_dataset(
     reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
     grouped_frames = reduced_dataset.groupby(TIMES_COLUMN)
 
-    writer = ColorizerDatasetWriter(output_dir, dataset, grouped_frames, scale=scale)
+    writer = ColorizerDatasetWriter(output_dir, dataset, scale=scale)
+
+    # TODO: Make shared array
+    # Update make_frames_parallel to take in shared array as an arg
+    # Update make_frame to use shared bounds array
+    # Updated make_features to take in and save array
+    # Cleanup array when done
 
     # Get the units and human-readable label for each feature; we include this as
     # metadata inside the dataset manifest.
@@ -304,9 +315,14 @@ def make_dataset(
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
-    make_features(full_dataset, FEATURE_COLUMNS, writer)
     if do_frames:
+        bounds_array = make_bounding_box_shared_array(grouped_frames)
         make_frames_parallel(grouped_frames, scale, writer)
+        make_features(full_dataset, FEATURE_COLUMNS, writer)
+        bounds_array.close()
+    else:
+        make_features(full_dataset, FEATURE_COLUMNS, writer)
+
     writer.write_manifest(
         nframes, feature_labels, feature_metadata=feature_metadata, metadata=metadata
     )
