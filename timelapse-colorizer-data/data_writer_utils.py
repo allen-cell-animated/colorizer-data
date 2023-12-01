@@ -154,12 +154,12 @@ def get_total_objects(grouped_frames: pd.DataFrame) -> int:
     return grouped_frames[INITIAL_INDEX_COLUMN].max().max() + 1
 
 
-def make_bounding_box_array(grouped_frames: pd.DataFrame) -> np.array:
+def make_bounding_box_array(grouped_frames: pd.DataFrame) -> np.ndarray:
     """
     Makes an appropriately-sized numpy array for bounding box data
     """
     total_objects = get_total_objects(grouped_frames)
-    return np.array(size=total_objects * 4, dtype=np.uint32)
+    return np.ndarray(shape=(total_objects * 4), dtype=np.uint32)
 
 
 def update_bounding_box_data(

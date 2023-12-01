@@ -25,9 +25,11 @@ from data_writer_utils import (
     ColorizerDatasetWriter,
     ColorizerMetadata,
     configureLogging,
+    make_bounding_box_array,
     sanitize_path_by_platform,
     scale_image,
     remap_segmented_image,
+    update_bounding_box_data,
 )
 
 # Example Commands:
@@ -97,6 +99,7 @@ def make_frames(
     """
     nframes = len(grouped_frames)
     logging.info("Making {} frames...".format(nframes))
+    bounds_arr = make_bounding_box_array(grouped_frames)
 
     for group_name, frame in grouped_frames:
         start_time = time.time()
@@ -121,9 +124,8 @@ def make_frames(
             OBJECT_ID_COLUMN,
         )
 
-        writer.write_image_and_bounds_data(
-            seg_remapped, grouped_frames, frame_number, lut
-        )
+        writer.write_image(seg_remapped, frame_number)
+        update_bounding_box_data(bounds_arr, seg_remapped, lut)
 
         time_elapsed = time.time() - start_time
         logging.info(
@@ -131,6 +133,7 @@ def make_frames(
                 int(frame_number), time_elapsed
             )
         )
+    writer.write_data(bounds=bounds_arr)
 
 
 def make_features(
@@ -160,12 +163,12 @@ def make_features(
         feature_data.append(f)
 
     writer.write_data(
-        feature_data,
-        tracks,
-        times,
-        centroids_x,
-        centroids_y,
-        outliers,
+        features=feature_data,
+        tracks=tracks,
+        times=times,
+        centroids_x=centroids_x,
+        centroids_y=centroids_y,
+        outliers=outliers,
     )
 
 
