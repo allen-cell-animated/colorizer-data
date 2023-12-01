@@ -5,6 +5,7 @@ import os
 import pathlib
 import platform
 import re
+import multiprocessing
 from typing import List, TypedDict, Union
 from multiprocessing import shared_memory
 
@@ -191,6 +192,8 @@ class ColorizerDatasetWriter:
     write to the bounding box data safely across processes.
     """
 
+    has_written_bbox_data: bool
+
     scale: float
 
     def __init__(
@@ -203,6 +206,8 @@ class ColorizerDatasetWriter:
         self.outpath = os.path.join(output_dir, dataset)
         os.makedirs(self.outpath, exist_ok=True)
         self.scale = scale
+
+        self.has_written_bbox_data = False
 
         # Determine the size of the bounding box data and allocate shared memory for it.
         self.total_objects = get_total_objects(grouped_frames)
@@ -441,23 +446,35 @@ class ColorizerDatasetWriter:
                 bbox_max.reverse()
                 bbox_data[write_index : write_index + 2] = bbox_min
                 bbox_data[write_index + 2 : write_index + 4] = bbox_max
+        self.has_written_bbox_data = True
         shared_mem.close()
 
     def write_bbox_data(self):
         """
         Writes the bounding box data to a JSON file in the output directory
-        named `bounds.json`. Must only be called once!
+        named `bounds.json`.
         """
         # Save bounding box to JSON (write for each frame in case of crashing.)
         shared_mem, bbox_data = self.get_bbox_data()
         bbox_json = {"data": np.ravel(bbox_data).tolist()}  # flatten to 2D
         with open(self.outpath + "/bounds.json", "w") as f:
             json.dump(bbox_json, f)
-
-        # Unlinks the memory used by the buffer.
-        # TODO: There is likely a better place to put this
-        # but it can't go in a destructor since it'll be called by any process
-        # that finishes, causing the rest of the processes to crash.
-        # flush + close? with syntax? ????
         shared_mem.close()
-        shared_mem.unlink()
+
+    def __del__(self):
+        # Do not do cleanup steps for writer instances off the main
+        # process. This prevents writers in subprocesses from freeing the shared
+        # memory when closing along with their process thread.
+
+        # TODO: This is unsafe if this class is used OFF of the main process, like
+        # if a user was to try and process multiple datasets at once.
+        if multiprocessing.parent_process() is not None:
+            return
+
+        # Free the shared memory.
+        try:
+            shared_mem, bbox_data = self.get_bbox_data()
+            shared_mem.close()
+            shared_mem.unlink()
+        except:
+            pass
