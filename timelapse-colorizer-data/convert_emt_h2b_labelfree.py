@@ -152,8 +152,6 @@ def make_frames_parallel(
 ):
     """
     Generate the images and bounding boxes for each time step in the dataset.
-
-    Returns the bounds object when completed.
     """
     nframes = len(grouped_frames)
     logging.info("Making {} frames...".format(nframes))
