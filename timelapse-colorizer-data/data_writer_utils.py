@@ -258,27 +258,24 @@ class ColorizerDatasetWriter:
         if outliers is not None:
             logging.info("Writing outliers.json...")
             ojs = {"data": outliers.tolist(), "min": False, "max": True}
-            path = self.outpath + "/outliers.json"
-            with open(path, "w") as f:
+            with open(self.outpath + "/outliers.json", "w") as f:
                 json.dump(ojs, f)
-            self.manifest["outliers"] = path
+            self.manifest["outliers"] = "outliers.json"
 
         # Note these must be in same order as features and same row order as the dataframe.
         if tracks is not None:
             logging.info("Writing track.json...")
             trjs = {"data": tracks.tolist()}
-            path = self.outpath + "/tracks.json"
-            with open(path, "w") as f:
+            with open(self.outpath + "/tracks.json", "w") as f:
                 json.dump(trjs, f)
-            self.manifest["tracks"] = path
+            self.manifest["tracks"] = "tracks.json"
 
         if times is not None:
             logging.info("Writing times.json...")
             tijs = {"data": times.tolist()}
-            path = self.outpath + "/times.json"
-            with open(path, "w") as f:
+            with open(self.outpath + "/times.json", "w") as f:
                 json.dump(tijs, f)
-            self.manifest["times"] = path
+            self.manifest["times"] = "times.json"
 
         if centroids_x is not None or centroids_y is not None:
             if centroids_x is None or centroids_y is None:
@@ -290,18 +287,16 @@ class ColorizerDatasetWriter:
             centroids_stacked = centroids_stacked * self.scale
             centroids_stacked = centroids_stacked.astype(int)
             centroids_json = {"data": centroids_stacked.tolist()}
-            path = self.outpath + "/centroids.json"
-            with open(path, "w") as f:
+            with open(self.outpath + "/centroids.json", "w") as f:
                 json.dump(centroids_json, f)
-            self.manifest["centroids"] = path
+            self.manifest["centroids"] = "centroids.json"
 
         if bounds is not None:
             logging.info("Writing bounds.json...")
             bounds_json = {"data": bounds.tolist()}
-            path = self.outpath + "/bounds.json"
-            with open(path, "w") as f:
+            with open(self.outpath + "/bounds.json", "w") as f:
                 json.dump(bounds_json, f)
-            self.manifest["bounds"] = path
+            self.manifest["bounds"] = "bounds.json"
 
         if features is not None:
             # TODO: Write to self.manifest
