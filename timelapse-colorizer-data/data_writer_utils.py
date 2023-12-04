@@ -262,16 +262,17 @@ class ColorizerDatasetWriter:
 
     def write_data(
         self,
-        features: List[np.array] = None,
-        tracks: np.array = None,
-        times: np.array = None,
-        centroids_x: np.array = None,
-        centroids_y: np.array = None,
-        outliers: np.array = None,
-        bounds: np.array = None,
+        features: Union[List[np.ndarray], None] = None,
+        tracks: Union[np.ndarray, None] = None,
+        times: Union[np.ndarray, None] = None,
+        centroids_x: Union[np.ndarray, None] = None,
+        centroids_y: Union[np.ndarray, None] = None,
+        outliers: Union[np.ndarray, None] = None,
+        bounds: Union[np.ndarray, None] = None,
     ):
         """
-        Writes feature, track, centroid, time, or outlier data to JSON files.
+        Writes dataset data arrays (such as feature, track, time, centroid, outlier,
+        and bounds data) to JSON files.
         Accepts numpy arrays for each file type and writes them to the configured
         output directory according to the data format.
 
