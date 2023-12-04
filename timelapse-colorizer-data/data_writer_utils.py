@@ -34,8 +34,8 @@ class FeatureMetadata(TypedDict):
 
 class FrameDimensions(TypedDict):
     units: str
-    width: int
-    height: int
+    width: float
+    height: float
 
 
 class DatasetMetadata(TypedDict):
