@@ -125,7 +125,7 @@ def make_frames(
         )
 
         writer.write_image(seg_remapped, frame_number)
-        update_bounding_box_data(bounds_arr, seg_remapped, lut)
+        update_bounding_box_data(bounds_arr, seg_remapped)
 
         time_elapsed = time.time() - start_time
         logging.info(

@@ -182,7 +182,6 @@ def make_bounding_box_array(dataframe: pd.DataFrame) -> np.ndarray:
 def update_bounding_box_data(
     bbox_data: Union[np.array, Sequence[int]],
     seg_remapped: np.ndarray,
-    lut: np.ndarray,
 ):
     """
     Updates the tracked bounding box data array for all the indices in the provided
@@ -192,18 +191,22 @@ def update_bounding_box_data(
         bbox_data (np.array | Sequence[int]): The bounds data array to be updated.
         seg_remapped (np.ndarray): Segmentation image whose indices start at 1 and are are absolutely unique across the whole dataset,
             such as the results of `remap_segmented_image()`.
-        lut (np.ndarray): Lookup table from original frame IDs to the new remapped IDs, such as the results of `remap_segmented_image()`.
 
     [Documentation for bounds data format](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#7-bounds-optional)
     """
     # Capture bounding boxes
-    # Optimize by skipping i = 0, since it's used as a null value in every frame
-    for i in range(1, lut.size):
+    object_ids = np.unique(seg_remapped)
+    for i in range(object_ids.size):
+        curr_id = object_ids[i]
+        # Optimize by skipping id=0, since it's used as the null background value in every frame.
+        if curr_id == 0:
+            continue
         # Boolean array that represents all pixels segmented with this index
-        cell = np.argwhere(seg_remapped == lut[i])
+        cell = np.argwhere(seg_remapped == object_ids[i])
 
-        if cell.size > 0 and lut[i] > 0:
-            write_index = (lut[i] - 1) * 4
+        if cell.size > 0 and curr_id > 0:
+            # Write bounds with 0-based indexing
+            write_index = (curr_id - 1) * 4
 
             # Reverse min and max so it is written in x, y order
             bbox_min = cell.min(0)
