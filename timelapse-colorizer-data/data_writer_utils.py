@@ -13,7 +13,16 @@ import skimage
 from PIL import Image
 
 INITIAL_INDEX_COLUMN = "initialIndex"
-"""Column added to reduced datasets, holding the original indices of each row."""
+"""
+Column added to reduced datasets, holding the original indices of each row.
+
+example:
+```
+reduced_dataset = full_dataset[columns]
+reduced_dataset = reduced_dataset.reset_index(drop=True)
+reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
+```
+"""
 RESERVED_INDICES = 1
 """Reserved indices that cannot be used for cell data. 
 0 is reserved for the background."""
@@ -147,18 +156,26 @@ def update_collection(collection_filepath, dataset_name, dataset_path):
         json.dump(collection, f)
 
 
-def get_total_objects(grouped_frames: pd.DataFrame) -> int:
-    """Get the total number of object IDs in the dataset."""
+def get_total_objects(dataframe: pd.DataFrame) -> int:
+    """
+    Get the total number of object IDs in the dataset.
+
+    `dataframe` must have have a column matching the constant `INITIAL_INDEX_COLUMN`.
+    See `INITIAL_INDEX_COLUMN` for usage.
+    """
     # .max() gives the highest object ID, but not the total number of indices
     # (we have to add 1.)
-    return grouped_frames[INITIAL_INDEX_COLUMN].max().max() + 1
+    return dataframe[INITIAL_INDEX_COLUMN].max().max() + 1
 
 
-def make_bounding_box_array(grouped_frames: pd.DataFrame) -> np.ndarray:
+def make_bounding_box_array(dataframe: pd.DataFrame) -> np.ndarray:
     """
-    Makes an appropriately-sized numpy array for bounding box data
+    Makes an appropriately-sized numpy array for bounding box data.
+
+    `dataframe` must have have a column matching the constant `INITIAL_INDEX_COLUMN`.
+    See `INITIAL_INDEX_COLUMN` for usage.
     """
-    total_objects = get_total_objects(grouped_frames)
+    total_objects = get_total_objects(dataframe)
     return np.ndarray(shape=(total_objects * 4), dtype=np.uint32)
 
 
@@ -170,6 +187,12 @@ def update_bounding_box_data(
     """
     Updates the tracked bounding box data array for all the indices in the provided
     segmented image.
+
+    Args:
+        bbox_data (np.array | Sequence[int]): The bounds data array to be updated.
+        seg_remapped (np.ndarray): Segmentation image whose indices start at 1 and are are absolutely unique across the whole dataset,
+            such as the results of `remap_segmented_image()`.
+        lut (np.ndarray): Lookup table from original frame IDs to the new remapped IDs, such as the results of `remap_segmented_image()`.
 
     [Documentation for bounds data format](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#7-bounds-optional)
     """
