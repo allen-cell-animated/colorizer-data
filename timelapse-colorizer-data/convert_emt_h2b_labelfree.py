@@ -154,10 +154,10 @@ def make_frames_parallel(
     Generate the images and bounding boxes for each time step in the dataset.
     """
     nframes = len(grouped_frames)
+    total_objects = get_total_objects(grouped_frames)
     logging.info("Making {} frames...".format(nframes))
 
     with multiprocessing.Manager() as manager:
-        total_objects = get_total_objects(grouped_frames)
         bounds_arr = manager.Array("i", [0] * int(total_objects * 4))
         with multiprocessing.Pool() as pool:
             pool.starmap(
