@@ -5,7 +5,7 @@ import os
 import pathlib
 import platform
 import re
-from typing import Dict, List, Sequence, TypedDict, Union
+from typing import Dict, List, NotRequired, Sequence, TypedDict, Union
 
 import numpy as np
 import pandas as pd
@@ -30,6 +30,52 @@ RESERVED_INDICES = 1
 
 class FeatureMetadata(TypedDict):
     units: str
+
+
+class FrameDimensions(TypedDict):
+    units: str
+    width: int
+    height: int
+
+
+class DatasetMetadata(TypedDict):
+    frameDims: FrameDimensions
+    frameDurationSeconds: float
+    startTimeSeconds: float
+
+
+@dataclass
+class ColorizerMetadata:
+    """Data class representation of metadata for a Colorizer dataset."""
+
+    frame_width: float = 0
+    frame_height: float = 0
+    frame_units: str = ""
+    frame_duration_sec: float = 0
+    start_time_sec: float = 0
+
+    def to_json(self) -> DatasetMetadata:
+        return {
+            "frameDims": {
+                "width": self.frame_width,
+                "height": self.frame_height,
+                "units": self.frame_units,
+            },
+            "startTimeSeconds": self.start_time_sec,
+            "frameDurationSeconds": self.frame_duration_sec,
+        }
+
+
+class DatasetManifest(TypedDict):
+    frames: List[str]
+    features: List[Dict[str, str]]
+    outliers: str
+    tracks: str
+    centroids: str
+    times: str
+    bounds: str
+    featureMetadata: Dict[str, FeatureMetadata]
+    metadata: DatasetMetadata
 
 
 class NumpyValuesEncoder(json.JSONEncoder):
@@ -217,24 +263,6 @@ def update_bounding_box_data(
             bbox_data[write_index + 3] = bbox_max[0]
 
 
-@dataclass
-class ColorizerMetadata:
-    """Class representing metadata for a Colorizer dataset."""
-
-    width_units: float
-    height_units: float
-    units: str
-
-    def to_json(self):
-        return {
-            "frameDims": {
-                "width": self.width_units,
-                "height": self.height_units,
-                "units": self.units,
-            }
-        }
-
-
 class ColorizerDatasetWriter:
     """
     Writes provided data as Colorizer-compatible dataset files to the configured output directory.
@@ -246,7 +274,7 @@ class ColorizerDatasetWriter:
     """
 
     outpath: Union[str, pathlib.Path]
-    manifest: Dict[str, str]
+    manifest: DatasetManifest
     scale: float
 
     def __init__(

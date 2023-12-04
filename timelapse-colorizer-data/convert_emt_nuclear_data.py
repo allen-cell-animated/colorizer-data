@@ -223,7 +223,9 @@ def make_dataset(
         feature_labels.append(label[0:1].upper() + label[1:])  # Capitalize first letter
         feature_metadata.append({"units": unit})
     dims = get_dataset_dimensions(grouped_frames)
-    metadata = ColorizerMetadata(dims[0], dims[1], dims[2])
+    metadata = ColorizerMetadata(
+        frame_width=dims[0], frame_height=dims[1], frame_units=dims[2]
+    )
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)

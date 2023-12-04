@@ -224,7 +224,9 @@ def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scal
             metadata["units"] = unit
         feature_metadata.append(metadata)
     dims = get_dataset_dimensions(grouped_frames, pixsize)
-    metadata = ColorizerMetadata(dims[0], dims[1], dims[2])
+    metadata = ColorizerMetadata(
+        frame_width=dims[0], frame_height=dims[1], frame_units=dims[2]
+    )
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
