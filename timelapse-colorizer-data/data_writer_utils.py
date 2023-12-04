@@ -208,7 +208,7 @@ def update_bounding_box_data(
             # Write bounds with 0-based indexing
             write_index = (curr_id - 1) * 4
 
-            # Reverse min and max so it is written in x, y order
+            # Both min and max are in YX dimension order but we will write it to the array in XY order
             bbox_min = cell.min(0)
             bbox_max = cell.max(0)
             bbox_data[write_index] = bbox_min[1]
