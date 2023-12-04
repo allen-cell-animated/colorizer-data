@@ -5,7 +5,7 @@ import os
 import pathlib
 import platform
 import re
-from typing import Dict, List, NotRequired, Sequence, TypedDict, Union
+from typing import Dict, List, Sequence, TypedDict, Union
 
 import numpy as np
 import pandas as pd
@@ -33,9 +33,13 @@ class FeatureMetadata(TypedDict):
 
 
 class FrameDimensions(TypedDict):
+    """Dimensions of each frame, in physical units (not pixels)."""
+
     units: str
     width: float
+    """Width of a frame in physical units (not pixels)."""
     height: float
+    """Height of a frame in physical units (not pixels)."""
 
 
 class DatasetMetadata(TypedDict):
