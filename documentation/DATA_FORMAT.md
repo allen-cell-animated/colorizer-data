@@ -29,8 +29,13 @@ The most important file is the **manifest**, which is a JSON file that describes
         ...
     ],
     "features": {
-        <feature name 1>: <relative path to feature JSON>,
-        <feature name 2>: <relative path to feature JSON>,
+        <feature name 1>: {
+            "data": <relative path to feature JSON>,
+            "unit": <unit label>,                                 //< optional
+            "type": <"continuous" | "discrete" | "categorical">,  //< optional
+            "categories": [<category 1>, <category 2>, ...,]      //< optional; max 12 categories
+        }
+        <feature name 2>: {...},
         ...
     },
     "tracks": <relative path to tracks JSON>,
@@ -45,6 +50,9 @@ The most important file is the **manifest**, which is a JSON file that describes
 ```
 
 Note that the `outliers`, `centroids`, and `bounds` files are optional, but certain features of Timelapse-Colorizer won't work without them.
+
+Features can also define additional optional metadata, such as the units and type. Note that there are additional restrictions on some of these fields. Type must have values `continuous` for floats or decimals, `discrete` for integers, or `categorical` for distinct labels.
+Features that have the type `categorical` must also define an array of string `categories`, up to a maximum of 12.
 
 A complete example dataset is also available in the [`documentation`](./example_dataset) directory of this project, and can be [viewed on Timelapse-Colorizer](https://dev-aics-dtp-001.int.allencell.org/nucmorph-colorizer/dist/?dataset=https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/example_dataset/manifest.json).
 
@@ -87,9 +95,21 @@ The `manifest.json` file would look something like this:
         "frames/frame_245.png",
     ],
     "features": {
-        "My Cool Feature": "feature_0.json",
-        "Another Cool Feature": "feature_1.json",
-        "The Coolest Feature": "feature_2.json",
+        "Temperature": {
+            data: "feature_0.json",
+            unit: "°C",
+            type: "continuous"
+        },
+        "Neighboring Cells": {
+            data: "feature_1.json",
+            unit: "cell(s)",
+            type: "discrete"
+        },
+        "Mitotic Stages": {
+            data: "feature_2.json",
+            type: "categorical",
+            categories: ["G1", "S", "G2", "Prophase", "Metaphase", "Anaphase", "Telophase" ]
+        },
     },
     "tracks": "tracks.json",
     "times": "times.json",
@@ -113,27 +133,20 @@ Besides the details shown above, these are additional parameters that the manife
 ---manifest.json---
 {
     ...
-    "featureMetadata" : {
-        <feature name 1>: {
-            "units": <unit label for feature 1>
-        },
-        <feature name 2>: {
-            "units": <unit label for feature 2>
-        },
-        ...
-    },
     "metadata": {
         "frameDims": {
             "units": <unit label for frame dimensions>
             "width": <width of frame in units>,
             "height": <height of frame in units>
-        }
+        },
+        "frameDurationSeconds": <duration of a frame in seconds>,
+        "startTimeSeconds": <start time of timestamp in seconds>  // 0 by default
     }
 
 }
 ```
 
-These metadata parameters are used to configure additional features of the Timelapse Colorizer UI, such as showing the unit types of features and scale bars on the main display. Additional metadata will likely be added as the project progresses.
+These metadata parameters are used to configure additional features of the Timelapse Colorizer UI, such as showing scale bars or timestamps on the main display. Additional metadata will likely be added as the project progresses.
 
 Note that the interface will directly show the unit labels and does not scale or convert units from one type to another (for example, it will not convert 1000 µm to 1 mm). If you need to present your data with different units, create a (scaled) duplicate of the feature with a different unit label.
 
@@ -142,7 +155,7 @@ Note that the interface will directly show the unit labels and does not scale or
 
 ---
 
-Let's say a dataset has one feature called `Volume` that is measured in cubic microns (µm³), saved as `volume.json`. Additionally, our microscope viewing area is 3200 µm wide by 2400 µm tall.
+Let's say a dataset has a microscope viewing area is 3200 µm wide by 2400 µm tall, and there are 5 minutes (`=300 seconds`) between each frame. We also want to show the timestamp in colony time, which started 30 minutes (`=1800 seconds`) before the start of the recording.
 
 The manifest file would look something like this:
 
@@ -150,20 +163,14 @@ The manifest file would look something like this:
 --manifest.json--
 {
     ...
-    "features": {
-        "Volume": "volume.json"
-    }
-    "featureMetadata" : {
-        "Volume": {
-            "units": "µm³"
-        }
-    },
     "metadata": {
         "frameDims": {
             "width": 3200,
             "height": 2400,
             "units": "µm"
-        }
+        },
+        "frameDurationSeconds": 300,
+        "startTimeSeconds": 1800
     }
 }
 
