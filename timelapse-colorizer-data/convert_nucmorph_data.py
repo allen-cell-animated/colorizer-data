@@ -25,9 +25,11 @@ from data_writer_utils import (
     ColorizerDatasetWriter,
     ColorizerMetadata,
     configureLogging,
+    make_bounding_box_array,
     sanitize_path_by_platform,
     scale_image,
     remap_segmented_image,
+    update_bounding_box_data,
 )
 
 # Example Commands:
@@ -38,7 +40,7 @@ from data_writer_utils import (
 
 # DATASET SPEC: See DATA_FORMAT.md for more details on the dataset format!
 # You can find the most updated version on GitHub here:
-# https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md
+# https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md
 
 # NUCMORPH DATA REFERENCE:
 # dataset	string	In FMS manifest	Name of which dataset this row of data belongs to (baby_bear, goldilocks, or mama_bear)
@@ -97,6 +99,7 @@ def make_frames(
     """
     nframes = len(grouped_frames)
     logging.info("Making {} frames...".format(nframes))
+    bounds_arr = make_bounding_box_array(grouped_frames)
 
     for group_name, frame in grouped_frames:
         start_time = time.time()
@@ -121,9 +124,8 @@ def make_frames(
             OBJECT_ID_COLUMN,
         )
 
-        writer.write_image_and_bounds_data(
-            seg_remapped, grouped_frames, frame_number, lut
-        )
+        writer.write_image(seg_remapped, frame_number)
+        update_bounding_box_data(bounds_arr, seg_remapped)
 
         time_elapsed = time.time() - start_time
         logging.info(
@@ -131,6 +133,7 @@ def make_frames(
                 int(frame_number), time_elapsed
             )
         )
+    writer.write_data(bounds=bounds_arr)
 
 
 def make_features(
@@ -159,13 +162,13 @@ def make_features(
         f = dataset[feature].to_numpy() * scale_factor
         feature_data.append(f)
 
-    writer.write_feature_data(
-        feature_data,
-        tracks,
-        times,
-        centroids_x,
-        centroids_y,
-        outliers,
+    writer.write_data(
+        features=feature_data,
+        tracks=tracks,
+        times=times,
+        centroids_x=centroids_x,
+        centroids_y=centroids_y,
+        outliers=outliers,
     )
 
 
@@ -221,7 +224,9 @@ def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scal
             metadata["units"] = unit
         feature_metadata.append(metadata)
     dims = get_dataset_dimensions(grouped_frames, pixsize)
-    metadata = ColorizerMetadata(dims[0], dims[1], dims[2])
+    metadata = ColorizerMetadata(
+        frame_width=dims[0], frame_height=dims[1], frame_units=dims[2]
+    )
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
