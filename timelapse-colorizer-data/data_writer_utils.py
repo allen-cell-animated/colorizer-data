@@ -5,15 +5,24 @@ import os
 import pathlib
 import platform
 import re
-from PIL import Image
-from typing import List, TypedDict, Union
+from typing import Dict, List, Sequence, TypedDict, Union
 
 import numpy as np
 import pandas as pd
 import skimage
+from PIL import Image
 
 INITIAL_INDEX_COLUMN = "initialIndex"
-"""Column added to reduced datasets, holding the original indices of each row."""
+"""
+Column added to reduced datasets, holding the original indices of each row.
+
+example:
+```
+reduced_dataset = full_dataset[columns]
+reduced_dataset = reduced_dataset.reset_index(drop=True)
+reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
+```
+"""
 RESERVED_INDICES = 1
 """Reserved indices that cannot be used for cell data. 
 0 is reserved for the background."""
@@ -21,6 +30,56 @@ RESERVED_INDICES = 1
 
 class FeatureMetadata(TypedDict):
     units: str
+
+
+class FrameDimensions(TypedDict):
+    """Dimensions of each frame, in physical units (not pixels)."""
+
+    units: str
+    width: float
+    """Width of a frame in physical units (not pixels)."""
+    height: float
+    """Height of a frame in physical units (not pixels)."""
+
+
+class DatasetMetadata(TypedDict):
+    frameDims: FrameDimensions
+    frameDurationSeconds: float
+    startTimeSeconds: float
+
+
+@dataclass
+class ColorizerMetadata:
+    """Data class representation of metadata for a Colorizer dataset."""
+
+    frame_width: float = 0
+    frame_height: float = 0
+    frame_units: str = ""
+    frame_duration_sec: float = 0
+    start_time_sec: float = 0
+
+    def to_json(self) -> DatasetMetadata:
+        return {
+            "frameDims": {
+                "width": self.frame_width,
+                "height": self.frame_height,
+                "units": self.frame_units,
+            },
+            "startTimeSeconds": self.start_time_sec,
+            "frameDurationSeconds": self.frame_duration_sec,
+        }
+
+
+class DatasetManifest(TypedDict):
+    frames: List[str]
+    features: List[Dict[str, str]]
+    outliers: str
+    tracks: str
+    centroids: str
+    times: str
+    bounds: str
+    featureMetadata: Dict[str, FeatureMetadata]
+    metadata: DatasetMetadata
 
 
 class NumpyValuesEncoder(json.JSONEncoder):
@@ -147,22 +206,65 @@ def update_collection(collection_filepath, dataset_name, dataset_path):
         json.dump(collection, f)
 
 
-@dataclass
-class ColorizerMetadata:
-    """Class representing metadata for a Colorizer dataset."""
+def get_total_objects(dataframe: pd.DataFrame) -> int:
+    """
+    Get the total number of object IDs in the dataset.
 
-    width_units: float
-    height_units: float
-    units: str
+    `dataframe` must have have a column matching the constant `INITIAL_INDEX_COLUMN`.
+    See `INITIAL_INDEX_COLUMN` for usage.
+    """
+    # .max() gives the highest object ID, but not the total number of indices
+    # (we have to add 1.)
+    return dataframe[INITIAL_INDEX_COLUMN].max().max() + 1
 
-    def to_json(self):
-        return {
-            "frameDims": {
-                "width": self.width_units,
-                "height": self.height_units,
-                "units": self.units,
-            }
-        }
+
+def make_bounding_box_array(dataframe: pd.DataFrame) -> np.ndarray:
+    """
+    Makes an appropriately-sized numpy array for bounding box data.
+
+    `dataframe` must have have a column matching the constant `INITIAL_INDEX_COLUMN`.
+    See `INITIAL_INDEX_COLUMN` for usage.
+    """
+    total_objects = get_total_objects(dataframe)
+    return np.ndarray(shape=(total_objects * 4), dtype=np.uint32)
+
+
+def update_bounding_box_data(
+    bbox_data: Union[np.array, Sequence[int]],
+    seg_remapped: np.ndarray,
+):
+    """
+    Updates the tracked bounding box data array for all the indices in the provided
+    segmented image.
+
+    Args:
+        bbox_data (np.array | Sequence[int]): The bounds data array to be updated.
+        seg_remapped (np.ndarray): Segmentation image whose indices start at 1 and are are absolutely unique across the whole dataset,
+            such as the results of `remap_segmented_image()`.
+
+    [Documentation for bounds data format](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#7-bounds-optional)
+    """
+    # Capture bounding boxes
+    object_ids = np.unique(seg_remapped)
+    for i in range(object_ids.size):
+        curr_id = object_ids[i]
+        # Optimize by skipping id=0, since it's used as the null background value in every frame.
+        if curr_id == 0:
+            continue
+        # Boolean array that represents all pixels segmented with this index
+        cell = np.argwhere(seg_remapped == object_ids[i])
+
+        if cell.size > 0 and curr_id > 0:
+            # Write bounds with 0-based indexing
+            write_index = (curr_id - 1) * 4
+
+            # Both min and max are in YX dimension order but we will write it to the array in XY order
+            bbox_min = cell.min(0)
+            bbox_max = cell.max(0)
+            bbox_data[write_index] = bbox_min[1]
+            bbox_data[write_index + 1] = bbox_min[0]
+            bbox_data[write_index + 2] = bbox_max[1]
+            bbox_data[write_index + 3] = bbox_max[0]
 
 
 class ColorizerDatasetWriter:
@@ -171,89 +273,116 @@ class ColorizerDatasetWriter:
 
     The output directory will contain a `manifest.json` and additional dataset files,
     following the data schema described in the project documentation. (See
-    [DATA_FORMAT.md](https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md)
+    [DATA_FORMAT.md](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md)
     for more details.)
     """
 
     outpath: Union[str, pathlib.Path]
-    bbox_data: Union[np.array, None]
+    manifest: DatasetManifest
     scale: float
 
     def __init__(
-        self, output_dir: Union[str, pathlib.Path], dataset: str, scale: float = 1
+        self,
+        output_dir: Union[str, pathlib.Path],
+        dataset: str,
+        scale: float = 1,
     ):
         self.outpath = os.path.join(output_dir, dataset)
         os.makedirs(self.outpath, exist_ok=True)
         self.scale = scale
-        self.bbox_data = None
+        self.manifest = {}
 
-    def write_feature_data(
+    def write_data(
         self,
-        features: List[np.array],
-        tracks: np.array,
-        times: np.array,
-        centroids_x: np.array,
-        centroids_y: np.array,
-        outliers: np.array,
+        features: Union[List[np.ndarray], None] = None,
+        tracks: Union[np.ndarray, None] = None,
+        times: Union[np.ndarray, None] = None,
+        centroids_x: Union[np.ndarray, None] = None,
+        centroids_y: Union[np.ndarray, None] = None,
+        outliers: Union[np.ndarray, None] = None,
+        bounds: Union[np.ndarray, None] = None,
     ):
         """
-        Writes feature, track, centroid, time, and outlier data to JSON files.
+        Writes dataset data arrays (such as feature, track, time, centroid, outlier,
+        and bounds data) to JSON files.
         Accepts numpy arrays for each file type and writes them to the configured
         output directory according to the data format.
 
         Features will be written to files in order of the `features` list,
         starting from 0 (e.g., `feature_0.json`, `feature_1.json`, ...)
 
-        [documentation](https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md#1-tracks)
+        [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#1-tracks)
         """
         # TODO check outlier and replace values with NaN or something!
-        logging.info("Writing outliers.json...")
-        ojs = {"data": outliers.tolist(), "min": False, "max": True}
-        with open(self.outpath + "/outliers.json", "w") as f:
-            json.dump(ojs, f)
+        if outliers is not None:
+            logging.info("Writing outliers.json...")
+            ojs = {"data": outliers.tolist(), "min": False, "max": True}
+            with open(self.outpath + "/outliers.json", "w") as f:
+                json.dump(ojs, f)
+            self.manifest["outliers"] = "outliers.json"
 
         # Note these must be in same order as features and same row order as the dataframe.
-        logging.info("Writing track.json...")
-        trjs = {"data": tracks.tolist()}
-        with open(self.outpath + "/tracks.json", "w") as f:
-            json.dump(trjs, f)
+        if tracks is not None:
+            logging.info("Writing track.json...")
+            trjs = {"data": tracks.tolist()}
+            with open(self.outpath + "/tracks.json", "w") as f:
+                json.dump(trjs, f)
+            self.manifest["tracks"] = "tracks.json"
 
-        logging.info("Writing times.json...")
-        tijs = {"data": times.tolist()}
-        with open(self.outpath + "/times.json", "w") as f:
-            json.dump(tijs, f)
+        if times is not None:
+            logging.info("Writing times.json...")
+            tijs = {"data": times.tolist()}
+            with open(self.outpath + "/times.json", "w") as f:
+                json.dump(tijs, f)
+            self.manifest["times"] = "times.json"
 
-        logging.info("Writing centroids.json...")
-        centroids_stacked = np.ravel(np.dstack([centroids_x, centroids_y]))
-        centroids_stacked = centroids_stacked * self.scale
-        centroids_stacked = centroids_stacked.astype(int)
+        if centroids_x is not None or centroids_y is not None:
+            if centroids_x is None or centroids_y is None:
+                raise Exception(
+                    "Both arguments centroids_x and centroids_y must be defined."
+                )
+            logging.info("Writing centroids.json...")
+            centroids_stacked = np.ravel(np.dstack([centroids_x, centroids_y]))
+            centroids_stacked = centroids_stacked * self.scale
+            centroids_stacked = centroids_stacked.astype(int)
+            centroids_json = {"data": centroids_stacked.tolist()}
+            with open(self.outpath + "/centroids.json", "w") as f:
+                json.dump(centroids_json, f)
+            self.manifest["centroids"] = "centroids.json"
 
-        centroids_json = {"data": centroids_stacked.tolist()}
-        with open(self.outpath + "/centroids.json", "w") as f:
-            json.dump(centroids_json, f)
+        if bounds is not None:
+            logging.info("Writing bounds.json...")
+            bounds_json = {"data": bounds.tolist()}
+            with open(self.outpath + "/bounds.json", "w") as f:
+                json.dump(bounds_json, f)
+            self.manifest["bounds"] = "bounds.json"
 
-        logging.info("Writing feature json...")
-        for i in range(len(features)):
-            f = features[i]
-            fmin = np.nanmin(f)
-            fmax = np.nanmax(f)
-            # TODO normalize output range excluding outliers?
-            js = {"data": f.tolist(), "min": fmin, "max": fmax}
-            with open(self.outpath + "/feature_" + str(i) + ".json", "w") as f:
-                json.dump(js, f, cls=NumpyValuesEncoder)
-        logging.info("Done writing features.")
+        if features is not None:
+            # TODO: Write to self.manifest
+            logging.info("Writing feature json...")
+            for i in range(len(features)):
+                f = features[i]
+                fmin = np.nanmin(f)
+                fmax = np.nanmax(f)
+                # TODO normalize output range excluding outliers?
+                js = {"data": f.tolist(), "min": fmin, "max": fmax}
+                with open(self.outpath + "/feature_" + str(i) + ".json", "w") as f:
+                    json.dump(js, f, cls=NumpyValuesEncoder)
+            logging.info("Done writing features.")
 
     def write_manifest(
         self,
         num_frames: int,
         feature_names: List[str],
+        # TODO: feature metadata should probably go in args of write_feature_data
+        # and be tracked by the writer.
         feature_metadata: List[FeatureMetadata] = [],
         metadata: ColorizerMetadata = None,
     ):
         """
         Writes the final manifest file for the dataset in the configured output directory.
 
-        [documentation](https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md#Dataset)
+        [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#Dataset)
 
         `manifest.json:`
         ```
@@ -284,15 +413,13 @@ class ColorizerDatasetWriter:
         for i in range(len(feature_names)):
             featmap[feature_names[i]] = "feature_" + str(i) + ".json"
 
+        # TODO: Write these progressively to an internal map during feature writing
+        # so we only write the files that are known?
         output_json = {
             "frames": ["frame_" + str(i) + ".png" for i in range(num_frames)],
             "features": featmap,
-            "outliers": "outliers.json",
-            "tracks": "tracks.json",
-            "times": "times.json",
-            "centroids": "centroids.json",
-            "bounds": "bounds.json",
         }
+        output_json.update(self.manifest)
 
         # Merge the feature metadata together and include it in the output if present
         if feature_metadata:
@@ -311,25 +438,9 @@ class ColorizerDatasetWriter:
             output_json["metadata"] = metadata.to_json()
 
         with open(self.outpath + "/manifest.json", "w") as f:
-            json.dump(output_json, f)
+            json.dump(output_json, f, indent=2)
 
         logging.info("Finished writing dataset.")
-
-    def write_image_and_bounds_data(
-        self,
-        seg_remapped: np.ndarray,
-        grouped_frames: pd.DataFrame,
-        frame_num: int,
-        lut: np.ndarray,
-    ):
-        """
-        Writes the current segmented image to a PNG file and also updates the bounding box data
-        for the frame.
-        This is identical to calling `write_image()` and then `update_and_write_bbox_data()`
-        successively.
-        """
-        self.write_image(seg_remapped, frame_num)
-        self.update_and_write_bbox_data(grouped_frames, seg_remapped, lut)
 
     def write_image(
         self,
@@ -342,7 +453,7 @@ class ColorizerDatasetWriter:
 
         IDs for each pixel are stored in the RGBA channels of the image.
 
-        [documentation](https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md#3-frames)
+        [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#3-frames)
         """
         seg_rgba = np.zeros(
             (seg_remapped.shape[0], seg_remapped.shape[1], 4), dtype=np.uint8
@@ -353,49 +464,3 @@ class ColorizerDatasetWriter:
         seg_rgba[:, :, 3] = 255  # (seg2d & 0xFF000000) >> 24
         img = Image.fromarray(seg_rgba)  # new("RGBA", (xres, yres), seg2d)
         img.save(self.outpath + "/frame_" + str(frame_num) + ".png")
-
-    def update_and_write_bbox_data(
-        self,
-        grouped_frames: pd.DataFrame,
-        seg_remapped: np.ndarray,
-        lut: np.ndarray,
-    ):
-        """
-        Gets the bounding box data for all the indices in the current segmented image
-        and progressively writes data to a JSON file in the output directory named `bounds.json`.
-
-        [documentation](https://github.com/allen-cell-animated/nucmorph-colorizer/blob/main/documentation/DATA_FORMAT.md#6-bounds-optional)
-        """
-        # Create new bbox data array if needed
-        if self.bbox_data is None:
-            # .max() gives the highest object ID, but not the total number of indices
-            # (we have to add 1.) 0 is a reserved index (no cells), so add 1.
-            totalIndices = (
-                grouped_frames[INITIAL_INDEX_COLUMN].max().max() + 1 + RESERVED_INDICES
-            )
-            # Create an array, where for each segmentation index
-            # we have 4 indices representing the bounds (2 sets of x,y coordinates).
-            # ushort can represent up to 65_535. Images with a larger resolution than this
-            # will need to replace the datatype.
-            self.bbox_data = np.zeros(shape=(totalIndices * 2 * 2), dtype=np.ushort)
-
-        # Capture bounding boxes
-        # Optimize by skipping i = 0, since it's used as a null value in every frame
-        for i in range(1, lut.size):
-            # Boolean array that represents all pixels segmented with this index
-            cell = np.argwhere(seg_remapped == lut[i])
-
-            if cell.size > 0:
-                write_index = lut[i] * 4
-                # Reverse min and max so it is written in x, y order
-                bbox_min = cell.min(0).tolist()
-                bbox_max = cell.max(0).tolist()
-                bbox_min.reverse()
-                bbox_max.reverse()
-                self.bbox_data[write_index : write_index + 2] = bbox_min
-                self.bbox_data[write_index + 2 : write_index + 4] = bbox_max
-
-        # Save bounding box to JSON (write for each frame in case of crashing.)
-        bbox_json = {"data": np.ravel(self.bbox_data).tolist()}  # flatten to 2D
-        with open(self.outpath + "/bounds.json", "w") as f:
-            json.dump(bbox_json, f)
