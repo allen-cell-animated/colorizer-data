@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import Enum, auto
 import json
 import logging
 import os
@@ -30,7 +30,7 @@ RESERVED_INDICES = 1
 0 is reserved for the background."""
 
 
-class FeatureType(StrEnum):
+class FeatureType(str, Enum):
     CONTINUOUS = "continuous"
     """For continuous decimal values."""
     DISCRETE = "discrete"
@@ -42,7 +42,22 @@ class FeatureType(StrEnum):
     """
 
 
+class FeatureInfo(TypedDict):
+    """
+    Convenience dictionary type, representing the metadata needed to fetch and save
+    feature data from a source dataset.
+    """
+
+    column_name: str
+    label: str
+    unit: str
+    type: FeatureType
+    categories: List[str]
+
+
 class FeatureMetadata(TypedDict):
+    """For data writer internal use. Represents the metadata that will be saved for each feature."""
+
     data: str
     unit: str
     type: FeatureType
@@ -324,26 +339,21 @@ class ColorizerDatasetWriter:
         for each call to `write_feature()`. The first feature will have `feature_0.json`,
         the second `feature_1.json`, and so on.
         """
+        # Fetch feature data
         num_features = len(self.manifest["features"])
         fmin = np.nanmin(data)
         fmax = np.nanmax(data)
         filename = "feature_" + str(num_features) + ".json"
         file_path = self.outpath + "/" + filename
 
-        # Write the feature JSON file
-        # TODO normalize output range excluding outliers?
-        logging.info("Writing {}...".format(filename))
-        js = {"data": data.tolist(), "min": fmin, "max": fmax}
-        with open(file_path, "w") as f:
-            json.dump(js, f, cls=NumpyValuesEncoder)
-
-        # Update manifest with feature data
+        # Create manifest from feature data
         metadata: FeatureMetadata = {
             "data": filename,
             "unit": unit,
             "type": type,
         }
-        # Add categories only if feature is categorical; also do validation here
+
+        # Add categories to metadata only if feature is categorical; also do validation here
         if type == FeatureType.CATEGORICAL:
             if categories is None:
                 raise SyntaxError(
@@ -358,7 +368,16 @@ class ColorizerDatasetWriter:
                     )
                 )
             metadata["categories"] = categories
+            # TODO cast to int, but handle NaN?
 
+        # Write the feature JSON file
+        # TODO normalize output range excluding outliers?
+        logging.info("Writing {}...".format(filename))
+        js = {"data": data.tolist(), "min": fmin, "max": fmax}
+        with open(file_path, "w") as f:
+            json.dump(js, f, cls=NumpyValuesEncoder)
+
+        # Update the manifest with this feature data
         self.manifest["features"][feature_name] = metadata
 
     def write_data(
@@ -455,25 +474,20 @@ class ColorizerDatasetWriter:
           bounds: "bounds.json"
         ```
         """
-        # write manifest file
-        featmap = {}
-        output_json = {}
 
         # TODO: Write these progressively to an internal map during feature writing
         # so we only write the files that are known? (This won't work safely across processes
         # during parallellism though :/)
-        output_json = {
-            "frames": ["frame_" + str(i) + ".png" for i in range(num_frames)],
-            "features": featmap,
-        }
-        output_json.update(self.manifest)
+        self.manifest["frames"] = [
+            "frame_" + str(i) + ".png" for i in range(num_frames)
+        ]
 
         # Add the metadata
         if metadata:
-            output_json["metadata"] = metadata.to_json()
+            self.manifest["metadata"] = metadata.to_json()
 
         with open(self.outpath + "/manifest.json", "w") as f:
-            json.dump(output_json, f, indent=2)
+            json.dump(self.manifest, f, indent=2)
 
         logging.info("Finished writing dataset.")
 
