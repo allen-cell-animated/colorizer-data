@@ -169,8 +169,6 @@ def make_features(
     )
 
     for info in FEATURE_INFO:
-        # Get the units and human-readable label for each feature; we include this as
-        # metadata inside the dataset manifest.
         data = dataset[info.get("column_name")].to_numpy()
         writer.write_feature(data, info)
 

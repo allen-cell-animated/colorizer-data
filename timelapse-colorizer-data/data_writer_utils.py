@@ -327,9 +327,15 @@ class ColorizerDatasetWriter:
         """
         Writes feature data arrays and stores feature metadata to be written to the manifest.
 
+        Args:
+            data (np.ndarray): The numpy array for the feature, to be written to a JSON file.
+            info (FeatureInfo): Metadata for the feature. All keys are optional and will be filled in with defaults, except for `label`.
+
         Feature JSON files are suffixed by index, starting at 0, which increments
         for each call to `write_feature()`. The first feature will have `feature_0.json`,
         the second `feature_1.json`, and so on.
+
+        If the feature type is `FeatureType.CATEGORICAL`, the `categories` key must be defined in `info`.
         """
         # Fetch feature data
         num_features = len(self.manifest["features"])
