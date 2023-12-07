@@ -103,7 +103,6 @@ class ColorizerMetadata:
 
 
 class DatasetManifest(TypedDict):
-    frames: List[str]
     features: List[Dict[str, str]]
     outliers: str
     tracks: str
@@ -112,6 +111,7 @@ class DatasetManifest(TypedDict):
     bounds: str
     featureMetadata: Dict[str, FeatureMetadata]
     metadata: DatasetMetadata
+    frames: List[str]
 
 
 class NumpyValuesEncoder(json.JSONEncoder):
@@ -322,7 +322,7 @@ class ColorizerDatasetWriter:
         self.outpath = os.path.join(output_dir, dataset)
         os.makedirs(self.outpath, exist_ok=True)
         self.scale = scale
-        self.manifest = {"frames": [], "features": {}}
+        self.manifest = {"features": {}}
 
     def write_feature(
         self,
@@ -474,6 +474,9 @@ class ColorizerDatasetWriter:
           bounds: "bounds.json"
         ```
         """
+        # Add the metadata
+        if metadata:
+            self.manifest["metadata"] = metadata.to_json()
 
         # TODO: Write these progressively to an internal map during feature writing
         # so we only write the files that are known? (This won't work safely across processes
@@ -481,10 +484,6 @@ class ColorizerDatasetWriter:
         self.manifest["frames"] = [
             "frame_" + str(i) + ".png" for i in range(num_frames)
         ]
-
-        # Add the metadata
-        if metadata:
-            self.manifest["metadata"] = metadata.to_json()
 
         with open(self.outpath + "/manifest.json", "w") as f:
             json.dump(self.manifest, f, indent=2)

@@ -12,9 +12,9 @@ from data_writer_utils import (
     INITIAL_INDEX_COLUMN,
     ColorizerDatasetWriter,
     ColorizerMetadata,
-    FeatureMetadata,
+    FeatureInfo,
+    FeatureType,
     configureLogging,
-    extract_units_from_feature_name,
     make_bounding_box_array,
     sanitize_path_by_platform,
     scale_image,
@@ -40,16 +40,51 @@ CENTROIDS_X_COLUMN = "R0Nuclei_AreaShape_Center_X"
 """Column of X centroid coordinates, in pixels of original image data."""
 CENTROIDS_Y_COLUMN = "R0Nuclei_AreaShape_Center_Y"
 """Column of Y centroid coordinates, in pixels of original image data."""
-FEATURE_COLUMNS = [
-    "mean migration speed per track (um/min)",
-    "Integrated Distance (um)",
-    "Displacement (um)",
-    "Average colony overlap per track",
-    "migration velocity (um/min)",
-    "R0Cell_Neighbors_NumberOfNeighbors_Adjacent",
-    "R0Cell_Neighbors_PercentTouching_Adjacent",
+FEATURE_INFO: List[FeatureInfo] = [
+    {
+        "column_name": "mean migration speed per track (um/min)",
+        "label": "Mean Migration Speed",
+        "unit": "µm/min",
+        "type": FeatureType.CONTINUOUS,
+    },
+    {
+        "column_name": "Integrated Distance (um)",
+        "label": "Integrated distance",
+        "unit": "µm",
+        "type": FeatureType.CONTINUOUS,
+    },
+    {
+        "column_name": "Displacement (um)",
+        "label": "Displacement",
+        "unit": "µm",
+        "type": FeatureType.CONTINUOUS,
+    },
+    {
+        "column_name": "Average colony overlap per track",
+        "label": "Average colony overlap per track",
+        "unit": "",
+        "type": FeatureType.CONTINUOUS,
+    },
+    {
+        "column_name": "migration velocity (um/min)",
+        "label": "Migration velocity",
+        "unit": "µm/min",
+        "type": FeatureType.CONTINUOUS,
+    },
+    {
+        "column_name": "R0Cell_Neighbors_NumberOfNeighbors_Adjacent",
+        "label": "Adjacent Neighbors",
+        "unit": "",
+        "type": FeatureType.DISCRETE,
+    },
+    {
+        "column_name": "R0Cell_Neighbors_PercentTouching_Adjacent",
+        "label": "Percent Touching Neighbors",
+        "unit": "%",
+        "type": FeatureType.CONTINUOUS,
+    },
 ]
-"""Columns of feature data to include in the dataset. Each column will be its own feature file."""
+"""List of features to save to the dataset, with additional information about the label, unit, and feature type."""
 
 PHYSICAL_PIXEL_SIZE_XY = 0.271
 PHYSICAL_PIXEL_UNIT_XY = "µm"
@@ -111,7 +146,6 @@ def make_frames(
 
 def make_features(
     dataset: pd.DataFrame,
-    features: List[str],
     writer: ColorizerDatasetWriter,
 ):
     """
@@ -126,20 +160,25 @@ def make_features(
     centroids_x = dataset[CENTROIDS_X_COLUMN].to_numpy()
     centroids_y = dataset[CENTROIDS_Y_COLUMN].to_numpy()
 
-    feature_data = []
-    for i in range(len(features)):
-        # TODO normalize output range excluding outliers?
-        f = dataset[features[i]].to_numpy()
-        feature_data.append(f)
-
     writer.write_data(
-        features=feature_data,
         tracks=tracks,
         times=times,
         centroids_x=centroids_x,
         centroids_y=centroids_y,
         outliers=outliers,
     )
+
+    for info in FEATURE_INFO:
+        # Get the units and human-readable label for each feature; we include this as
+        # metadata inside the dataset manifest.
+        data = dataset[info.get("column_name")].to_numpy()
+        writer.write_feature(
+            info.get("label"),
+            data,
+            unit=info.get("unit"),
+            type=info.get("type"),
+            categories=info.get("categories"),
+        )
 
 
 def get_dataset_dimensions(grouped_frames: DataFrameGroupBy) -> (float, float, str):
@@ -188,16 +227,6 @@ def make_dataset(
     reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
     grouped_frames = reduced_dataset.groupby(TIMES_COLUMN)
 
-    # Get the units and human-readable label for each feature; we include this as
-    # metadata inside the dataset manifest.
-    feature_labels = []
-    feature_metadata: List[FeatureMetadata] = []
-    for feature in FEATURE_COLUMNS:
-        (label, unit) = extract_units_from_feature_name(feature)
-        feature_labels.append(label[0:1].upper() + label[1:])  # Capitalize first letter
-        if unit is not None:
-            unit = unit.replace("um", "µm")
-        feature_metadata.append({"units": unit})
     dims = get_dataset_dimensions(grouped_frames)
     metadata = ColorizerMetadata(
         frame_width=dims[0], frame_height=dims[1], frame_units=dims[2]
@@ -205,12 +234,10 @@ def make_dataset(
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
-    make_features(full_dataset, FEATURE_COLUMNS, writer)
+    make_features(full_dataset, writer)
     if do_frames:
         make_frames(grouped_frames, scale, writer)
-    writer.write_manifest(
-        nframes, feature_labels, feature_metadata=feature_metadata, metadata=metadata
-    )
+    writer.write_manifest(nframes, metadata=metadata)
 
 
 # TODO: Make top-level function

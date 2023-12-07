@@ -24,7 +24,8 @@ from data_writer_utils import (
     INITIAL_INDEX_COLUMN,
     ColorizerDatasetWriter,
     ColorizerMetadata,
-    FeatureMetadata,
+    FeatureInfo,
+    FeatureType,
     configureLogging,
     make_bounding_box_array,
     sanitize_path_by_platform,
@@ -51,24 +52,46 @@ CENTROIDS_X_COLUMN = "x"
 """Column of X centroid coordinates, in pixels of original image data."""
 CENTROIDS_Y_COLUMN = "y"
 """Column of Y centroid coordinates, in pixels of original image data."""
-FEATURE_COLUMNS = [
-    "Slice",
-    "Area",
-    "Orientation",
-    "Aspect_Ratio",
-    "Circularity",
-    "Mean_Fluor",
-]
-"""Columns of feature data to include in the dataset. Each column will be its own feature file."""
 
-FEATURE_COLUMNS_TO_UNITS = {
-    "Mean_Fluor": "AU",  # arbitrary units
-    "Area": "px²",
-}
-FEATURE_COLUMNS_TO_NAMES = {
-    "Aspect_Ratio": "Aspect Ratio",
-    "Mean_Fluor": "Mean Fluorescence",
-}
+FEATURE_INFO: List[FeatureInfo] = [
+    {
+        "column_name": "Slice",
+        "label": "Slice",
+        "unit": "",
+        "type": FeatureType.CONTINUOUS,
+    },
+    {
+        "column_name": "Area",
+        "label": "Area",
+        "unit": "px²",
+        "type": FeatureType.CONTINUOUS,
+    },
+    {
+        "column_name": "Orientation",
+        "label": "Orientation",
+        "unit": "",
+        "type": FeatureType.CONTINUOUS,
+    },
+    {
+        "column_name": "Aspect_Ratio",
+        "label": "Aspect Ratio",
+        "unit": "",
+        "type": FeatureType.CONTINUOUS,
+    },
+    {
+        "column_name": "Circularity",
+        "label": "Circularity",
+        "unit": "",
+        "type": FeatureType.CONTINUOUS,
+    },
+    {
+        "column_name": "Mean_Fluor",
+        "label": "Mean Fluorescence",
+        "unit": "AU",
+        "type": FeatureType.CONTINUOUS,
+    },
+]
+"""List of features to save to the dataset, with additional information about the label, unit, and feature type."""
 
 PHYSICAL_PIXEL_SIZE_XY = 0.271
 PHYSICAL_PIXEL_UNIT_XY = "µm"
@@ -139,7 +162,6 @@ def make_frames(
 
 def make_features(
     dataset: pd.DataFrame,
-    features: List[str],
     writer: ColorizerDatasetWriter,
 ):
     """
@@ -158,19 +180,25 @@ def make_features(
     shape = dataset.shape
     tracks = np.array([*range(shape[0])])
 
-    feature_data = []
-    for feature in features:
-        f = dataset[feature].to_numpy()
-        feature_data.append(f)
-
     writer.write_data(
-        features=feature_data,
         tracks=tracks,
         times=times,
         centroids_x=centroids_x,
         centroids_y=centroids_y,
         outliers=outliers,
     )
+
+    for info in FEATURE_INFO:
+        # Get the units and human-readable label for each feature; we include this as
+        # metadata inside the dataset manifest.
+        data = dataset[info.get("column_name")].to_numpy()
+        writer.write_feature(
+            info.get("label"),
+            data,
+            unit=info.get("unit"),
+            type=info.get("type"),
+            categories=info.get("categories"),
+        )
 
 
 def get_dataset_dimensions(grouped_frames: DataFrameGroupBy) -> (float, float, str):
@@ -213,15 +241,6 @@ def make_dataset(
     reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
     grouped_frames = reduced_dataset.groupby(TIMES_COLUMN)
 
-    # Get the units and human-readable label for each feature; we include this as
-    # metadata inside the dataset manifest.
-    feature_labels = []
-    feature_metadata: List[FeatureMetadata] = []
-    for feature in FEATURE_COLUMNS:
-        label = FEATURE_COLUMNS_TO_NAMES.get(feature, feature)
-        unit = FEATURE_COLUMNS_TO_UNITS.get(feature, None)
-        feature_labels.append(label[0:1].upper() + label[1:])  # Capitalize first letter
-        feature_metadata.append({"units": unit})
     dims = get_dataset_dimensions(grouped_frames)
     metadata = ColorizerMetadata(
         frame_width=dims[0], frame_height=dims[1], frame_units=dims[2]
@@ -229,12 +248,10 @@ def make_dataset(
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
-    make_features(full_dataset, FEATURE_COLUMNS, writer)
+    make_features(full_dataset, writer)
     if do_frames:
         make_frames(grouped_frames, scale, writer)
-    writer.write_manifest(
-        nframes, feature_labels, feature_metadata=feature_metadata, metadata=metadata
-    )
+    writer.write_manifest(nframes, metadata=metadata)
 
 
 # This is stuff scientists are responsible for!!

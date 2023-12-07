@@ -24,6 +24,7 @@ from data_writer_utils import (
     INITIAL_INDEX_COLUMN,
     ColorizerDatasetWriter,
     ColorizerMetadata,
+    FeatureType,
     configureLogging,
     make_bounding_box_array,
     sanitize_path_by_platform,
@@ -146,30 +147,38 @@ def make_features(
     Generate the outlier, track, time, centroid, and feature data files.
     """
     # Collect array data from the dataframe for writing.
-
     outliers = dataset[OUTLIERS_COLUMN].to_numpy()
     tracks = dataset[TRACK_ID_COLUMN].to_numpy()
     times = dataset[TIMES_COLUMN].to_numpy()
     centroids_x = dataset[CENTROIDS_X_COLUMN].to_numpy()
     centroids_y = dataset[CENTROIDS_Y_COLUMN].to_numpy()
 
-    feature_data = []
-    for feature in feature_names:
-        # Scale feature to use actual units
-        (scale_factor, label, unit) = get_plot_labels_for_metric(
-            feature, dataset=dataset_name
-        )
-        f = dataset[feature].to_numpy() * scale_factor
-        feature_data.append(f)
-
     writer.write_data(
-        features=feature_data,
         tracks=tracks,
         times=times,
         centroids_x=centroids_x,
         centroids_y=centroids_y,
         outliers=outliers,
     )
+
+    # Write the feature data
+    formatted_units = {
+        "": None,
+        "($\mu m$)": "µm",
+        "($\mu m^3$)": "µm³",
+        "($\mu m^3$/hr)": "µm³/hr",
+        "(min)": "min",
+        "($\mu m^{-1}$)": "µm⁻¹",
+    }
+    for feature in feature_names:
+        (scale_factor, label, unit) = get_plot_labels_for_metric(
+            feature, dataset=dataset_name
+        )
+        unit = formatted_units.get(unit)
+        # Get data and scale to use actual units
+        data = dataset[feature].to_numpy() * scale_factor
+
+        writer.write_feature(label, data, unit=unit, type=FeatureType.CONTINUOUS)
 
 
 def get_dataset_dimensions(
@@ -203,26 +212,6 @@ def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scal
     reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
     grouped_frames = reduced_dataset.groupby(TIMES_COLUMN)
 
-    # Get the units and human-readable label for each feature; we include this as
-    # metadata inside the dataset manifest.
-    feature_labels = []
-    feature_metadata = []
-    formatted_units = {
-        "": None,
-        "($\mu m$)": "µm",
-        "($\mu m^3$)": "µm³",
-        "($\mu m^3$/hr)": "µm³/hr",
-        "(min)": "min",
-        "($\mu m^{-1}$)": "µm⁻¹",
-    }
-    for feature in FEATURE_COLUMNS:
-        (scale_factor, label, unit) = get_plot_labels_for_metric(feature)
-        feature_labels.append(label.capitalize())
-        metadata = {}
-        unit = formatted_units.get(unit)
-        if unit:
-            metadata["units"] = unit
-        feature_metadata.append(metadata)
     dims = get_dataset_dimensions(grouped_frames, pixsize)
     metadata = ColorizerMetadata(
         frame_width=dims[0], frame_height=dims[1], frame_units=dims[2]
@@ -233,9 +222,7 @@ def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scal
     make_features(full_dataset, FEATURE_COLUMNS, dataset, writer)
     if do_frames:
         make_frames(grouped_frames, scale, writer)
-    writer.write_manifest(
-        nframes, feature_labels, feature_metadata=feature_metadata, metadata=metadata
-    )
+    writer.write_manifest(nframes, metadata=metadata)
 
 
 parser = argparse.ArgumentParser()

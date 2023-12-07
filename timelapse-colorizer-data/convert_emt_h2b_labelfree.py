@@ -294,8 +294,14 @@ def make_features(
 
     for info in FEATURE_INFO:
         # TODO normalize output range excluding outliers?
-        data = dataset[info["column_name"]].to_numpy()
-        writer.write_feature(info["label"], data, unit=info["unit"], type=info["type"])
+        data = dataset[info.get("column_name")].to_numpy()
+        writer.write_feature(
+            info.get("label"),
+            data,
+            unit=info.get("unit"),
+            type=info.get("type"),
+            categories=info.get("categories"),
+        )
 
     # Custom: Write a categorical feature based on cell type by aggregating the masks
     # 0 = colony cell, 1 = edge cell, 2 = migratory cell
