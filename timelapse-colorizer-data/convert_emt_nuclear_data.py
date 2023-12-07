@@ -192,13 +192,7 @@ def make_features(
         # Get the units and human-readable label for each feature; we include this as
         # metadata inside the dataset manifest.
         data = dataset[info.get("column_name")].to_numpy()
-        writer.write_feature(
-            info.get("label"),
-            data,
-            unit=info.get("unit"),
-            type=info.get("type"),
-            categories=info.get("categories"),
-        )
+        writer.write_feature(data, info)
 
 
 def get_dataset_dimensions(grouped_frames: DataFrameGroupBy) -> (float, float, str):

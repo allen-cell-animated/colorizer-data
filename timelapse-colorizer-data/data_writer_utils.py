@@ -44,8 +44,7 @@ class FeatureType(str, Enum):
 
 class FeatureInfo(TypedDict):
     """
-    Convenience dictionary type, representing the metadata needed to fetch and save
-    feature data from a source dataset.
+    Typed dictionary representing a feature's metadata.
     """
 
     column_name: str
@@ -324,14 +323,7 @@ class ColorizerDatasetWriter:
         self.scale = scale
         self.manifest = {"features": {}}
 
-    def write_feature(
-        self,
-        feature_name: str,
-        data: np.ndarray,
-        unit: str = "",
-        type: FeatureType = FeatureType.CONTINUOUS,
-        categories: Union[List[str], None] = None,
-    ):
+    def write_feature(self, data: np.ndarray, info: FeatureInfo):
         """
         Writes feature data arrays and stores feature metadata to be written to the manifest.
 
@@ -347,27 +339,28 @@ class ColorizerDatasetWriter:
         file_path = self.outpath + "/" + filename
 
         # Create manifest from feature data
+        # Note: use .get() to handle missing keys
         metadata: FeatureMetadata = {
             "data": filename,
-            "unit": unit,
-            "type": type,
+            "unit": info.get("unit", ""),
+            "type": info.get("type", FeatureType.CONTINUOUS),
         }
 
         # Add categories to metadata only if feature is categorical; also do validation here
         if type == FeatureType.CATEGORICAL:
-            if categories is None:
-                raise SyntaxError(
+            if info.get("categories") is None:
+                raise RuntimeError(
                     "write_feature: Feature '{}' has type CATEGORICAL but no categories were provided.".format(
-                        feature_name
+                        info.get("label")
                     )
                 )
-            if len(categories) > MAX_CATEGORIES:
-                raise ValueError(
+            if len(info.get("categories")) > MAX_CATEGORIES:
+                raise RuntimeError(
                     "write_feature: Cannot exceed maximum number of categories ({} > {})".format(
-                        len(categories), MAX_CATEGORIES
+                        len(info.get("categories")), MAX_CATEGORIES
                     )
                 )
-            metadata["categories"] = categories
+            metadata["categories"] = info.get("categories")
             # TODO cast to int, but handle NaN?
 
         # Write the feature JSON file
@@ -378,7 +371,12 @@ class ColorizerDatasetWriter:
             json.dump(js, f, cls=NumpyValuesEncoder)
 
         # Update the manifest with this feature data
-        self.manifest["features"][feature_name] = metadata
+        # Default to column name if no label is given; throw error if neither is present
+        label = info.get("label", info.get("column_label"))
+        if label is None:
+            raise RuntimeError("write_feature: Provided FeatureInfo has no label.")
+
+        self.manifest["features"][label] = metadata
 
     def write_data(
         self,

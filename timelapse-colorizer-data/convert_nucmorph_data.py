@@ -178,7 +178,9 @@ def make_features(
         # Get data and scale to use actual units
         data = dataset[feature].to_numpy() * scale_factor
 
-        writer.write_feature(label, data, unit=unit, type=FeatureType.CONTINUOUS)
+        writer.write_feature(
+            data, {"label": label, "unit": unit, "type": FeatureType.CONTINUOUS}
+        )
 
 
 def get_dataset_dimensions(
