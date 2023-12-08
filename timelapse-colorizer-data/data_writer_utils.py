@@ -38,13 +38,23 @@ class FeatureType(str, Enum):
     CATEGORICAL = "categorical"
     """For category labels. Can include up to 12 string categories, stored in the feature's
     `categories` field. The feature data value for each object ID should be the
-    integer indexes of the corresponding label.
+    integer index of the name in the `categories` field.
     """
 
 
 @dataclass
 class FeatureInfo:
-    """Represents a feature's metadata."""
+    """Represents a feature's metadata.
+
+    Args:
+        - `label` (`str`): The human-readable name of the feature. Empty string (`""`) by default.
+        - `column_name` (`str`): The column name, in the dataset, of the feature. Used for the feature's name
+        if no label is provided. Empty string (`""`) by default.
+        - `unit` (`str`): Units this feature is measured in. Empty string (`""`) by default.
+        - `type` (`FeatureType`): The type, either continuous, discrete, or categorical, of this feature.
+        `FeatureType.CONTINUOUS` by default.
+        - `categories` (`List`[str]): The ordered categories for categorical features. `None` by default.
+    """
 
     label: str = ""
     column_name: str = ""
@@ -57,6 +67,7 @@ class FeatureMetadata(TypedDict):
     """For data writer internal use. Represents the metadata that will be saved for each feature."""
 
     data: str
+    """The relative path from the manifest to the feature JSON file."""
     unit: str
     type: FeatureType
     categories: List[str]
@@ -368,7 +379,6 @@ class ColorizerDatasetWriter:
             # TODO cast to int, but handle NaN?
 
         # Write the feature JSON file
-        # TODO normalize output range excluding outliers?
         logging.info("Writing {}...".format(filename))
         js = {"data": data.tolist(), "min": fmin, "max": fmax}
         with open(file_path, "w") as f:

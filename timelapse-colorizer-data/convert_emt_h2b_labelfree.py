@@ -293,7 +293,6 @@ def make_features(
     )
 
     for info in FEATURE_INFO:
-        # TODO normalize output range excluding outliers?
         data = dataset[info.column_name].to_numpy()
         writer.write_feature(data, info)
 
