@@ -33,7 +33,7 @@ The most important file is the **manifest**, which is a JSON file that describes
             "data": <relative path to feature JSON>,
             "unit": <unit label>,                                 //< optional
             "type": <"continuous" | "discrete" | "categorical">,  //< optional
-            "categories": [<category 1>, <category 2>, ...,]      //< optional; max 12 categories
+            "categories": [<category 1>, <category 2>, ...,]      //< optional unless type is "categorical"; max 12 categories
         }
         <feature name 2>: {...},
         ...
@@ -52,6 +52,7 @@ The most important file is the **manifest**, which is a JSON file that describes
 Note that the `outliers`, `centroids`, and `bounds` files are optional, but certain features of Timelapse-Colorizer won't work without them.
 
 Features can also define additional optional metadata, such as the units and type. Note that there are additional restrictions on some of these fields. Type must have values `continuous` for floats or decimals, `discrete` for integers, or `categorical` for distinct labels.
+
 Features that have the type `categorical` must also define an array of string `categories`, up to a maximum of 12.
 
 A complete example dataset is also available in the [`documentation`](./example_dataset) directory of this project, and can be [viewed on Timelapse-Colorizer](https://dev-aics-dtp-001.int.allencell.org/nucmorph-colorizer/dist/?dataset=https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/example_dataset/manifest.json).
@@ -105,7 +106,7 @@ The `manifest.json` file would look something like this:
             unit: "cell(s)",
             type: "discrete"
         },
-        "Mitotic Stages": {
+        "Life Stage": {
             data: "feature_2.json",
             type: "categorical",
             categories: ["G1", "S", "G2", "Prophase", "Metaphase", "Anaphase", "Telophase" ]
@@ -290,7 +291,11 @@ The resulting frame would look like this:
 
 Datasets can contain any number of `features`, which are a numeric value assigned to each object ID in the dataset. Features are used by the Timelapse-Colorizer to colorize objects, and each feature file corresponds to a single column of data. Examples of relevant features might include the volume, depth, number of neighbors, age, etc. of each object.
 
-Features include a `data` array, specifying the feature value for each object ID, and should also provide a `min` and `max` range property.
+Features include a `data` array, specifying the feature value for each object ID, and should also provide a `min` and `max` range property. How feature values
+should be interpreted can be defined in the `manifest.json` metadata.
+
+For continuous features, decimal and float values will be shown directly, and discrete features will be rounded to the nearest int. For categorical features,
+the feature values will be parsed as integers (rounded) and used to index into the `categories` array provided in the `manifest.json`.
 
 ```
 --feature1.json--
@@ -305,6 +310,56 @@ Features include a `data` array, specifying the feature value for each object ID
     "max": <max value for all features>
 }
 ```
+
+<details>
+<summary><b>[Show me an example!]</b></summary>
+
+---
+
+Let's use the "Life Stages" feature example from before, in the manifest. Here's a snippet of the feature metadata in the manifest.
+
+```
+--- manifest.json---
+...
+features: {
+    "Life Stage": {
+        data: "feature_2.json",
+        type: "categorical",
+        categories: ["G1", "S", "G2", "Prophase", "Metaphase", "Anaphase", "Telophase" ]
+    },
+    ...
+}
+...
+```
+
+There are 7 categories, so our feature values should be integer indexes ranging from 0 to 6. Let's say our dataset has only one frame, for simplicity, and the following cells are visible:
+
+| Cell # | Life Stage | Index |
+| ------ | ---------- | ----- |
+| 0      | Metaphase  | 4     |
+| 1      | G1         | 0     |
+| 2      | Telophase  | 6     |
+| 3      | G2         | 2     |
+
+Our feature file should look something like this.
+
+```
+--feature2.json--
+{
+    "data": [
+        4,  // Cell #0
+        0,  // Cell #1
+        6,  // Cell #2
+        2   // Cell #3
+    ],
+    "min": 0,
+    "max": 6
+}
+```
+
+---
+
+</details>
 
 ### 6. Centroids (optional)
 
