@@ -29,13 +29,13 @@ The most important file is the **manifest**, which is a JSON file that describes
         ...
     ],
     "features": {
-        <feature name 1>: {
+        <feature display name>: {  // feature names must be unique
             "data": <relative path to feature JSON>,
             "unit": <unit label>,                                 //< optional
             "type": <"continuous" | "discrete" | "categorical">,  //< optional
             "categories": [<category 1>, <category 2>, ...,]      //< optional unless type is "categorical"; max 12 categories
         }
-        <feature name 2>: {...},
+        <feature display name>: {...},
         ...
     },
     "tracks": <relative path to tracks JSON>,
