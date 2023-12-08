@@ -41,48 +41,48 @@ CENTROIDS_X_COLUMN = "R0Nuclei_AreaShape_Center_X"
 CENTROIDS_Y_COLUMN = "R0Nuclei_AreaShape_Center_Y"
 """Column of Y centroid coordinates, in pixels of original image data."""
 FEATURE_INFO: List[FeatureInfo] = [
-    {
-        "column_name": "mean migration speed per track (um/min)",
-        "label": "Mean Migration Speed",
-        "unit": "µm/min",
-        "type": FeatureType.CONTINUOUS,
-    },
-    {
-        "column_name": "Integrated Distance (um)",
-        "label": "Integrated distance",
-        "unit": "µm",
-        "type": FeatureType.CONTINUOUS,
-    },
-    {
-        "column_name": "Displacement (um)",
-        "label": "Displacement",
-        "unit": "µm",
-        "type": FeatureType.CONTINUOUS,
-    },
-    {
-        "column_name": "Average colony overlap per track",
-        "label": "Average colony overlap per track",
-        "unit": "",
-        "type": FeatureType.CONTINUOUS,
-    },
-    {
-        "column_name": "migration velocity (um/min)",
-        "label": "Migration velocity",
-        "unit": "µm/min",
-        "type": FeatureType.CONTINUOUS,
-    },
-    {
-        "column_name": "R0Cell_Neighbors_NumberOfNeighbors_Adjacent",
-        "label": "Adjacent Neighbors",
-        "unit": "",
-        "type": FeatureType.DISCRETE,
-    },
-    {
-        "column_name": "R0Cell_Neighbors_PercentTouching_Adjacent",
-        "label": "Percent Touching Neighbors",
-        "unit": "%",
-        "type": FeatureType.CONTINUOUS,
-    },
+    FeatureInfo(
+        label="Mean Migration Speed",
+        column_name="mean migration speed per track (um/min)",
+        unit="µm/min",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Integrated distance",
+        column_name="Integrated Distance (um)",
+        unit="µm",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Displacement",
+        column_name="Displacement (um)",
+        unit="µm",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Average colony overlap per track",
+        column_name="Average colony overlap per track",
+        unit="",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Migration velocity",
+        column_name="migration velocity (um/min)",
+        unit="µm/min",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Adjacent Neighbors",
+        column_name="R0Cell_Neighbors_NumberOfNeighbors_Adjacent",
+        unit="",
+        type=FeatureType.DISCRETE,
+    ),
+    FeatureInfo(
+        label="Percent Touching Neighbors",
+        column_name="R0Cell_Neighbors_PercentTouching_Adjacent",
+        unit="%",
+        type=FeatureType.CONTINUOUS,
+    ),
 ]
 """List of features to save to the dataset, with additional information about the label, unit, and feature type."""
 
@@ -169,7 +169,7 @@ def make_features(
     )
 
     for info in FEATURE_INFO:
-        data = dataset[info.get("column_name")].to_numpy()
+        data = dataset[info.column_name].to_numpy()
         writer.write_feature(data, info)
 
 

@@ -54,42 +54,42 @@ CENTROIDS_Y_COLUMN = "y"
 """Column of Y centroid coordinates, in pixels of original image data."""
 
 FEATURE_INFO: List[FeatureInfo] = [
-    {
-        "column_name": "Slice",
-        "label": "Slice",
-        "unit": "",
-        "type": FeatureType.CONTINUOUS,
-    },
-    {
-        "column_name": "Area",
-        "label": "Area",
-        "unit": "px²",
-        "type": FeatureType.CONTINUOUS,
-    },
-    {
-        "column_name": "Orientation",
-        "label": "Orientation",
-        "unit": "",
-        "type": FeatureType.CONTINUOUS,
-    },
-    {
-        "column_name": "Aspect_Ratio",
-        "label": "Aspect Ratio",
-        "unit": "",
-        "type": FeatureType.CONTINUOUS,
-    },
-    {
-        "column_name": "Circularity",
-        "label": "Circularity",
-        "unit": "",
-        "type": FeatureType.CONTINUOUS,
-    },
-    {
-        "column_name": "Mean_Fluor",
-        "label": "Mean Fluorescence",
-        "unit": "AU",
-        "type": FeatureType.CONTINUOUS,
-    },
+    FeatureInfo(
+        label="Slice",
+        column_name="Slice",
+        unit="",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Area",
+        column_name="Area",
+        unit="px²",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Orientation",
+        column_name="Orientation",
+        unit="",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Aspect Ratio",
+        column_name="Aspect_Ratio",
+        unit="",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Circularity",
+        column_name="Circularity",
+        unit="",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Mean Fluorescence",
+        column_name="Mean_Fluor",
+        unit="AU",
+        type=FeatureType.CONTINUOUS,
+    ),
 ]
 """List of features to save to the dataset, with additional information about the label, unit, and feature type."""
 
@@ -189,7 +189,7 @@ def make_features(
     )
 
     for info in FEATURE_INFO:
-        data = dataset[info.get("column_name")].to_numpy()
+        data = dataset[info.column_name].to_numpy()
         writer.write_feature(data, info)
 
 

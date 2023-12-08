@@ -60,54 +60,54 @@ FEATURE_COLUMNS = [
 ]
 """Columns of feature data to include in the dataset. Each column will be its own feature file."""
 FEATURE_INFO: List[FeatureInfo] = [
-    {
-        "column_name": "R0Cell_Neighbors_NumberOfNeighbors_Adjacent",
-        "label": "Adjacent neighbors",
-        "unit": "",
-        "type": FeatureType.DISCRETE,
-    },
-    {
-        "column_name": "R0Nuclei_AreaShape_Area",
-        "label": "Nuclei area",
-        "unit": "",
-        "type": FeatureType.CONTINUOUS,
-    },
-    {
-        "column_name": "R0Cell_AreaShape_Area",
-        "label": "Cell area",
-        "unit": "",
-        "type": FeatureType.CONTINUOUS,
-    },
-    {
-        "column_name": "Radial distance from colony centroid (um)",
-        "label": "Radial distance from colony center",
-        "unit": "µm",
-        "type": FeatureType.CONTINUOUS,
-    },
-    {
-        "column_name": "Avg(Distance to Neighbor Nuclei)",
-        "label": "Avg. distance to neighbor nuclei",
-        "unit": "µm",
-        "type": FeatureType.CONTINUOUS,
-    },
-    {
-        "column_name": "Migratory Cell (colony mask)",
-        "label": "Migratory cell mask",
-        "unit": "",
-        "type": FeatureType.DISCRETE,
-    },
-    {
-        "column_name": "Edge cell (colony mask)",
-        "label": "Edge cell mask",
-        "unit": "",
-        "type": FeatureType.DISCRETE,
-    },
-    {
-        "column_name": "Colony cell (colony mask)",
-        "label": "Colony cell mask",
-        "unit": "",
-        "type": FeatureType.DISCRETE,
-    },
+    FeatureInfo(
+        label="Adjacent neighbors",
+        column_name="R0Cell_Neighbors_NumberOfNeighbors_Adjacent",
+        unit="",
+        type=FeatureType.DISCRETE,
+    ),
+    FeatureInfo(
+        label="Nuclei area",
+        column_name="R0Nuclei_AreaShape_Area",
+        unit="",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Cell area",
+        column_name="R0Cell_AreaShape_Area",
+        unit="",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Radial distance from colony center",
+        column_name="Radial distance from colony centroid (um)",
+        unit="",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Avg. distance to neighbor nuclei",
+        column_name="Avg(Distance to Neighbor Nuclei)",
+        unit="",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Migratory cell mask",
+        column_name="Migratory Cell (colony mask)",
+        unit="",
+        type=FeatureType.DISCRETE,
+    ),
+    FeatureInfo(
+        label="Edge cell mask",
+        column_name="Edge cell (colony mask)",
+        unit="",
+        type=FeatureType.DISCRETE,
+    ),
+    FeatureInfo(
+        label="Colony cell mask",
+        column_name="Colony cell (colony mask)",
+        unit="",
+        type=FeatureType.DISCRETE,
+    ),
 ]
 
 PHYSICAL_PIXEL_SIZE_XY = 0.271
@@ -294,7 +294,7 @@ def make_features(
 
     for info in FEATURE_INFO:
         # TODO normalize output range excluding outliers?
-        data = dataset[info.get("column_name")].to_numpy()
+        data = dataset[info.column_name].to_numpy()
         writer.write_feature(data, info)
 
     # Custom: Write a categorical feature based on cell type by aggregating the masks
@@ -306,11 +306,11 @@ def make_features(
     cell_types += migratory_mask * 2
     writer.write_feature(
         cell_types,
-        {
-            "label": "Cell type",
-            "type": FeatureType.CATEGORICAL,
-            "categories": ["Colony Cell", "Edge Cell", "Migratory Cell"],
-        },
+        FeatureInfo(
+            label="Cell type",
+            type=FeatureType.CATEGORICAL,
+            categories=["Colony Cell", "Edge Cell", "Migratory Cell"],
+        ),
     )
 
 

@@ -24,6 +24,7 @@ from data_writer_utils import (
     INITIAL_INDEX_COLUMN,
     ColorizerDatasetWriter,
     ColorizerMetadata,
+    FeatureInfo,
     FeatureType,
     configureLogging,
     make_bounding_box_array,
@@ -179,7 +180,7 @@ def make_features(
         data = dataset[feature].to_numpy() * scale_factor
 
         writer.write_feature(
-            data, {"label": label, "unit": unit, "type": FeatureType.CONTINUOUS}
+            data, FeatureInfo(label=label, unit=unit, type=FeatureType.CONTINUOUS)
         )
 
 

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import Enum
 import json
 import logging
 import os
@@ -42,16 +42,15 @@ class FeatureType(str, Enum):
     """
 
 
-class FeatureInfo(TypedDict):
-    """
-    Typed dictionary representing a feature's metadata.
-    """
+@dataclass
+class FeatureInfo:
+    """Represents a feature's metadata."""
 
-    column_name: str
-    label: str
-    unit: str
-    type: FeatureType
-    categories: List[str]
+    label: str = ""
+    column_name: str = ""
+    unit: str = ""
+    type: FeatureType = FeatureType.CONTINUOUS
+    categories: Union[List[str], None] = None
 
 
 class FeatureMetadata(TypedDict):
@@ -329,13 +328,13 @@ class ColorizerDatasetWriter:
 
         Args:
             data (np.ndarray): The numpy array for the feature, to be written to a JSON file.
-            info (FeatureInfo): Metadata for the feature. All keys are optional and will be filled in with defaults, except for `label`.
+            info (FeatureInfo): Metadata for the feature.
 
         Feature JSON files are suffixed by index, starting at 0, which increments
         for each call to `write_feature()`. The first feature will have `feature_0.json`,
         the second `feature_1.json`, and so on.
 
-        If the feature type is `FeatureType.CATEGORICAL`, the `categories` key must be defined in `info`.
+        If the feature type is `FeatureType.CATEGORICAL`, `categories` must be defined in `info`.
         """
         # Fetch feature data
         num_features = len(self.manifest["features"])
@@ -345,28 +344,27 @@ class ColorizerDatasetWriter:
         file_path = self.outpath + "/" + filename
 
         # Create manifest from feature data
-        # Note: use .get() to handle missing keys
         metadata: FeatureMetadata = {
             "data": filename,
-            "unit": info.get("unit", ""),
-            "type": info.get("type", FeatureType.CONTINUOUS),
+            "unit": info.unit,
+            "type": info.type,
         }
 
         # Add categories to metadata only if feature is categorical; also do validation here
-        if type == FeatureType.CATEGORICAL:
-            if info.get("categories") is None:
+        if info.type == FeatureType.CATEGORICAL:
+            if info.categories is None:
                 raise RuntimeError(
                     "write_feature: Feature '{}' has type CATEGORICAL but no categories were provided.".format(
-                        info.get("label")
+                        info.label
                     )
                 )
-            if len(info.get("categories")) > MAX_CATEGORIES:
+            if len(info.categories) > MAX_CATEGORIES:
                 raise RuntimeError(
                     "write_feature: Cannot exceed maximum number of categories ({} > {})".format(
-                        len(info.get("categories")), MAX_CATEGORIES
+                        len(info.categories), MAX_CATEGORIES
                     )
                 )
-            metadata["categories"] = info.get("categories")
+            metadata["categories"] = info.categories
             # TODO cast to int, but handle NaN?
 
         # Write the feature JSON file
@@ -378,9 +376,11 @@ class ColorizerDatasetWriter:
 
         # Update the manifest with this feature data
         # Default to column name if no label is given; throw error if neither is present
-        label = info.get("label", info.get("column_label"))
-        if label is None:
-            raise RuntimeError("write_feature: Provided FeatureInfo has no label.")
+        label = info.label or info.column_name
+        if not label:
+            raise RuntimeError(
+                "write_feature: Provided FeatureInfo has no label or column name."
+            )
 
         self.manifest["features"][label] = metadata
 
@@ -453,6 +453,8 @@ class ColorizerDatasetWriter:
     ):
         """
         Writes the final manifest file for the dataset in the configured output directory.
+
+        Must be called **AFTER** all other data is written.
 
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#Dataset)
 
