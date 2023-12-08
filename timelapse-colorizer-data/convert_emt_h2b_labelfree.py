@@ -15,9 +15,9 @@ from data_writer_utils import (
     INITIAL_INDEX_COLUMN,
     ColorizerDatasetWriter,
     ColorizerMetadata,
-    FeatureMetadata,
+    FeatureInfo,
+    FeatureType,
     configureLogging,
-    extract_units_from_feature_name,
     get_total_objects,
     sanitize_path_by_platform,
     scale_image,
@@ -59,6 +59,56 @@ FEATURE_COLUMNS = [
     "Avg(Distance to Neighbor Nuclei)",
 ]
 """Columns of feature data to include in the dataset. Each column will be its own feature file."""
+FEATURE_INFO: List[FeatureInfo] = [
+    FeatureInfo(
+        label="Adjacent neighbors",
+        column_name="R0Cell_Neighbors_NumberOfNeighbors_Adjacent",
+        unit="",
+        type=FeatureType.DISCRETE,
+    ),
+    FeatureInfo(
+        label="Nuclei area",
+        column_name="R0Nuclei_AreaShape_Area",
+        unit="",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Cell area",
+        column_name="R0Cell_AreaShape_Area",
+        unit="",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Radial distance from colony center",
+        column_name="Radial distance from colony centroid (um)",
+        unit="",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Avg. distance to neighbor nuclei",
+        column_name="Avg(Distance to Neighbor Nuclei)",
+        unit="",
+        type=FeatureType.CONTINUOUS,
+    ),
+    FeatureInfo(
+        label="Migratory cell mask",
+        column_name="Migratory Cell (colony mask)",
+        unit="",
+        type=FeatureType.DISCRETE,
+    ),
+    FeatureInfo(
+        label="Edge cell mask",
+        column_name="Edge cell (colony mask)",
+        unit="",
+        type=FeatureType.DISCRETE,
+    ),
+    FeatureInfo(
+        label="Colony cell mask",
+        column_name="Colony cell (colony mask)",
+        unit="",
+        type=FeatureType.DISCRETE,
+    ),
+]
 
 PHYSICAL_PIXEL_SIZE_XY = 0.271
 PHYSICAL_PIXEL_UNIT_XY = "µm"
@@ -217,9 +267,7 @@ def make_frames(
 
 def make_features(
     dataset: pd.DataFrame,
-    features: List[str],
     writer: ColorizerDatasetWriter,
-    bounds: np.ndarray = None,
 ):
     """
     Generate the outlier, track, time, centroid, and feature data files.
@@ -236,19 +284,32 @@ def make_features(
     shape = dataset.shape
     # tracks = np.array([*range(shape[0])])
 
-    feature_data = []
-    for i in range(len(features)):
-        # TODO normalize output range excluding outliers?
-        f = dataset[features[i]].to_numpy()
-        feature_data.append(f)
-
     writer.write_data(
-        features=feature_data,
         tracks=tracks,
         times=times,
         centroids_x=centroids_x,
         centroids_y=centroids_y,
         outliers=outliers,
+    )
+
+    for info in FEATURE_INFO:
+        data = dataset[info.column_name].to_numpy()
+        writer.write_feature(data, info)
+
+    # Custom: Write a categorical feature based on cell type by aggregating the masks
+    # 0 = colony cell, 1 = edge cell, 2 = migratory cell
+    migratory_mask = dataset["Migratory Cell (colony mask)"].to_numpy()
+    edge_mask = dataset["Edge cell (colony mask)"].to_numpy()
+    cell_types = np.zeros(shape=edge_mask.shape)
+    cell_types += edge_mask
+    cell_types += migratory_mask * 2
+    writer.write_feature(
+        cell_types,
+        FeatureInfo(
+            label="Cell type",
+            type=FeatureType.CATEGORICAL,
+            categories=["Colony Cell", "Edge Cell", "Migratory Cell"],
+        ),
     )
 
 
@@ -298,16 +359,6 @@ def make_dataset(
     reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
     grouped_frames = reduced_dataset.groupby(TIMES_COLUMN)
 
-    # Get the units and human-readable label for each feature; we include this as
-    # metadata inside the dataset manifest.
-    feature_labels = []
-    feature_metadata: List[FeatureMetadata] = []
-    for feature in FEATURE_COLUMNS:
-        (label, unit) = extract_units_from_feature_name(feature)
-        feature_labels.append(label[0:1].upper() + label[1:])  # Capitalize first letter
-        if unit is not None:
-            unit = unit.replace("um", "µm")
-        feature_metadata.append({"units": unit})
     dims = get_dataset_dimensions(grouped_frames)
     metadata = ColorizerMetadata(
         frame_width=dims[0], frame_height=dims[1], frame_units=dims[2]
@@ -315,13 +366,11 @@ def make_dataset(
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
-    make_features(full_dataset, FEATURE_COLUMNS, writer)
+    make_features(full_dataset, writer)
     if do_frames:
         make_frames_parallel(grouped_frames, scale, writer)
 
-    writer.write_manifest(
-        nframes, feature_labels, feature_metadata=feature_metadata, metadata=metadata
-    )
+    writer.write_manifest(nframes, metadata=metadata)
 
 
 # TODO: Make top-level function

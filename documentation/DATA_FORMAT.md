@@ -29,8 +29,13 @@ The most important file is the **manifest**, which is a JSON file that describes
         ...
     ],
     "features": {
-        <feature name 1>: <relative path to feature JSON>,
-        <feature name 2>: <relative path to feature JSON>,
+        <feature display name>: {  // feature names must be unique
+            "data": <relative path to feature JSON>,
+            "unit": <unit label>,                                 //< optional
+            "type": <"continuous" | "discrete" | "categorical">,  //< optional
+            "categories": [<category 1>, <category 2>, ...,]      //< optional unless type is "categorical"; max 12 categories
+        }
+        <feature display name>: {...},
         ...
     },
     "tracks": <relative path to tracks JSON>,
@@ -45,6 +50,10 @@ The most important file is the **manifest**, which is a JSON file that describes
 ```
 
 Note that the `outliers`, `centroids`, and `bounds` files are optional, but certain features of Timelapse-Colorizer won't work without them.
+
+Features can also define additional optional metadata, such as the units and type. Note that there are additional restrictions on some of these fields. Type must have values `continuous` for floats or decimals, `discrete` for integers, or `categorical` for distinct labels.
+
+Features that have the type `categorical` must also define an array of string `categories`, up to a maximum of 12.
 
 A complete example dataset is also available in the [`documentation`](./example_dataset) directory of this project, and can be [viewed on Timelapse-Colorizer](https://dev-aics-dtp-001.int.allencell.org/nucmorph-colorizer/dist/?dataset=https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/example_dataset/manifest.json).
 
@@ -87,9 +96,21 @@ The `manifest.json` file would look something like this:
         "frames/frame_245.png",
     ],
     "features": {
-        "My Cool Feature": "feature_0.json",
-        "Another Cool Feature": "feature_1.json",
-        "The Coolest Feature": "feature_2.json",
+        "Temperature": {
+            data: "feature_0.json",
+            unit: "°C",
+            type: "continuous"
+        },
+        "Neighboring Cells": {
+            data: "feature_1.json",
+            unit: "cell(s)",
+            type: "discrete"
+        },
+        "Life Stage": {
+            data: "feature_2.json",
+            type: "categorical",
+            categories: ["G1", "S", "G2", "Prophase", "Metaphase", "Anaphase", "Telophase" ]
+        },
     },
     "tracks": "tracks.json",
     "times": "times.json",
@@ -113,27 +134,20 @@ Besides the details shown above, these are additional parameters that the manife
 ---manifest.json---
 {
     ...
-    "featureMetadata" : {
-        <feature name 1>: {
-            "units": <unit label for feature 1>
-        },
-        <feature name 2>: {
-            "units": <unit label for feature 2>
-        },
-        ...
-    },
     "metadata": {
         "frameDims": {
             "units": <unit label for frame dimensions>
             "width": <width of frame in units>,
             "height": <height of frame in units>
-        }
+        },
+        "frameDurationSeconds": <duration of a frame in seconds>,
+        "startTimeSeconds": <start time of timestamp in seconds>  // 0 by default
     }
 
 }
 ```
 
-These metadata parameters are used to configure additional features of the Timelapse Colorizer UI, such as showing the unit types of features and scale bars on the main display. Additional metadata will likely be added as the project progresses.
+These metadata parameters are used to configure additional features of the Timelapse Colorizer UI, such as showing scale bars or timestamps on the main display. Additional metadata will likely be added as the project progresses.
 
 Note that the interface will directly show the unit labels and does not scale or convert units from one type to another (for example, it will not convert 1000 µm to 1 mm). If you need to present your data with different units, create a (scaled) duplicate of the feature with a different unit label.
 
@@ -142,7 +156,7 @@ Note that the interface will directly show the unit labels and does not scale or
 
 ---
 
-Let's say a dataset has one feature called `Volume` that is measured in cubic microns (µm³), saved as `volume.json`. Additionally, our microscope viewing area is 3200 µm wide by 2400 µm tall.
+Let's say a dataset has a microscope viewing area 3200 µm wide by 2400 µm tall, and there are 5 minutes (`=300 seconds`) between each frame. We also want to show the timestamp in colony time, which started 30 minutes (`=1800 seconds`) before the start of the recording.
 
 The manifest file would look something like this:
 
@@ -150,20 +164,14 @@ The manifest file would look something like this:
 --manifest.json--
 {
     ...
-    "features": {
-        "Volume": "volume.json"
-    }
-    "featureMetadata" : {
-        "Volume": {
-            "units": "µm³"
-        }
-    },
     "metadata": {
         "frameDims": {
             "width": 3200,
             "height": 2400,
             "units": "µm"
-        }
+        },
+        "frameDurationSeconds": 300,
+        "startTimeSeconds": 1800
     }
 }
 
@@ -283,7 +291,11 @@ The resulting frame would look like this:
 
 Datasets can contain any number of `features`, which are a numeric value assigned to each object ID in the dataset. Features are used by the Timelapse-Colorizer to colorize objects, and each feature file corresponds to a single column of data. Examples of relevant features might include the volume, depth, number of neighbors, age, etc. of each object.
 
-Features include a `data` array, specifying the feature value for each object ID, and should also provide a `min` and `max` range property.
+Features include a `data` array, specifying the feature value for each object ID, and should also provide a `min` and `max` range property. How feature values
+should be interpreted can be defined in the `manifest.json` metadata.
+
+For continuous features, decimal and float values will be shown directly, and discrete features will be rounded to the nearest int. For categorical features,
+the feature values will be parsed as integers (rounded) and used to index into the `categories` array provided in the `manifest.json`.
 
 ```
 --feature1.json--
@@ -298,6 +310,56 @@ Features include a `data` array, specifying the feature value for each object ID
     "max": <max value for all features>
 }
 ```
+
+<details>
+<summary><b>[Show me an example!]</b></summary>
+
+---
+
+Let's use the "Life Stages" feature example from before, in the manifest. Here's a snippet of the feature metadata in the manifest.
+
+```
+--- manifest.json---
+...
+features: {
+    "Life Stage": {
+        data: "feature_2.json",
+        type: "categorical",
+        categories: ["G1", "S", "G2", "Prophase", "Metaphase", "Anaphase", "Telophase" ]
+    },
+    ...
+}
+...
+```
+
+There are 7 categories, so our feature values should be integer indexes ranging from 0 to 6. Let's say our dataset has only one frame, for simplicity, and the following cells are visible:
+
+| Cell # | Life Stage | Index |
+| ------ | ---------- | ----- |
+| 0      | Metaphase  | 4     |
+| 1      | G1         | 0     |
+| 2      | Telophase  | 6     |
+| 3      | G2         | 2     |
+
+Our feature file should look something like this.
+
+```
+--feature2.json--
+{
+    "data": [
+        4,  // Cell #0
+        0,  // Cell #1
+        6,  // Cell #2
+        2   // Cell #3
+    ],
+    "min": 0,
+    "max": 6
+}
+```
+
+---
+
+</details>
 
 ### 6. Centroids (optional)
 

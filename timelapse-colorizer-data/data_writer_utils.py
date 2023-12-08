@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 import json
 import logging
 import os
@@ -12,6 +13,7 @@ import pandas as pd
 import skimage
 from PIL import Image
 
+MAX_CATEGORIES = 12
 INITIAL_INDEX_COLUMN = "initialIndex"
 """
 Column added to reduced datasets, holding the original indices of each row.
@@ -28,8 +30,47 @@ RESERVED_INDICES = 1
 0 is reserved for the background."""
 
 
+class FeatureType(str, Enum):
+    CONTINUOUS = "continuous"
+    """For continuous decimal values."""
+    DISCRETE = "discrete"
+    """For integer-only values."""
+    CATEGORICAL = "categorical"
+    """For category labels. Can include up to 12 string categories, stored in the feature's
+    `categories` field. The feature data value for each object ID should be the
+    integer index of the name in the `categories` field.
+    """
+
+
+@dataclass
+class FeatureInfo:
+    """Represents a feature's metadata.
+
+    Args:
+        - `label` (`str`): The human-readable name of the feature. Empty string (`""`) by default.
+        - `column_name` (`str`): The column name, in the dataset, of the feature. Used for the feature's name
+        if no label is provided. Empty string (`""`) by default.
+        - `unit` (`str`): Units this feature is measured in. Empty string (`""`) by default.
+        - `type` (`FeatureType`): The type, either continuous, discrete, or categorical, of this feature.
+        `FeatureType.CONTINUOUS` by default.
+        - `categories` (`List`[str]): The ordered categories for categorical features. `None` by default.
+    """
+
+    label: str = ""
+    column_name: str = ""
+    unit: str = ""
+    type: FeatureType = FeatureType.CONTINUOUS
+    categories: Union[List[str], None] = None
+
+
 class FeatureMetadata(TypedDict):
-    units: str
+    """For data writer internal use. Represents the metadata that will be saved for each feature."""
+
+    data: str
+    """The relative path from the manifest to the feature JSON file."""
+    unit: str
+    type: FeatureType
+    categories: List[str]
 
 
 class FrameDimensions(TypedDict):
@@ -71,7 +112,6 @@ class ColorizerMetadata:
 
 
 class DatasetManifest(TypedDict):
-    frames: List[str]
     features: List[Dict[str, str]]
     outliers: str
     tracks: str
@@ -80,6 +120,7 @@ class DatasetManifest(TypedDict):
     bounds: str
     featureMetadata: Dict[str, FeatureMetadata]
     metadata: DatasetMetadata
+    frames: List[str]
 
 
 class NumpyValuesEncoder(json.JSONEncoder):
@@ -290,11 +331,71 @@ class ColorizerDatasetWriter:
         self.outpath = os.path.join(output_dir, dataset)
         os.makedirs(self.outpath, exist_ok=True)
         self.scale = scale
-        self.manifest = {}
+        self.manifest = {"features": {}}
+
+    def write_feature(self, data: np.ndarray, info: FeatureInfo):
+        """
+        Writes feature data arrays and stores feature metadata to be written to the manifest.
+
+        Args:
+            data (np.ndarray): The numpy array for the feature, to be written to a JSON file.
+            info (FeatureInfo): Metadata for the feature.
+
+        Feature JSON files are suffixed by index, starting at 0, which increments
+        for each call to `write_feature()`. The first feature will have `feature_0.json`,
+        the second `feature_1.json`, and so on.
+
+        If the feature type is `FeatureType.CATEGORICAL`, `categories` must be defined in `info`.
+        """
+        # Fetch feature data
+        num_features = len(self.manifest["features"])
+        fmin = np.nanmin(data)
+        fmax = np.nanmax(data)
+        filename = "feature_" + str(num_features) + ".json"
+        file_path = self.outpath + "/" + filename
+
+        # Create manifest from feature data
+        metadata: FeatureMetadata = {
+            "data": filename,
+            "unit": info.unit,
+            "type": info.type,
+        }
+
+        # Add categories to metadata only if feature is categorical; also do validation here
+        if info.type == FeatureType.CATEGORICAL:
+            if info.categories is None:
+                raise RuntimeError(
+                    "write_feature: Feature '{}' has type CATEGORICAL but no categories were provided.".format(
+                        info.label
+                    )
+                )
+            if len(info.categories) > MAX_CATEGORIES:
+                raise RuntimeError(
+                    "write_feature: Cannot exceed maximum number of categories ({} > {})".format(
+                        len(info.categories), MAX_CATEGORIES
+                    )
+                )
+            metadata["categories"] = info.categories
+            # TODO cast to int, but handle NaN?
+
+        # Write the feature JSON file
+        logging.info("Writing {}...".format(filename))
+        js = {"data": data.tolist(), "min": fmin, "max": fmax}
+        with open(file_path, "w") as f:
+            json.dump(js, f, cls=NumpyValuesEncoder)
+
+        # Update the manifest with this feature data
+        # Default to column name if no label is given; throw error if neither is present
+        label = info.label or info.column_name
+        if not label:
+            raise RuntimeError(
+                "write_feature: Provided FeatureInfo has no label or column name."
+            )
+
+        self.manifest["features"][label] = metadata
 
     def write_data(
         self,
-        features: Union[List[np.ndarray], None] = None,
         tracks: Union[np.ndarray, None] = None,
         times: Union[np.ndarray, None] = None,
         centroids_x: Union[np.ndarray, None] = None,
@@ -303,13 +404,11 @@ class ColorizerDatasetWriter:
         bounds: Union[np.ndarray, None] = None,
     ):
         """
-        Writes dataset data arrays (such as feature, track, time, centroid, outlier,
+        Writes (non-feature) dataset data arrays (such as track, time, centroid, outlier,
         and bounds data) to JSON files.
+
         Accepts numpy arrays for each file type and writes them to the configured
         output directory according to the data format.
-
-        Features will be written to files in order of the `features` list,
-        starting from 0 (e.g., `feature_0.json`, `feature_1.json`, ...)
 
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#1-tracks)
         """
@@ -357,30 +456,15 @@ class ColorizerDatasetWriter:
                 json.dump(bounds_json, f)
             self.manifest["bounds"] = "bounds.json"
 
-        if features is not None:
-            # TODO: Write to self.manifest
-            logging.info("Writing feature json...")
-            for i in range(len(features)):
-                f = features[i]
-                fmin = np.nanmin(f)
-                fmax = np.nanmax(f)
-                # TODO normalize output range excluding outliers?
-                js = {"data": f.tolist(), "min": fmin, "max": fmax}
-                with open(self.outpath + "/feature_" + str(i) + ".json", "w") as f:
-                    json.dump(js, f, cls=NumpyValuesEncoder)
-            logging.info("Done writing features.")
-
     def write_manifest(
         self,
         num_frames: int,
-        feature_names: List[str],
-        # TODO: feature metadata should probably go in args of write_feature_data
-        # and be tracked by the writer.
-        feature_metadata: List[FeatureMetadata] = [],
         metadata: ColorizerMetadata = None,
     ):
         """
         Writes the final manifest file for the dataset in the configured output directory.
+
+        Must be called **AFTER** all other data is written.
 
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#Dataset)
 
@@ -406,39 +490,19 @@ class ColorizerDatasetWriter:
           bounds: "bounds.json"
         ```
         """
-        # write manifest file
-        featmap = {}
-        output_json = {}
-
-        for i in range(len(feature_names)):
-            featmap[feature_names[i]] = "feature_" + str(i) + ".json"
-
-        # TODO: Write these progressively to an internal map during feature writing
-        # so we only write the files that are known?
-        output_json = {
-            "frames": ["frame_" + str(i) + ".png" for i in range(num_frames)],
-            "features": featmap,
-        }
-        output_json.update(self.manifest)
-
-        # Merge the feature metadata together and include it in the output if present
-        if feature_metadata:
-            if len(feature_metadata) == len(feature_names):
-                combined_feature_metadata = {}
-                for i in range(len(feature_metadata)):
-                    combined_feature_metadata[feature_names[i]] = feature_metadata[i]
-                output_json["featureMetadata"] = combined_feature_metadata
-            else:
-                logging.warn(
-                    "Feature metadata length does not match number of features. Skipping metadata."
-                )
-
         # Add the metadata
         if metadata:
-            output_json["metadata"] = metadata.to_json()
+            self.manifest["metadata"] = metadata.to_json()
+
+        # TODO: Write these progressively to an internal map during feature writing
+        # so we only write the files that are known? (This won't work safely across processes
+        # during parallellism though :/)
+        self.manifest["frames"] = [
+            "frame_" + str(i) + ".png" for i in range(num_frames)
+        ]
 
         with open(self.outpath + "/manifest.json", "w") as f:
-            json.dump(output_json, f, indent=2)
+            json.dump(self.manifest, f, indent=2)
 
         logging.info("Finished writing dataset.")
 
