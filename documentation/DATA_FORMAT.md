@@ -156,7 +156,7 @@ Note that the interface will directly show the unit labels and does not scale or
 
 ---
 
-Let's say a dataset has a microscope viewing area is 3200 µm wide by 2400 µm tall, and there are 5 minutes (`=300 seconds`) between each frame. We also want to show the timestamp in colony time, which started 30 minutes (`=1800 seconds`) before the start of the recording.
+Let's say a dataset has a microscope viewing area 3200 µm wide by 2400 µm tall, and there are 5 minutes (`=300 seconds`) between each frame. We also want to show the timestamp in colony time, which started 30 minutes (`=1800 seconds`) before the start of the recording.
 
 The manifest file would look something like this:
 
