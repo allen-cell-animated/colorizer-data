@@ -67,6 +67,7 @@ class FeatureMetadata(TypedDict):
     """For data writer internal use. Represents the metadata that will be saved for each feature."""
 
     data: str
+    name: str
     """The relative path from the manifest to the feature JSON file."""
     unit: str
     type: FeatureType
@@ -112,13 +113,12 @@ class ColorizerMetadata:
 
 
 class DatasetManifest(TypedDict):
-    features: List[Dict[str, str]]
+    features: List[FeatureMetadata]
     outliers: str
     tracks: str
     centroids: str
     times: str
     bounds: str
-    featureMetadata: Dict[str, FeatureMetadata]
     metadata: DatasetMetadata
     frames: List[str]
 
@@ -331,7 +331,7 @@ class ColorizerDatasetWriter:
         self.outpath = os.path.join(output_dir, dataset)
         os.makedirs(self.outpath, exist_ok=True)
         self.scale = scale
-        self.manifest = {"features": {}}
+        self.manifest = {"features": []}
 
     def write_feature(self, data: np.ndarray, info: FeatureInfo):
         """
@@ -356,6 +356,7 @@ class ColorizerDatasetWriter:
 
         # Create manifest from feature data
         metadata: FeatureMetadata = {
+            "name": info.label,
             "data": filename,
             "unit": info.unit,
             "type": info.type,
@@ -392,7 +393,7 @@ class ColorizerDatasetWriter:
                 "write_feature: Provided FeatureInfo has no label or column name."
             )
 
-        self.manifest["features"][label] = metadata
+        self.manifest["features"].append(metadata)
 
     def write_data(
         self,

@@ -28,16 +28,20 @@ The most important file is the **manifest**, which is a JSON file that describes
         <relative path to image frame 1>,
         ...
     ],
-    "features": {
-        <feature display name>: {  // feature names must be unique
+    "features": [
+        {
+            "name": <feature display name>,  // Must be unique
             "data": <relative path to feature JSON>,
             "unit": <unit label>,                                 //< optional
             "type": <"continuous" | "discrete" | "categorical">,  //< optional
             "categories": [<category 1>, <category 2>, ...,]      //< optional unless type is "categorical"; max 12 categories
         }
-        <feature display name>: {...},
+        {
+            "name": <feature display name>,
+            ...
+        },
         ...
-    },
+    ],
     "tracks": <relative path to tracks JSON>,
     "times": <relative path to times JSON>,
     "outliers": <relative path to outlier JSON>,    //< optional
@@ -95,23 +99,26 @@ The `manifest.json` file would look something like this:
         ...
         "frames/frame_245.png",
     ],
-    "features": {
-        "Temperature": {
-            data: "feature_0.json",
-            unit: "°C",
-            type: "continuous"
+    "features": [
+        {
+            "name": "Temperature",
+            "data": "feature_0.json",
+            "unit": "°C",
+            "type": "continuous"
         },
-        "Neighboring Cells": {
-            data: "feature_1.json",
-            unit: "cell(s)",
-            type: "discrete"
+        {
+            "name": "Neighboring Cells",
+            "data": "feature_1.json",
+            "unit": "cell(s)",
+            "type": "discrete"
         },
-        "Life Stage": {
-            data: "feature_2.json",
-            type: "categorical",
-            categories: ["G1", "S", "G2", "Prophase", "Metaphase", "Anaphase", "Telophase" ]
+        {
+            "name": "Life Stage",
+            "data": "feature_2.json",
+            "type": "categorical",
+            "categories": ["G1", "S", "G2", "Prophase", "Metaphase", "Anaphase", "Telophase" ]
         },
-    },
+    ],
     "tracks": "tracks.json",
     "times": "times.json",
     "outliers": "outliers.json",
@@ -321,14 +328,15 @@ Let's use the "Life Stages" feature example from before, in the manifest. Here's
 ```
 --- manifest.json---
 ...
-features: {
-    "Life Stage": {
-        data: "feature_2.json",
-        type: "categorical",
-        categories: ["G1", "S", "G2", "Prophase", "Metaphase", "Anaphase", "Telophase" ]
+features: [
+    {
+        "name": "Life Stage",
+        "data": "feature_2.json",
+        "type": "categorical",
+        "categories": ["G1", "S", "G2", "Prophase", "Metaphase", "Anaphase", "Telophase" ]
     },
     ...
-}
+]
 ...
 ```
 
