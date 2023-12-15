@@ -30,7 +30,8 @@ The most important file is the **manifest**, which is a JSON file that describes
     ],
     "features": [
         {
-            "name": <feature display name>,  // Must be unique
+            "key": <feature key>,                                 // Must be unique across features. Lowercase alphanumeric characters and underscores only.
+            "name": <feature display name>,
             "data": <relative path to feature JSON>,
             "unit": <unit label>,                                 //< optional
             "type": <"continuous" | "discrete" | "categorical">,  //< optional
@@ -101,18 +102,21 @@ The `manifest.json` file would look something like this:
     ],
     "features": [
         {
+            "key": "temperature",
             "name": "Temperature",
             "data": "feature_0.json",
             "unit": "°C",
             "type": "continuous"
         },
         {
+            "key": "neighboring_cells",
             "name": "Neighboring Cells",
             "data": "feature_1.json",
             "unit": "cell(s)",
             "type": "discrete"
         },
         {
+            "key": "life_stage",
             "name": "Life Stage",
             "data": "feature_2.json",
             "type": "categorical",
@@ -330,6 +334,7 @@ Let's use the "Life Stages" feature example from before, in the manifest. Here's
 ...
 features: [
     {
+        "key": "life_stage",
         "name": "Life Stage",
         "data": "feature_2.json",
         "type": "categorical",

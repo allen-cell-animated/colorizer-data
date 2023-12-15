@@ -50,6 +50,8 @@ class FeatureInfo:
         - `label` (`str`): The human-readable name of the feature. Empty string (`""`) by default.
         - `column_name` (`str`): The column name, in the dataset, of the feature. Used for the feature's name
         if no label is provided. Empty string (`""`) by default.
+        - `key` (`str`): The internal key name of the feature. Formats the feature label if no
+        key is provided. Empty string (`""`) by default.
         - `unit` (`str`): Units this feature is measured in. Empty string (`""`) by default.
         - `type` (`FeatureType`): The type, either continuous, discrete, or categorical, of this feature.
         `FeatureType.CONTINUOUS` by default.
@@ -57,6 +59,7 @@ class FeatureInfo:
     """
 
     label: str = ""
+    key: str = ""
     column_name: str = ""
     unit: str = ""
     type: FeatureType = FeatureType.CONTINUOUS
@@ -67,6 +70,7 @@ class FeatureMetadata(TypedDict):
     """For data writer internal use. Represents the metadata that will be saved for each feature."""
 
     data: str
+    key: str
     name: str
     """The relative path from the manifest to the feature JSON file."""
     unit: str
@@ -308,6 +312,13 @@ def update_bounding_box_data(
             bbox_data[write_index + 3] = bbox_max[0]
 
 
+def sanitize_key_name(name: str) -> str:
+    name = name.replace(" ", "_").lower().strip()
+    # Remove all non-alphanumeric characters
+    pattern = "[^0-9a-z_]+"
+    return re.sub(pattern, "", name)
+
+
 class ColorizerDatasetWriter:
     """
     Writes provided data as Colorizer-compatible dataset files to the configured output directory.
@@ -354,12 +365,18 @@ class ColorizerDatasetWriter:
         filename = "feature_" + str(num_features) + ".json"
         file_path = self.outpath + "/" + filename
 
+        key = info.key
+        if key == "":
+            # Use label, formatting as needed
+            key = sanitize_key_name(info.label)
+
         # Create manifest from feature data
         metadata: FeatureMetadata = {
             "name": info.label,
             "data": filename,
             "unit": info.unit,
             "type": info.type,
+            "key": key,
         }
 
         # Add categories to metadata only if feature is categorical; also do validation here
