@@ -313,7 +313,7 @@ def update_bounding_box_data(
 
 
 def sanitize_key_name(name: str) -> str:
-    name = name.replace(" ", "_").lower().strip()
+    name = name.strip().replace(" ", "_").lower()
     # Remove all non-alphanumeric characters
     pattern = "[^0-9a-z_]+"
     return re.sub(pattern, "", name)
