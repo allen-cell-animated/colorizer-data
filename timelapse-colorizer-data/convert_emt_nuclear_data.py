@@ -10,16 +10,16 @@ python timelapse-colorizer-data/convert_emt_nuclear_data.py --scale 1.0 --output
 ```
 """
 
-import multiprocessing
-from typing import List, Sequence
 from aicsimageio import AICSImage
 import argparse
 import json
 import logging
+import multiprocessing
 import numpy as np
 import pandas as pd
 from pandas.core.groupby.generic import DataFrameGroupBy
 import time
+from typing import List, Sequence
 
 from data_writer_utils import (
     INITIAL_INDEX_COLUMN,
