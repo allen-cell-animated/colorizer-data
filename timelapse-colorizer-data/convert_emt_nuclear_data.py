@@ -10,15 +10,16 @@ python timelapse-colorizer-data/convert_emt_nuclear_data.py --scale 1.0 --output
 ```
 """
 
-from typing import List
 from aicsimageio import AICSImage
 import argparse
 import json
 import logging
+import multiprocessing
 import numpy as np
 import pandas as pd
 from pandas.core.groupby.generic import DataFrameGroupBy
 import time
+from typing import List, Sequence
 
 from data_writer_utils import (
     INITIAL_INDEX_COLUMN,
@@ -27,6 +28,7 @@ from data_writer_utils import (
     FeatureInfo,
     FeatureType,
     configureLogging,
+    get_total_objects,
     make_bounding_box_array,
     sanitize_path_by_platform,
     scale_image,
@@ -104,7 +106,53 @@ def get_image_from_row(row: pd.DataFrame) -> AICSImage:
     return AICSImage(zstackpath)
 
 
-def make_frames(
+def make_frame(
+    grouped_frames,
+    group_name: int,
+    frame: pd.DataFrame,
+    scale: float,
+    bounds_arr: Sequence[int],
+    writer: ColorizerDatasetWriter,
+):
+    start_time = time.time()
+
+    # Get the path to the segmented zstack image frame from the first row (should be the same for
+    # all rows in this group, since they are all on the same frame).
+    row = frame.iloc[0]
+    frame_number = row[TIMES_COLUMN]
+    # Flatten the z-stack to a 2D image.
+    aics_image = get_image_from_row(row)
+    zstack = aics_image.get_image_data("ZYX", S=0, T=0, C=0)
+    # Do a min projection instead of a max projection to prioritize objects which have lower IDs (which for this dataset,
+    # indicates lower z-indices). This is due to the nature of the data, where lower cell nuclei have greater confidence,
+    # and should be visualized when overlapping instead of higher nuclei.
+    # Do a min operation but ignore zero values. Without this, doing `min(0, id)` will always return 0 which results
+    # in black images. We use `np.ma.masked_equal` to mask out 0 values and have them be ignored,
+    # then replace masked values with 0 again (`filled(0)`) to get our final projected image.
+    masked = np.ma.masked_equal(zstack, 0, copy=False)
+    seg2d = masked.min(axis=0).filled(0)
+
+    # Scale the image and format as integers.
+    seg2d = scale_image(seg2d, scale)
+    seg2d = seg2d.astype(np.uint32)
+
+    # Remap the frame image so the IDs are unique across the whole dataset.
+    seg_remapped, lut = remap_segmented_image(
+        seg2d,
+        frame,
+        OBJECT_ID_COLUMN,
+    )
+
+    writer.write_image(seg_remapped, frame_number)
+    update_bounding_box_data(bounds_arr, seg_remapped)
+
+    time_elapsed = time.time() - start_time
+    logging.info(
+        "Frame {} finished in {:5.2f} seconds.".format(int(frame_number), time_elapsed)
+    )
+
+
+def make_frames_parallel(
     grouped_frames: DataFrameGroupBy,
     scale: float,
     writer: ColorizerDatasetWriter,
@@ -113,51 +161,20 @@ def make_frames(
     Generate the images and bounding boxes for each time step in the dataset.
     """
     nframes = len(grouped_frames)
+    total_objects = get_total_objects(grouped_frames)
     logging.info("Making {} frames...".format(nframes))
 
-    is_nonzero = lambda n: n != 0
-    bounds_arr = make_bounding_box_array(grouped_frames)
-
-    for group_name, frame in grouped_frames:
-        start_time = time.time()
-
-        # Get the path to the segmented zstack image frame from the first row (should be the same for
-        # all rows in this group, since they are all on the same frame).
-        row = frame.iloc[0]
-        frame_number = row[TIMES_COLUMN]
-        # Flatten the z-stack to a 2D image.
-        aics_image = get_image_from_row(row)
-        zstack = aics_image.get_image_data("ZYX", S=0, T=0, C=0)
-        # Do a min projection instead of a max projection to prioritize objects which have lower IDs (which for this dataset,
-        # indicates lower z-indices). This is due to the nature of the data, where lower cell nuclei have greater confidence,
-        # and should be visualized when overlapping instead of higher nuclei.
-        # Do a min operation but ignore zero values. Without this, doing `min(0, id)` will always return 0 which results
-        # in black images. We use `np.ma.masked_equal` to mask out 0 values and have them be ignored,
-        # then replace masked values with 0 again (`filled(0)`) to get our final projected image.
-        masked = np.ma.masked_equal(zstack, 0, copy=False)
-        seg2d = masked.min(axis=0).filled(0)
-
-        # Scale the image and format as integers.
-        seg2d = scale_image(seg2d, scale)
-        seg2d = seg2d.astype(np.uint32)
-
-        # Remap the frame image so the IDs are unique across the whole dataset.
-        seg_remapped, lut = remap_segmented_image(
-            seg2d,
-            frame,
-            OBJECT_ID_COLUMN,
-        )
-
-        writer.write_image(seg_remapped, frame_number)
-        update_bounding_box_data(bounds_arr, seg_remapped)
-
-        time_elapsed = time.time() - start_time
-        logging.info(
-            "Frame {} finished in {:5.2f} seconds.".format(
-                int(frame_number), time_elapsed
+    with multiprocessing.Manager() as manager:
+        bounds_arr = manager.Array("i", [0] * int(total_objects * 4))
+        with multiprocessing.Pool() as pool:
+            pool.starmap(
+                make_frame,
+                [
+                    (grouped_frames, group_name, frame, scale, bounds_arr, writer)
+                    for group_name, frame in grouped_frames
+                ],
             )
-        )
-    writer.write_data(bounds=bounds_arr)
+        writer.write_data(bounds=np.array(bounds_arr, dtype=np.uint32))
 
 
 def make_features(
@@ -242,7 +259,7 @@ def make_dataset(
     nframes = len(grouped_frames)
     make_features(full_dataset, writer)
     if do_frames:
-        make_frames(grouped_frames, scale, writer)
+        make_frames_parallel(grouped_frames, scale, writer)
     writer.write_manifest(nframes, metadata=metadata)
 
 
