@@ -157,7 +157,12 @@ def make_features(
 
     # For now in this dataset there are no outliers. Just generate a list of falses.
     outliers = np.array([False for i in range(len(dataset.index))])
-    tracks = dataset[TRACK_ID_COLUMN].to_numpy()
+
+    # This dataset does not have tracks, so we just generate a list of indices, one for each
+    # object. This will be a very simple numpy table, where tracks[i] = i.
+    shape = dataset.shape
+    tracks = np.array([*range(shape[0])])
+
     times = dataset[TIMES_COLUMN].to_numpy()
     centroids_x = dataset[CENTROIDS_X_COLUMN].to_numpy()
     centroids_y = dataset[CENTROIDS_Y_COLUMN].to_numpy()
