@@ -30,9 +30,7 @@ from data_writer_utils import (
 # relabeled as constants here for clarity/intent of the column name.
 OBJECT_ID_COLUMN = "R0Nuclei_Number_Object_Number"
 """Column of object IDs (or unique row number)."""
-TRACK_ID_COLUMN = (
-    "R0Nuclei_Number_Object_Number"  # Use the object number as the track ID
-)
+TRACK_ID_COLUMN = "R0Nuclei_TrackObjects_Label_75"
 """Column of track ID for each object."""
 TIMES_COLUMN = "Image_Metadata_Timepoint"
 """Column of frame number that the object ID appears in."""
