@@ -22,7 +22,7 @@ The most important file is the **manifest**, which is a JSON file that describes
 
 `manifest.json:`
 
-```json
+```txt
 {
     "frames": [
         <relative path to image frame 0>,
@@ -93,7 +93,7 @@ The `manifest.json` file would look something like this:
 
 `manifest.json:`
 
-```json
+```txt
 {
     "frames": [
         "frames/frame_0.png",
@@ -145,7 +145,7 @@ Besides the details shown above, these are additional parameters that the manife
 
 `manifest.json:`
 
-```json
+```txt
 {
     ...
     "metadata": {
@@ -176,7 +176,7 @@ The manifest file would look something like this:
 
 `manifest.json:`
 
-```json
+```txt
 {
     ...,
     "metadata": {
@@ -204,7 +204,7 @@ A **track JSON file** consists of a JSON object with a `data` array, where for e
 
 `tracks.json:`
 
-```json
+```txt
 {
     "data": [
         <track number for id 0>,
@@ -231,7 +231,7 @@ Note that the object IDs in a track are not guaranteed to be sequential!
 
 `tracks.json:`
 
-```json
+```txt
 {
     "data": [
         1, // 0
@@ -254,7 +254,7 @@ The times JSON is similar to the tracks JSON. It also contains a `data` array th
 
 `times.json:`
 
-```json
+```txt
 {
     "data": [
         <frame number for id 0>,
@@ -317,7 +317,7 @@ the feature values will be parsed as integers (rounded) and used to index into t
 
 `feature1.json:`
 
-```json
+```txt
 {
     "data": [
         <feature value for id 0>,
@@ -339,7 +339,7 @@ Let's use the "Life Stages" feature example from before, in the manifest. Here's
 
 `manifest.json:`
 
-```json
+```txt
 ...,
 "features": [
     {
@@ -367,7 +367,7 @@ Our feature file should look something like this.
 
 `feature2.json:`
 
-```json
+```txt
 {
     "data": [
         4,  // Cell #0
@@ -393,7 +393,7 @@ Coordinates are defined in pixels in the frame, where the upper left corner of t
 
 `centroids.json:`
 
-```json
+```txt
 {
     "data": [
         // <x coordinate for id 0>,
@@ -415,7 +415,7 @@ Again, coordinates are defined in pixels in the image frame, where the upper lef
 
 `bounds.json:`
 
-```json
+```txt
 {
     "data": [
         <upper left x for id 0>,
@@ -435,7 +435,7 @@ The outliers file stores whether a given object ID should be marked as an outlie
 
 `outliers.json:`
 
-```json
+```txt
 {
     "data": [
         <whether id 0 is an outlier>,
@@ -460,7 +460,7 @@ For example, if a dataset had the following tracks and outliers, the file might 
 
 `outliers.json`
 
-```json
+```txt
 {
     "data": [
         false, // 0
@@ -489,7 +489,7 @@ If the path does not define a `.json` file specifically, Timelapse-Colorizer wil
 
 `collection.json:`
 
-```json
+```txt
 [
     { "name": <some_name_1>, "path": <some_path_1>},
     { "name": <some_name_2>, "path": <some_path_2>},
@@ -504,7 +504,7 @@ If the path does not define a `.json` file specifically, Timelapse-Colorizer wil
 
 For example, let's say a collection is located at `https://example.com/data/collection.json`, and the `collection.json` contains this:
 
-```json
+```txt
 [
   { "name": "Mama Bear", "path": "mama_bear" },
   { "name": "Baby Bear", "path": "nested/baby_bear" },
