@@ -20,8 +20,9 @@ A dataset consists of a group of files that describe the segmentations, tracks, 
 
 The most important file is the **manifest**, which is a JSON file that describes all the files in the dataset. (Manifests should be named `manifest.json` by default.)
 
-```
---manifest.json--
+`manifest.json:`
+
+```json
 {
     "frames": [
         <relative path to image frame 0>,
@@ -69,7 +70,7 @@ A complete example dataset is also available in the [`documentation`](./example_
 
 An example dataset directory could look like this:
 
-```
+```txt
 📂 my_dataset/
   - 📄 manifest.json
   - 📄 outliers.json
@@ -90,8 +91,9 @@ An example dataset directory could look like this:
 
 The `manifest.json` file would look something like this:
 
-```
---manifest.json--
+`manifest.json:`
+
+```json
 {
     "frames": [
         "frames/frame_0.png",
@@ -141,13 +143,14 @@ Manifests can also include some optional **metadata** about the dataset and its 
 
 Besides the details shown above, these are additional parameters that the manifest can include:
 
-```
----manifest.json---
+`manifest.json:`
+
+```json
 {
     ...
     "metadata": {
         "frameDims": {
-            "units": <unit label for frame dimensions>
+            "units": <unit label for frame dimensions>,
             "width": <width of frame in units>,
             "height": <height of frame in units>
         },
@@ -171,10 +174,11 @@ Let's say a dataset has a microscope viewing area 3200 µm wide by 2400 µm tall
 
 The manifest file would look something like this:
 
-```
---manifest.json--
+`manifest.json:`
+
+```json
 {
-    ...
+    ...,
     "metadata": {
         "frameDims": {
             "width": 3200,
@@ -198,8 +202,9 @@ Every segmented object in each time step has an **object ID**, an integer identi
 
 A **track JSON file** consists of a JSON object with a `data` array, where for each object ID `i`, `data[i]` is the track number that object is assigned to.
 
-```
---tracks.json--
+`tracks.json:`
+
+```json
 {
     "data": [
         <track number for id 0>,
@@ -224,8 +229,9 @@ For example, if there were the following two tracks in some dataset, the track f
 
 Note that the object IDs in a track are not guaranteed to be sequential!
 
-```
---tracks.json--
+`tracks.json:`
+
+```json
 {
     "data": [
         1, // 0
@@ -246,8 +252,9 @@ Note that the object IDs in a track are not guaranteed to be sequential!
 
 The times JSON is similar to the tracks JSON. It also contains a `data` array that maps from object IDs to the frame number that they appear on.
 
-```
---times.json--
+`times.json:`
+
+```json
 {
     "data": [
         <frame number for id 0>,
@@ -261,7 +268,7 @@ The times JSON is similar to the tracks JSON. It also contains a `data` array th
 ### 4. Frames
 
 _Example frame:_
-![](./frame_example.png)
+![](./frame_example.png "" "An example frame showing cell nuclei, in various shades of green and red.")
 _Each unique color in this frame is a different object ID._
 
 **Frames** are image textures that store the object IDs for each time step in the time series. Each pixel in the image can encode a single object ID in its RGB value (`object ID = R + G*256 + B*256*256 - 1`), and background pixels are `#000000` (black).
@@ -292,7 +299,7 @@ The RGB value for ID `640` will be `RGB(129, 2, 0)`, or `#810200`.
 
 The resulting frame would look like this:
 
-![](./frame_example_simple.png)
+!["A magnified 3x3 pixel image with a single red pixel (#810200) in the center, surrounded by black."](./frame_example_simple.png)
 
 ---
 
@@ -308,8 +315,9 @@ should be interpreted can be defined in the `manifest.json` metadata.
 For continuous features, decimal and float values will be shown directly, and discrete features will be rounded to the nearest int. For categorical features,
 the feature values will be parsed as integers (rounded) and used to index into the `categories` array provided in the `manifest.json`.
 
-```
---feature1.json--
+`feature1.json:`
+
+```json
 {
     "data": [
         <feature value for id 0>,
@@ -329,10 +337,11 @@ the feature values will be parsed as integers (rounded) and used to index into t
 
 Let's use the "Life Stages" feature example from before, in the manifest. Here's a snippet of the feature metadata in the manifest.
 
-```
---- manifest.json---
-...
-features: [
+`manifest.json:`
+
+```json
+...,
+"features": [
     {
         "key": "life_stage",
         "name": "Life Stage",
@@ -356,8 +365,9 @@ There are 7 categories, so our feature values should be integer indexes ranging 
 
 Our feature file should look something like this.
 
-```
---feature2.json--
+`feature2.json:`
+
+```json
 {
     "data": [
         4,  // Cell #0
@@ -381,15 +391,16 @@ The centroids file defines the center of each object ID in the dataset. It follo
 For each index `i`, the coordinates are `(x: data[2i], y: data[2i + 1])`.
 Coordinates are defined in pixels in the frame, where the upper left corner of the frame is (0, 0).
 
-```
---centroids.json--
+`centroids.json:`
+
+```json
 {
     "data": [
-        <x coordinate for id 0>,
-        <y coordinate for id 0>,
-        <x coordinate for id 1>,
-        <y coordinate for id 1>,
-        ...
+        // <x coordinate for id 0>,
+        // <y coordinate for id 0>,
+        // <x coordinate for id 1>,
+        // <y coordinate for id 1>,
+        // ...
     ]
 }
 ```
@@ -402,8 +413,9 @@ For each object ID `i`, the minimum bounding box coordinates (upper left corner)
 
 Again, coordinates are defined in pixels in the image frame, where the upper left corner is (0, 0).
 
-```
---bounds.json--
+`bounds.json:`
+
+```json
 {
     "data": [
         <upper left x for id 0>,
@@ -421,8 +433,9 @@ Again, coordinates are defined in pixels in the image frame, where the upper lef
 
 The outliers file stores whether a given object ID should be marked as an outlier using an array of booleans (`true`/`false`). Indices that are `true` indicate outlier values, and are given a unique color in Timelapse-Colorizer.
 
-```
---outliers.json--
+`outliers.json:`
+
+```json
 {
     "data": [
         <whether id 0 is an outlier>,
@@ -445,8 +458,9 @@ For example, if a dataset had the following tracks and outliers, the file might 
 | 1       | 0, 1, 4    | 1        |
 | 2       | 2, 3, 5    | 2, 5     |
 
-```
---outliers.json--
+`outliers.json`
+
+```json
 {
     "data": [
         false, // 0
@@ -473,8 +487,9 @@ Collections are an array of JSON objects, each of which define the `name` (an **
 
 If the path does not define a `.json` file specifically, Timelapse-Colorizer will assume that the dataset's manifest is named `manifest.json` by default.
 
-```
---collection.json--
+`collection.json:`
+
+```json
 [
     { "name": <some_name_1>, "path": <some_path_1>},
     { "name": <some_name_2>, "path": <some_path_2>},
@@ -489,8 +504,7 @@ If the path does not define a `.json` file specifically, Timelapse-Colorizer wil
 
 For example, let's say a collection is located at `https://example.com/data/collection.json`, and the `collection.json` contains this:
 
-```
---collection.json--
+```json
 [
   { "name": "Mama Bear", "path": "mama_bear" },
   { "name": "Baby Bear", "path": "nested/baby_bear" },
