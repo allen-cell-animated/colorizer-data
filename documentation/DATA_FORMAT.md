@@ -268,7 +268,7 @@ The times JSON is similar to the tracks JSON. It also contains a `data` array th
 ### 4. Frames
 
 _Example frame:_
-![](./frame_example.png "" "An example frame showing cell nuclei, in various shades of green and red.")
+![Segmented cell nuclei on a black background, in various shades of green, yellow, red.](./frame_example.png)
 _Each unique color in this frame is a different object ID._
 
 **Frames** are image textures that store the object IDs for each time step in the time series. Each pixel in the image can encode a single object ID in its RGB value (`object ID = R + G*256 + B*256*256 - 1`), and background pixels are `#000000` (black).
@@ -299,7 +299,7 @@ The RGB value for ID `640` will be `RGB(129, 2, 0)`, or `#810200`.
 
 The resulting frame would look like this:
 
-!["A magnified 3x3 pixel image with a single red pixel (#810200) in the center, surrounded by black."](./frame_example_simple.png)
+!["A magnified 3x3 frame with a single red pixel (#810200) in the center, surrounded by black pixels."](./frame_example_simple.png)
 
 ---
 
