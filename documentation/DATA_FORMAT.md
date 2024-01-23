@@ -57,9 +57,9 @@ The most important file is the **manifest**, which is a JSON file that describes
 
 Note that the `outliers`, `centroids`, and `bounds` files are optional, but certain features of Timelapse-Colorizer won't work without them.
 
-Features can also define additional optional metadata, such as the units and type. Note that there are additional restrictions on some of these fields. Type must have values `continuous` for floats or decimals, `discrete` for integers, or `categorical` for distinct labels.
+**Features** can also define additional optional metadata, such as the units and type. Note that there are additional restrictions on some of these fields. **`type`** must have values `continuous` for floats or decimals, `discrete` for integers, or `categorical` for distinct labels.
 
-Features that have the type `categorical` must also define an array of string `categories`, up to a maximum of 12.
+Features that have the `categorical` type must also define an array of string `categories`, up to a maximum of 12.
 
 A complete example dataset is also available in the [`documentation`](./example_dataset) directory of this project, and can be [viewed on Timelapse-Colorizer](https://dev-aics-dtp-001.int.allencell.org/nucmorph-colorizer/dist/?dataset=https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/example_dataset/manifest.json).
 
@@ -133,6 +133,8 @@ The `manifest.json` file would look something like this:
     "backdrops": [],
 }
 ```
+
+See the [included example dataset](./example_dataset) for another example of backdrop images in action.
 
 ---
 
