@@ -49,7 +49,7 @@ The most important file is the **manifest**, which is a JSON file that describes
     "outliers": <relative path to outlier JSON>,    //< optional
     "centroids": <relative path to centroids JSON>, //< optional
     "bounds": <relative path to bounds JSON>        //< optional
-    "backdrops": <array of backdrop image sets>     //< optional, see 1. Backdrops for more details
+    "backdrops": <array of backdrop image sets>     //< optional, see 2. Backdrops for more details
 }
 ```
 
@@ -138,13 +138,72 @@ The `manifest.json` file would look something like this:
 
 </details>
 
-### 1. Backdrops (optional)
+### 1. Metadata
 
-Multiple sets of **backdrop images** can be included in the **manifest** for additional data validation. Each backdrop set is defined by a JSON object with a `name` and `key` (which must be unique across all backdrops), and a list of **image paths** corresponding to each frame in the time series.
+Manifests can include some optional **metadata** about the dataset and its features.
 
-Note: There **must be one backdrop image for every frame in the time series**, and they must all be listed in order in the **manifest** file.
+Besides the details shown above, these are additional parameters that the manifest can include:
 
-The colored segmentations will be overlaid on top of the backdrop images in the Timelapse-Colorizer UI.
+`manifest.json:`
+
+```txt
+{
+    ...
+    "metadata": {
+        "frameDims": {
+            "units": <unit label for frame dimensions>,
+            "width": <width of frame in units>,
+            "height": <height of frame in units>
+        },
+        "frameDurationSeconds": <duration of a frame in seconds>,
+        "startTimeSeconds": <start time of timestamp in seconds>  // 0 by default
+    }
+
+}
+```
+
+These metadata parameters are used to configure additional features of the Timelapse Colorizer UI, such as showing scale bars or timestamps on the main display. Additional metadata will likely be added as the project progresses.
+
+Note that the interface will directly show the unit labels and does not scale or convert units from one type to another (for example, it will not convert 1000 µm to 1 mm). If you need to present your data with different units, create a (scaled) duplicate of the feature with a different unit label.
+
+<details>
+<summary><b>[Show me an example!]</b></summary>
+
+---
+
+Let's say a dataset has a microscope viewing area 3200 µm wide by 2400 µm tall, and there are 5 minutes (`=300 seconds`) between each frame. We also want to show the timestamp in colony time, which started 30 minutes (`=1800 seconds`) before the start of the recording.
+
+The manifest file would look something like this:
+
+`manifest.json:`
+
+```txt
+{
+    ...,
+    "metadata": {
+        "frameDims": {
+            "width": 3200,
+            "height": 2400,
+            "units": "µm"
+        },
+        "frameDurationSeconds": 300,
+        "startTimeSeconds": 1800
+    }
+}
+
+```
+
+---
+
+</details>
+
+### 2. Backdrops (optional)
+
+Multiple sets of **backdrop images** can be included in the manifest, which will be shown behind the colored objects in the UI. Each backdrop image set is defined by a JSON object with a `name`, `key`, and `frames`.
+
+The `key` must be unique across all backdrop image sets, and must only contain lowercase alphanumeric characters and underscores.
+
+`frames` is a list of **relative image paths** corresponding to each frame in the time series. Each set must have **one backdrop image for every frame in the time series**, and they must all be listed in order in the manifest file.
 
 `manifest.json:`
 
@@ -176,7 +235,7 @@ The colored segmentations will be overlaid on top of the backdrop images in the 
 
 ---
 
-Extending our previous example, we could add two sets of backdrop images for the brightfield and H2B-GFP (fluorescence) channels of imaged cells. The directory structure would look like this:
+Extending our previous example, we could add two sets of backdrop images. The directory structure would look like this:
 
 ```txt
 📂 my_dataset/
@@ -233,65 +292,6 @@ We would need to add the `backdrops` key to our `manifest.json` file as well:
         }
     ]
 }
-```
-
----
-
-</details>
-
-### 2. Metadata
-
-Manifests can also include some optional **metadata** about the dataset and its features.
-
-Besides the details shown above, these are additional parameters that the manifest can include:
-
-`manifest.json:`
-
-```txt
-{
-    ...
-    "metadata": {
-        "frameDims": {
-            "units": <unit label for frame dimensions>,
-            "width": <width of frame in units>,
-            "height": <height of frame in units>
-        },
-        "frameDurationSeconds": <duration of a frame in seconds>,
-        "startTimeSeconds": <start time of timestamp in seconds>  // 0 by default
-    }
-
-}
-```
-
-These metadata parameters are used to configure additional features of the Timelapse Colorizer UI, such as showing scale bars or timestamps on the main display. Additional metadata will likely be added as the project progresses.
-
-Note that the interface will directly show the unit labels and does not scale or convert units from one type to another (for example, it will not convert 1000 µm to 1 mm). If you need to present your data with different units, create a (scaled) duplicate of the feature with a different unit label.
-
-<details>
-<summary><b>[Show me an example!]</b></summary>
-
----
-
-Let's say a dataset has a microscope viewing area 3200 µm wide by 2400 µm tall, and there are 5 minutes (`=300 seconds`) between each frame. We also want to show the timestamp in colony time, which started 30 minutes (`=1800 seconds`) before the start of the recording.
-
-The manifest file would look something like this:
-
-`manifest.json:`
-
-```txt
-{
-    ...,
-    "metadata": {
-        "frameDims": {
-            "width": 3200,
-            "height": 2400,
-            "units": "µm"
-        },
-        "frameDurationSeconds": 300,
-        "startTimeSeconds": 1800
-    }
-}
-
 ```
 
 ---
