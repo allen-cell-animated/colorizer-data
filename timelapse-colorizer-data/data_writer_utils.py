@@ -78,6 +78,12 @@ class FeatureMetadata(TypedDict):
     categories: List[str]
 
 
+class BackdropMetadata(TypedDict):
+    key: str
+    name: str
+    frames: List[str]
+
+
 class FrameDimensions(TypedDict):
     """Dimensions of each frame, in physical units (not pixels)."""
 
@@ -125,6 +131,7 @@ class DatasetManifest(TypedDict):
     bounds: str
     metadata: DatasetMetadata
     frames: List[str]
+    backdrops: List[BackdropMetadata]
 
 
 class NumpyValuesEncoder(json.JSONEncoder):
@@ -287,7 +294,7 @@ def update_bounding_box_data(
         seg_remapped (np.ndarray): Segmentation image whose indices start at 1 and are are absolutely unique across the whole dataset,
             such as the results of `remap_segmented_image()`.
 
-    [Documentation for bounds data format](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#7-bounds-optional)
+    [Documentation for bounds data format](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#8-bounds-optional)
     """
     # Capture bounding boxes
     object_ids = np.unique(seg_remapped)
@@ -428,7 +435,7 @@ class ColorizerDatasetWriter:
         Accepts numpy arrays for each file type and writes them to the configured
         output directory according to the data format.
 
-        [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#1-tracks)
+        [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#3-tracks)
         """
         # TODO check outlier and replace values with NaN or something!
         if outliers is not None:
@@ -473,6 +480,44 @@ class ColorizerDatasetWriter:
             with open(self.outpath + "/bounds.json", "w") as f:
                 json.dump(bounds_json, f)
             self.manifest["bounds"] = "bounds.json"
+
+    def copy_and_add_backdrops(
+        self,
+        name: str,
+        frame_paths: List[str],
+        key=None,
+        subdir_name: str = None,
+    ):
+        """
+        Copies a set of backdrop images from the provided paths (either filepaths or URLs) to the
+        dataset's output directory, then registers the backdrop image set in the dataset.
+        """
+        # Make sanitized version of name as key
+        # If no subdir name, use sanitized name (key) too
+        # For each frame path, copy to output directory. Assume they are in order.
+
+        # Save the updated paths and then call add_backdrops
+        self.add_backdrops(self, name, frame_paths, key)
+        pass
+
+    def add_backdrops(
+        self,
+        name: str,
+        frame_paths: List[str],
+        key=None,
+    ):
+        """
+        Registers a backdrop image set to the dataset.
+
+        Args:
+            name (str): The name of the backdrop set.
+            frame_paths (List[str]): The relative paths to the backdrop images.
+            key (str): The key of the backdrop set. If not provided, a sanitized version of the name will be used.
+        """
+        # Make sanitized version of name as key if not provided
+        # Check if key already exists in manifest, and throw a warning if so
+        # Add to manifest
+        pass
 
     def write_manifest(
         self,
