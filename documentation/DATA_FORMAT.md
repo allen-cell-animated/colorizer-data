@@ -31,7 +31,7 @@ The most important file is the **manifest**, which is a JSON file that describes
     ],
     "features": [
         {
-            "key": <feature key>,                                 // Must be unique across features. Lowercase alphanumeric characters and underscores only.
+            "key": <feature key>,                                 // See note on keys below.
             "name": <feature display name>,
             "data": <relative path to feature JSON>,
             "unit": <unit label>,                                 //< optional
@@ -49,19 +49,23 @@ The most important file is the **manifest**, which is a JSON file that describes
     "outliers": <relative path to outlier JSON>,    //< optional
     "centroids": <relative path to centroids JSON>, //< optional
     "bounds": <relative path to bounds JSON>        //< optional
+    "backdrops": <array of backdrop image sets>     //< optional, see 2. Backdrops for more details
 }
-
-
-*Note: all paths are relative to the location of the manifest file.
 ```
+
+*Note: all paths are relative to the location of the manifest file.*
 
 Note that the `outliers`, `centroids`, and `bounds` files are optional, but certain features of Timelapse-Colorizer won't work without them.
 
-Features can also define additional optional metadata, such as the units and type. Note that there are additional restrictions on some of these fields. Type must have values `continuous` for floats or decimals, `discrete` for integers, or `categorical` for distinct labels.
+**Features** can also define additional optional metadata, such as the units and type. Note that there are additional restrictions on some of these fields. **`type`** must have values `continuous` for floats or decimals, `discrete` for integers, or `categorical` for distinct labels.
 
-Features that have the type `categorical` must also define an array of string `categories`, up to a maximum of 12.
+Features that have the `categorical` type must also define an array of string `categories`, up to a maximum of 12.
 
 A complete example dataset is also available in the [`documentation`](./example_dataset) directory of this project, and can be [viewed on Timelapse-Colorizer](https://dev-aics-dtp-001.int.allencell.org/nucmorph-colorizer/dist/?dataset=https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/example_dataset/manifest.json).
+
+### Note on keys
+
+Several fields in the manifest file have a `key` property. These keys must be unique and contain only lowercase **alphanumeric characters and underscores**. For example, `my_feature_1` is a valid key, but `My Feature 1` is not.
 
 <details>
 <summary><b>[Show me an example!]</b></summary>
@@ -129,9 +133,12 @@ The `manifest.json` file would look something like this:
     "times": "times.json",
     "outliers": "outliers.json",
     "centroids": "centroids.json",
-    "bounds": "bounds.json"
+    "bounds": "bounds.json",
+    "backdrops": [],
 }
 ```
+
+See the [included example dataset](./example_dataset) for another example of backdrop images in action.
 
 ---
 
@@ -139,7 +146,7 @@ The `manifest.json` file would look something like this:
 
 ### 1. Metadata
 
-Manifests can also include some optional **metadata** about the dataset and its features.
+Manifests can include some optional **metadata** about the dataset and its features.
 
 Besides the details shown above, these are additional parameters that the manifest can include:
 
@@ -196,7 +203,108 @@ The manifest file would look something like this:
 
 </details>
 
-### 2. Tracks
+### 2. Backdrops (optional)
+
+Multiple sets of **backdrop images** can be included in the manifest, which will be shown behind the colored objects in the UI. Each backdrop image set is defined by a JSON object with a `name`, `key`, and `frames`.
+
+The `key` must be unique across all backdrop image sets, and must only contain lowercase alphanumeric characters and underscores. (See note in [Dataset](#note-on-keys) for more details.)
+
+`frames` is a list of **relative image paths** corresponding to each frame in the time series. Each set must have **one backdrop image for every frame in the time series**, and they must all be listed in order in the manifest file.
+
+`manifest.json:`
+
+```txt
+{
+    ...
+    "backdrops": [
+        {
+            "name": <backdrop name>,
+            "key": <backdrop key>,
+            "frames": [
+                <relative path to backdrop frame 0>,
+                <relative path to backdrop frame 1>,
+                ...
+            ]
+        },
+        {
+            "name": <backdrop name>,
+            "key": <backdrop key>,
+            ...
+        },
+        ...
+    ] 
+}
+```
+
+<details>
+<summary><b>[Show me an example!]</b></summary>
+
+---
+
+Extending our previous example, we could add two sets of backdrop images. The directory structure would look like this:
+
+```txt
+📂 my_dataset/
+  - 📄 manifest.json
+  - ...
+  - 📁 backdrop_brightfield/
+    - 📷 img_0.png
+    - 📷 img_1.png
+    - 📷 img_2.png
+    ...
+    - 📷 img_245.png
+  - 📁 backdrop_h2b/
+    - 📷 img_0.png
+    - 📷 img_1.png
+    - 📷 img_2.png
+    ...
+    - 📷 img_245.png
+```
+
+We would need to add the `backdrops` key to our `manifest.json` file as well:
+
+`manifest.json:`
+
+```txt
+{
+    "frames": [
+        "frames/frame_0.png",
+        "frames/frame_1.png",
+        "frames/frame_2.png",
+        ...
+        "frames/frame_245.png",
+    ],
+    ...
+    "backdrops": [
+        {
+            "name": "Brightfield",
+            "key": "brightfield",
+            "frames": [
+                "backdrop_brightfield/img_0.png",
+                "backdrop_brightfield/img_1.png",
+                ...
+                "backdrop_brightfield/img_245.png",
+            ]
+        },
+        {
+            "name": "H2B-GFP",
+            "key": "h2b_gfp",
+            "frames": [
+                "backdrop_h2b/img_0.png",
+                "backdrop_h2b/img_1.png",
+                ...
+                "backdrop_h2b/img_245.png",
+            ]
+        }
+    ]
+}
+```
+
+---
+
+</details>
+
+### 3. Tracks
 
 Every segmented object in each time step has an **object ID**, an integer identifier that is unique across all time steps. To recognize the same object across multiple frames, these object IDs must be grouped together into a **track** with a single **track number/track ID**.
 
@@ -248,7 +356,7 @@ Note that the object IDs in a track are not guaranteed to be sequential!
 
 </details>
 
-### 3. Times
+### 4. Times
 
 The times JSON is similar to the tracks JSON. It also contains a `data` array that maps from object IDs to the frame number that they appear on.
 
@@ -265,11 +373,11 @@ The times JSON is similar to the tracks JSON. It also contains a `data` array th
 }
 ```
 
-### 4. Frames
+### 5. Frames
 
-_Example frame:_
+*Example frame:*
 ![Segmented cell nuclei on a black background, in various shades of green, yellow, red.](./frame_example.png)
-_Each unique color in this frame is a different object ID._
+*Each unique color in this frame is a different object ID.*
 
 **Frames** are image textures that store the object IDs for each time step in the time series. Each pixel in the image can encode a single object ID in its RGB value (`object ID = R + G*256 + B*256*256 - 1`), and background pixels are `#000000` (black).
 
@@ -305,7 +413,7 @@ The resulting frame would look like this:
 
 </details>
 
-### 5. Features
+### 6. Features
 
 Datasets can contain any number of `features`, which are a numeric value assigned to each object ID in the dataset. Features are used by the Timelapse-Colorizer to colorize objects, and each feature file corresponds to a single column of data. Examples of relevant features might include the volume, depth, number of neighbors, age, etc. of each object.
 
@@ -384,7 +492,7 @@ Our feature file should look something like this.
 
 </details>
 
-### 6. Centroids (optional)
+### 7. Centroids (optional)
 
 The centroids file defines the center of each object ID in the dataset. It follows the same format as the feature file, but each ID has two entries corresponding to the `x` and `y` coordinates of the object's centroid, making the `data` array twice as long.
 
@@ -405,7 +513,7 @@ Coordinates are defined in pixels in the frame, where the upper left corner of t
 }
 ```
 
-### 7. Bounds (optional)
+### 8. Bounds (optional)
 
 The bounds file defines the rectangular boundary occupied by each object ID. Like centroids and features, the file defines a `data` array, but has four entries for each object ID to represent the `x` and `y` coordinates of the upper left and lower right corners of the bounding box.
 
@@ -429,7 +537,7 @@ Again, coordinates are defined in pixels in the image frame, where the upper lef
 }
 ```
 
-### 8. Outliers (optional)
+### 9. Outliers (optional)
 
 The outliers file stores whether a given object ID should be marked as an outlier using an array of booleans (`true`/`false`). Indices that are `true` indicate outlier values, and are given a unique color in Timelapse-Colorizer.
 
