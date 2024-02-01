@@ -81,7 +81,7 @@ CENTROIDS_Y_COLUMN = "centroid_y"
 """Column of Y centroid coordinates, in pixels of original image data."""
 OUTLIERS_COLUMN = "is_outlier"
 """Column of outlier status for each object. (true/false)"""
-FEATURE_COLUMNS = ["NUC_shape_volume_lcc", "NUC_position_depth_lcc"]
+FEATURE_COLUMNS = ["NUC_shape_volume_lcc", "NUC_position_depth_lcc", "is_outlier", "edge_cell", "predicted_formation", "predicted_breakdown", "NUC_roundness_surface_area", "NUC_position_height", "NUC_position_width", "termination", "parent_id"]
 """Columns of feature data to include in the dataset. Each column will be its own feature file."""
 
 
