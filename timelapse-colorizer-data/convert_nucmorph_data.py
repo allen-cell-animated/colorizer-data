@@ -177,7 +177,10 @@ def make_features(
         )
         unit = formatted_units.get(unit)
         # Get data and scale to use actual units
-        data = dataset[feature].to_numpy() * scale_factor
+        if scale_factor is not None:
+            data = dataset[feature] * scale_factor
+        else:
+            data = dataset[feature]
 
         writer.write_feature(
             data, FeatureInfo(label=label, unit=unit, type=FeatureType.CONTINUOUS)

@@ -344,7 +344,7 @@ class ColorizerDatasetWriter:
         self.scale = scale
         self.manifest = {"features": []}
 
-    def write_feature(self, data: np.ndarray, info: FeatureInfo):
+    def write_feature(self, data: pd.Series, info: FeatureInfo):
         """
         Writes feature data arrays and stores feature metadata to be written to the manifest.
 
@@ -360,8 +360,8 @@ class ColorizerDatasetWriter:
         """
         # Fetch feature data
         num_features = len(self.manifest["features"])
-        fmin = np.nanmin(data)
-        fmax = np.nanmax(data)
+        fmin = data.dropna().min()
+        fmax = data.dropna().max()
         filename = "feature_" + str(num_features) + ".json"
         file_path = self.outpath + "/" + filename
 
