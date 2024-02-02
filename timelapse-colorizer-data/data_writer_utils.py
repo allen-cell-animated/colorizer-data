@@ -370,8 +370,8 @@ class ColorizerDatasetWriter:
         Writes a feature data array and stores feature metadata to be written to the manifest.
 
         Args:
-            data (np.ndarray): The numpy array for the feature, to be written to a JSON file.
-            info (FeatureInfo): Metadata for the feature.
+            data (`np.ndarray[int | float]`): The numeric numpy array for the feature, to be written to a JSON file.
+            info (`FeatureInfo`): Metadata for the feature.
 
         Feature JSON files are suffixed by index, starting at 0, which increments
         for each call to `write_feature()`. The first feature will have `feature_0.json`,
