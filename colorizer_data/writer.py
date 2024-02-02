@@ -174,8 +174,9 @@ class ColorizerDatasetWriter:
         `write_feature` for full description of file writing behavior and naming.
 
         Args:
-            data (`np.ndarray`): An array with dtype string, with no more than 12 unique values.
-            info (`FeatureInfo`): Metadata for the feature. If defined, overrides the `categories` array.
+            data (`np.ndarray`): An array with dtype string, with no more than 12 unique values. Categories will be ordered
+            in order of appearance in `data`.
+            info (`FeatureInfo`): Metadata for the feature. The `categories` array and `type` will be overridden.
         """
         categories, indexed_data = np.unique(data, return_inverse=True)
         if len(categories) > MAX_CATEGORIES:
