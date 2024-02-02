@@ -168,9 +168,29 @@ class ColorizerDatasetWriter:
 
         self.backdrops = {}
 
-    def write_feature(self, data: np.ndarray, info: FeatureInfo):
+    def write_feature_categorical(self, data: np.ndarray, info: FeatureInfo) -> None:
         """
-        Writes feature data arrays and stores feature metadata to be written to the manifest.
+        Writes a categorical feature data array and stores feature metadata to be written to the manifest. See
+        `write_feature` for full description of file writing behavior and naming.
+
+        Args:
+            data (`np.ndarray`): An array with dtype string, with no more than 12 unique values.
+            info (`FeatureInfo`): Metadata for the feature. If defined, overrides the `categories` array.
+        """
+        categories, indexed_data = np.unique(data, return_inverse=True)
+        if len(categories) > MAX_CATEGORIES:
+            raise RuntimeError(
+                "write_feature_categorical: Too many unique categories in provided data for feature '{}' ({} > max {}). Categories provided: {}".format(
+                    info.key, len(categories), MAX_CATEGORIES, categories
+                )
+            )
+        info.categories = categories
+        info.type = FeatureType.CATEGORICAL
+        return self.write_feature(indexed_data, categories)
+
+    def write_feature(self, data: np.ndarray, info: FeatureInfo) -> None:
+        """
+        Writes a feature data array and stores feature metadata to be written to the manifest.
 
         Args:
             data (`np.ndarray[int | float]`): The numeric numpy array for the feature, to be written to a JSON file.
@@ -180,7 +200,8 @@ class ColorizerDatasetWriter:
         for each call to `write_feature()`. The first feature will have `feature_0.json`,
         the second `feature_1.json`, and so on.
 
-        If the feature type is `FeatureType.CATEGORICAL`, `categories` must be defined in `info`.
+        If the feature type is `FeatureType.CATEGORICAL`, values will be interpreted as integer indices into a list of
+        string `categories`, defined in `info`.
 
         See the [documentation on features](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#6-features) for more details.
         """
