@@ -39,12 +39,7 @@ class NucMorphFeatureSpec:
     column_name: str
     type: FeatureType = FeatureType.CONTINUOUS
     categories: List = None
-    preprocessor: Callable[[np.ndarray], np.ndarray]= None
 
-
-def parent_id_preprocessor(data: np.ndarray) -> np.ndarray:
-    # Cell has a parent if parent_id is present and not -1
-    return np.logical_and(~np.isnan(data), data != -1)
 
 # Example Commands:
 # pip install https://artifactory.corp.alleninstitute.org/artifactory/api/pypi/pypi-release-local/aicsfiles/5.1.0/aicsfiles-5.1.0.tar.gz git+https://github.com/aics-int/nuc-morph-analysis.git
@@ -110,10 +105,7 @@ FEATURE_COLUMNS = [
                         FeatureType.CATEGORICAL,
                         ["Division", "Leaves FOV", "Apoptosis"]),
     NucMorphFeatureSpec("parent_id",
-                        FeatureType.CATEGORICAL,
-                        ["False", "True"],
-                        preprocessor=parent_id_preprocessor
-    )
+                        FeatureType.DISCRETE)
 ]
 
 
@@ -210,10 +202,6 @@ def make_features(
         unit = formatted_units.get(unit)
 
         data = dataset[feature.column_name]
-
-        # Preprocess parent_id column
-        if feature.preprocessor is not None:
-            data = feature.preprocessor(data)
 
         # Get data and scale to use actual units
         if scale_factor is not None:
