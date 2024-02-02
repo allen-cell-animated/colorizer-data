@@ -344,9 +344,7 @@ class ColorizerDatasetWriter:
         self.scale = scale
         self.manifest = {"features": []}
 
-    def write_feature(
-        self, data: Union[np.ndarray[int], np.ndarray[float]], info: FeatureInfo
-    ):
+    def write_feature(self, data: np.ndarray, info: FeatureInfo):
         """
         Writes feature data arrays and stores feature metadata to be written to the manifest.
 

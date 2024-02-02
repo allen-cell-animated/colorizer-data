@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Callable
 from aicsimageio import AICSImage
 import argparse
 import logging
@@ -33,6 +33,18 @@ from data_writer_utils import (
     remap_segmented_image,
     update_bounding_box_data,
 )
+
+@dataclass
+class NucMorphFeatureSpec:
+    column_name: str
+    type: FeatureType = FeatureType.CONTINUOUS
+    categories: List = None
+    preprocessor: Callable[[np.ndarray], np.ndarray]= None
+
+
+def parent_id_preprocessor(data: np.ndarray) -> np.ndarray:
+    # Cell has a parent if parent_id is present and not -1
+    return np.logical_and(~np.isnan(data), data != -1)
 
 # Example Commands:
 # pip install https://artifactory.corp.alleninstitute.org/artifactory/api/pypi/pypi-release-local/aicsfiles/5.1.0/aicsfiles-5.1.0.tar.gz git+https://github.com/aics-int/nuc-morph-analysis.git
@@ -81,8 +93,28 @@ CENTROIDS_Y_COLUMN = "centroid_y"
 """Column of Y centroid coordinates, in pixels of original image data."""
 OUTLIERS_COLUMN = "is_outlier"
 """Column of outlier status for each object. (true/false)"""
-FEATURE_COLUMNS = ["NUC_shape_volume_lcc", "NUC_position_depth_lcc", "is_outlier", "edge_cell", "predicted_formation", "predicted_breakdown", "NUC_roundness_surface_area", "NUC_position_height", "NUC_position_width", "termination", "parent_id"]
+
 """Columns of feature data to include in the dataset. Each column will be its own feature file."""
+FEATURE_COLUMNS = [
+    NucMorphFeatureSpec("NUC_shape_volume_lcc"),
+    NucMorphFeatureSpec("NUC_position_depth"),
+    NucMorphFeatureSpec("is_outlier", FeatureType.CATEGORICAL, ["False", "True"]),
+    NucMorphFeatureSpec("edge_cell", FeatureType.CATEGORICAL, ["False", "True"]),
+    NucMorphFeatureSpec("NUC_roundness_surface_area"),
+    NucMorphFeatureSpec("NUC_position_height"),
+    NucMorphFeatureSpec("NUC_position_width"),
+    # 0 - track terminates by dividing
+    # 1 - track terminates by going off the edge of the FOV
+    # 2 - track terminates by apoptosis
+    NucMorphFeatureSpec("termination",
+                        FeatureType.CATEGORICAL,
+                        ["Division", "Leaves FOV", "Apoptosis"]),
+    NucMorphFeatureSpec("parent_id",
+                        FeatureType.CATEGORICAL,
+                        ["False", "True"],
+                        preprocessor=parent_id_preprocessor
+    )
+]
 
 
 def get_image_from_row(row: pd.DataFrame) -> AICSImage:
@@ -140,7 +172,7 @@ def make_frames(
 
 def make_features(
     dataset: pd.DataFrame,
-    feature_names: List[str],
+    features: List[NucMorphFeatureSpec],
     dataset_name: str,
     writer: ColorizerDatasetWriter,
 ):
@@ -171,19 +203,27 @@ def make_features(
         "(min)": "min",
         "($\mu m^{-1}$)": "µm⁻¹",
     }
-    for feature in feature_names:
+    for feature in features:
         (scale_factor, label, unit) = get_plot_labels_for_metric(
-            feature, dataset=dataset_name
+            feature.column_name, dataset=dataset_name
         )
         unit = formatted_units.get(unit)
+
+        data = dataset[feature.column_name]
+
+        # Preprocess parent_id column
+        if feature.preprocessor is not None:
+            data = feature.preprocessor(data)
+
         # Get data and scale to use actual units
         if scale_factor is not None:
-            data = dataset[feature] * scale_factor
-        else:
-            data = dataset[feature]
+            data = data * scale_factor
 
         writer.write_feature(
-            data, FeatureInfo(label=label, unit=unit, type=FeatureType.CONTINUOUS)
+            data, FeatureInfo(label=label,
+                              unit=unit,
+                              type=feature.type,
+                              categories=feature.categories)
         )
 
 
