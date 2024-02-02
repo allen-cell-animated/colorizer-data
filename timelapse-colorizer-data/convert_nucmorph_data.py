@@ -196,6 +196,14 @@ def make_features(
         "($\mu m^{-1}$)": "µm⁻¹",
     }
     for feature in features:
+        if feature.column_name not in dataset.columns:
+            logging.warning(
+                "Feature '{}' not found in dataset. Skipping...".format(
+                    feature.column_name
+                )
+            )
+            continue
+
         (scale_factor, label, unit) = get_plot_labels_for_metric(
             feature.column_name, dataset=dataset_name
         )
