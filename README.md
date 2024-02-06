@@ -97,19 +97,24 @@ writer.write_manifest(metadata=metadata)
 
 ## Versioning
 
-Colorizer-data uses [semantic versioning](https://semver.org), where all versions are tagged with `vX.Y.Z`, where `X`, `Y`, and `Z` correspond with major, minor, and patch version numbers.
+Colorizer-data uses [semantic versioning](https://semver.org). All versions are tagged in this repository with `vX.Y.Z`, where `X`, `Y`, and `Z` correspond with major, minor, and patch version numbers. The API will be backwards-compatible within the same major version.
 
-Contributing developers can update the version number using the `bump-my-version` Python tool, which will automatically tag commits.
+Contributing developers can update the version number using the [`bump-my-version`](https://github.com/callowayproject/bump-my-version) Python tool, which will automatically tag commits. You can learn more about [git tagging here.](https://git-scm.com/book/en/v2/Git-Basics-Tagging)
+
+### Basic Usage:
 
 ```
 pip install --upgrade bump-my-version
 
-# Patch
-bump-my-version bump --tag --current-version [version] patch
+bump-my-version bump --tag -v --current-version [version] [type]
+git push origin [new tag]
+```
 
-# Minor versions
-bump-my-version bump --tag --current-version [version] minor
+`type` should be either `major`, `minor`, or `patch`.
 
-# Major versions
-bump-my-version bump --tag --current-version [version] major
+### Example:
+
+```
+bump-my-version bump --tag -v --current-version 0.0.0 major
+git push origin v1.0.0
 ```
