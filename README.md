@@ -43,6 +43,7 @@ from colorizer_data.utils import (
     configureLogging,
     generate_frame_paths,
     remap_segmented_image,
+    make_bounding_box_array,
 )
 
 # Open a dataset
@@ -56,7 +57,9 @@ writer = ColorizerDatasetWriter(output_dir, data)
 writer.write_data(
     tracks=data["tracks"],
     times=data["times"],
-    outliers=data["outliers"]
+    outliers=data["outliers"],
+    centroids_x=data["centroids x"],
+    centroids_y=data["centroids y"]
 )
 writer.write_feature(
     data["feature1"].to_numpy(),
@@ -67,8 +70,9 @@ writer.write_feature(
     FeatureInfo(label="My Other Feature", type=FeatureType.CATEGORICAL, categories=["A", "B", "C"])
 )
 
-# Write frames
+# Write frames and bounding boxes
 grouped_data = data.groupby("time")
+bounds_arr = make_bounding_box_array(grouped_data)
 for group_name, frame in grouped_data:
     row = frame.iloc[0]
     frame_number = row["time"]
@@ -82,7 +86,9 @@ for group_name, frame in grouped_data:
         "object-ids",
     )
     writer.write_image(seg_remapped, frame_number)
+    update_bounding_box_data(bounds_arr, seg_remapped)
 
+writer.write_data(bounds=bound_arr)
 writer.set_frame_paths(generate_frame_paths(len(grouped_data)))
 
 # Write manifest and finish
