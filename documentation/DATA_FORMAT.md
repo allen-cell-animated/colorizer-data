@@ -635,3 +635,23 @@ Here's a list of where Timelapse-Colorizer will check for the manifest files for
 ---
 
 </details>
+
+## FAQ
+
+### My data needs to start at a timepoint other than zero.
+
+Once you get the first frame in your dataset, you'll need to save this data to your dataset's metadata and also include the information when generating the frame paths.
+
+```python
+writer = ColorizerDatasetWriter(...)
+starting_timepoint = 5
+num_frames = 100
+
+# Generate file paths starting at some offset
+frame_paths = generate_frame_paths(num_frames, start_frame=starting_timepoint)
+writer.set_frame_paths(frame_paths)
+
+# Including starting frame number in the metadata
+metadata = ColorizerMetadata(start_frame_num=starting_timepoint)
+writer.write_manifest(metadata)
+```

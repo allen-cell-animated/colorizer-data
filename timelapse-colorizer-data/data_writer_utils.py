@@ -6,7 +6,7 @@ import os
 import pathlib
 import platform
 import re
-from typing import Dict, List, Sequence, TypedDict, Union
+from typing import List, Sequence, TypedDict, Union
 
 import numpy as np
 import pandas as pd
@@ -608,3 +608,4 @@ class ColorizerDatasetWriter:
                 for i in range(len(missing_frames)):
                     index, path = missing_frames[i]
                     logging.warn("  {}: '{}'".format(index, path))
+                logging.warn("For auto-generated frame numbers, you may need to ")
