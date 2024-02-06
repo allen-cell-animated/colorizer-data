@@ -285,6 +285,7 @@ class ColorizerDatasetWriter:
 
     def write_manifest(
         self,
+        num_frames: int = None,
         metadata: ColorizerMetadata = None,
     ):
         """
@@ -294,6 +295,12 @@ class ColorizerDatasetWriter:
 
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#Dataset)
         """
+
+        if num_frames is not None and self.manifest["frames"] is None:
+            logging.warn(
+                "ColorizerDatasetWriter: The argument `num_frames` on `write_manifest` is deprecated and will be removed in the future! Please call `set_frame_paths(generate_frame_paths(num_frames))` instead."
+            )
+            self.set_frame_paths(generate_frame_paths(num_frames))
 
         # Add the metadata
         if metadata:
