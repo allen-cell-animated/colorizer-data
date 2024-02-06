@@ -12,6 +12,7 @@ from PIL import Image
 from colorizer_data.utils import (
     DEFAULT_FRAME_PREFIX,
     DEFAULT_FRAME_SUFFIX,
+    generate_frame_paths,
     sanitize_key_name,
     MAX_CATEGORIES,
     NumpyValuesEncoder,
