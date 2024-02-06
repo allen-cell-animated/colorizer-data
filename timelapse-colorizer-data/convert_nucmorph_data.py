@@ -21,16 +21,17 @@ from nuc_morph_analysis.lib.preprocessing.load_data import (
 from nuc_morph_analysis.lib.visualization.plotting_tools import (
     get_plot_labels_for_metric,
 )
-from data_writer_utils import (
-    INITIAL_INDEX_COLUMN,
+from colorizer_data.writer import (
     ColorizerDatasetWriter,
     ColorizerMetadata,
     FeatureInfo,
     FeatureType,
+)
+from colorizer_data.utils import (
+    INITIAL_INDEX_COLUMN,
     configureLogging,
     generate_frame_paths,
     get_total_objects,
-    make_bounding_box_array,
     sanitize_path_by_platform,
     scale_image,
     remap_segmented_image,

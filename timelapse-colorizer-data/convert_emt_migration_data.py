@@ -8,12 +8,14 @@ import pandas as pd
 from pandas.core.groupby.generic import DataFrameGroupBy
 import time
 
-from data_writer_utils import (
-    INITIAL_INDEX_COLUMN,
+from colorizer_data.writer import (
     ColorizerDatasetWriter,
     ColorizerMetadata,
     FeatureInfo,
     FeatureType,
+)
+from colorizer_data.utils import (
+    INITIAL_INDEX_COLUMN,
     configureLogging,
     generate_frame_paths,
     make_bounding_box_array,

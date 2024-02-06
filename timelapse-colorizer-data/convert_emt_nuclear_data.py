@@ -21,16 +21,17 @@ from pandas.core.groupby.generic import DataFrameGroupBy
 import time
 from typing import List, Sequence
 
-from data_writer_utils import (
-    INITIAL_INDEX_COLUMN,
+from colorizer_data.writer import (
     ColorizerDatasetWriter,
     ColorizerMetadata,
     FeatureInfo,
     FeatureType,
+)
+from colorizer_data.utils import (
+    INITIAL_INDEX_COLUMN,
     configureLogging,
     generate_frame_paths,
     get_total_objects,
-    make_bounding_box_array,
     sanitize_path_by_platform,
     scale_image,
     remap_segmented_image,
