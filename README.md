@@ -1,12 +1,14 @@
 # colorizer-data
 
-#### A Python package of utilities for preparing data for the Timelapse Colorizer app.
+#### A Python package of utilities to prepare data for the [Timelapse Colorizer app](https://github.com/allen-cell-animated/nucmorph-colorizer).
 
-Utilities are included in this repository to convert time-series data to the Timelapse Colorizer's format. [You can read more about the data format specification here.](./documentation/DATA_FORMAT.md)
+[Timelapse Colorizer](https://github.com/allen-cell-animated/nucmorph-colorizer) is a browser-based web app for viewing tracked segmented data.
 
-We provide utilities for writing data to our specification and example scripts for some AICS internal projects' data sets. Each project (AICS nuclear morphogenesis, AICS EMT, etc) will need their own data conversion scripts.
+Utilities are included in this repository to convert time-series data to the Timelapse Colorizer's format. You can read more about the data format specification here: [`DATA_FORMAT.md`](./documentation/DATA_FORMAT.md)
 
-For loading of datasets to work correctly, you'll need to run these commands from a device that has access to Allen Institute's on-premises data storage. If running off of shared resources, remember to initialize your virtual environment first! This may look like `conda activate {my_env}`.
+Example scripts are also included in this repository, based on some of our internal projects. You can edit these scripts to work with your datasets as part of a processing pipeline.
+
+If using these example scripts, you'll need to run these commands from a device that has access to the Allen Institute's on-premises data storage. If running off of shared resources, remember to initialize your virtual environment first! This may look like `conda activate {my_env}`.
 
 ## Installation
 
