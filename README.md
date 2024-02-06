@@ -24,12 +24,12 @@ To install a specific tagged version or branch, add `@{version tag/branch name}`
 
 ```
 pip install git+https://github.com/allen-cell-animated/colorizer-data.git@my-branch-name
-pip install git+https://github.com/allen-cell-animated/colorizer-data.git@1.0.0
+pip install git+https://github.com/allen-cell-animated/colorizer-data.git@v1.0.0
 ```
 
 ## Example Usage
 
-See our example data scripts in [`timelapse-colorizer-data`](./timelapse-colorizer-data/) for complete working examples!
+This is a simplified example. See the data scripts in [`timelapse-colorizer-data`](./timelapse-colorizer-data/) for complete working examples!
 
 ```python
 import pandas as pd
@@ -86,5 +86,30 @@ for group_name, frame in grouped_data:
 writer.set_frame_paths(generate_frame_paths(len(grouped_data)))
 
 # Write manifest and finish
-writer.write_manifest()
+metadata = ColorizerMetadata(
+    frame_width=400,
+    frame_height=300,
+    frame_units="µm"
+    frame_duration_sec=5,
+)
+writer.write_manifest(metadata=metadata)
+```
+
+## Versioning
+
+Colorizer-data uses [semantic versioning](https://semver.org), where all versions are tagged with `vX.Y.Z`, where `X`, `Y`, and `Z` correspond with major, minor, and patch version numbers.
+
+Contributing developers can update the version number using the `bump-my-version` Python tool, which will automatically tag commits.
+
+```
+pip install --upgrade bump-my-version
+
+# Patch
+bump-my-version bump --tag --current-version [version] patch
+
+# Minor versions
+bump-my-version bump --tag --current-version [version] minor
+
+# Major versions
+bump-my-version bump --tag --current-version [version] major
 ```
