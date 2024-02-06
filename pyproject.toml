@@ -30,8 +30,8 @@ dynamic = ["version"]
 my-script = "my_package.module:function"
 
 [project.urls]
-Homepage = https://github.com/allen-cell-animated/colorizer-data
-Issues = https://github.com/allen-cell-animated/colorizer-data/issues
+# Homepage = https://github.com/allen-cell-animated/colorizer-data
+# Issues = https://github.com/allen-cell-animated/colorizer-data/issues
 
 # ... other project metadata fields as specified in:
 #     https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
