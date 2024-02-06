@@ -3,14 +3,15 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "timelapse-colorizer-data"
+name = "colorizer-data"
+version="1.0.0"
 authors = [
     {name = "", email = "danielt@alleninstitute.org"},
+    {name = "Allen Institute for Cell Science", email = "peyton.lee@alleninstitute.org"},
 ]
-description = "data prep scripts"
-# readme = ""
+description = "Utilities for converting data for viewing in Timelapse Colorizer."
+readme = "README.md"
 requires-python = ">=3.8"
-keywords = ["one", "two"]
 license = {text = "BSD-3-Clause"}
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -27,6 +28,10 @@ dynamic = ["version"]
 
 [project.scripts]
 my-script = "my_package.module:function"
+
+[project.urls]
+Homepage = https://github.com/allen-cell-animated/colorizer-data
+Issues = https://github.com/allen-cell-animated/colorizer-data/issues
 
 # ... other project metadata fields as specified in:
 #     https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
