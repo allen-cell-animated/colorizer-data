@@ -53,7 +53,7 @@ The most important file is the **manifest**, which is a JSON file that describes
 }
 ```
 
-*Note: all paths are relative to the location of the manifest file.*
+_Note: all paths are relative to the location of the manifest file._
 
 Note that the `outliers`, `centroids`, and `bounds` files are optional, but certain features of Timelapse-Colorizer won't work without them.
 
@@ -232,7 +232,7 @@ The `key` must be unique across all backdrop image sets, and must only contain l
             ...
         },
         ...
-    ] 
+    ]
 }
 ```
 
@@ -375,9 +375,9 @@ The times JSON is similar to the tracks JSON. It also contains a `data` array th
 
 ### 5. Frames
 
-*Example frame:*
+_Example frame:_
 ![Segmented cell nuclei on a black background, in various shades of green, yellow, red.](./frame_example.png)
-*Each unique color in this frame is a different object ID.*
+_Each unique color in this frame is a different object ID._
 
 **Frames** are image textures that store the object IDs for each time step in the time series. Each pixel in the image can encode a single object ID in its RGB value (`object ID = R + G*256 + B*256*256 - 1`), and background pixels are `#000000` (black).
 

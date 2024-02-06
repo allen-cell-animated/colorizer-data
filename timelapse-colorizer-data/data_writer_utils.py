@@ -15,6 +15,8 @@ from PIL import Image
 
 MAX_CATEGORIES = 12
 INITIAL_INDEX_COLUMN = "initialIndex"
+DEFAULT_FRAME_PREFIX = "frame_"
+DEFAULT_FRAME_SUFFIX = ".png"
 """
 Column added to reduced datasets, holding the original indices of each row.
 
@@ -103,6 +105,7 @@ class ColorizerMetadata:
     frame_units: str = ""
     frame_duration_sec: float = 0
     start_time_sec: float = 0
+    start_frame_num: int = 0
 
     def to_json(self) -> DatasetMetadata:
         return {
@@ -113,6 +116,7 @@ class ColorizerMetadata:
             },
             "startTimeSeconds": self.start_time_sec,
             "frameDurationSeconds": self.frame_duration_sec,
+            "startingFrameNumber": self.start_frame_num,
         }
 
 
@@ -319,6 +323,26 @@ def sanitize_key_name(name: str) -> str:
     return re.sub(pattern, "", name)
 
 
+def generate_frame_paths(
+    num_frames: int,
+    start_frame: int = 0,
+    file_prefix: str = DEFAULT_FRAME_PREFIX,
+    file_suffix: str = DEFAULT_FRAME_SUFFIX,
+) -> List[str]:
+    """
+    Returns a list of image file paths of length `num_frames`, with a configurable prefix, suffix,
+    and starting frame number.
+
+    By default, returns the list:
+    - `frame_0.png`
+    - `frame_1.png`
+    - `frame_2.png`
+    - `...`
+    - `frame_{num_frames - 1}.png`
+    """
+    return [file_prefix + str(i + start_frame) + file_suffix for i in range(num_frames)]
+
+
 class ColorizerDatasetWriter:
     """
     Writes provided data as Colorizer-compatible dataset files to the configured output directory.
@@ -476,9 +500,17 @@ class ColorizerDatasetWriter:
                 json.dump(bounds_json, f)
             self.manifest["bounds"] = "bounds.json"
 
+    def set_frame_paths(self, paths: List[str]) -> None:
+        """
+        Stores an ordered array of paths to image frames, to be written
+        to the manifest. Paths should be are relative to the dataset directory.
+
+        Use `generate_frame_paths()` if your frame numbers are contiguous (no gaps or skips).
+        """
+        self.manifest["frames"] = paths
+
     def write_manifest(
         self,
-        num_frames: int,
         metadata: ColorizerMetadata = None,
     ):
         """
@@ -487,39 +519,13 @@ class ColorizerDatasetWriter:
         Must be called **AFTER** all other data is written.
 
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#Dataset)
-
-        `manifest.json:`
-        ```
-          frames: [frame_0.png, frame_1.png, ...]
-
-          # Names are given by `feature_names` parameter, in order.
-          features: { "feature_0_name": "feature_0.json", "feature_1_name": "feature_1.json", ... }
-
-          # per cell, same order as featureN.json files. true/false boolean values.
-          outliers: "outliers.json"
-          # per-cell track id, same format as featureN.json files
-          tracks: "tracks.json"
-          # per-cell frame index, same format as featureN.json files
-          times: "times.json"
-          # per-cell centroid. For each index i, the coordinates are (x: data[2i], y: data[2i + 1]).
-          centroids: "centroids.json"
-          # bounding boxes for each cell. For each index i, the minimum bounding box coordinates
-          # (upper left corner) are given by (x: data[4i], y: data[4i + 1]),
-          # and the maximum bounding box coordinates (lower right corner) are given by
-          # (x: data[4i + 2], y: data[4i + 3]).
-          bounds: "bounds.json"
-        ```
         """
+
         # Add the metadata
         if metadata:
             self.manifest["metadata"] = metadata.to_json()
 
-        # TODO: Write these progressively to an internal map during feature writing
-        # so we only write the files that are known? (This won't work safely across processes
-        # during parallellism though :/)
-        self.manifest["frames"] = [
-            "frame_" + str(i) + ".png" for i in range(num_frames)
-        ]
+        self.validate_dataset()
 
         with open(self.outpath + "/manifest.json", "w") as f:
             json.dump(self.manifest, f, indent=2)
@@ -530,12 +536,27 @@ class ColorizerDatasetWriter:
         self,
         seg_remapped: np.ndarray,
         frame_num: int,
+        frame_prefix: str = DEFAULT_FRAME_PREFIX,
+        frame_suffix: str = DEFAULT_FRAME_SUFFIX,
     ):
         """
         Writes the current segmented image to a PNG file in the output directory.
-        The image will be saved as `frame_{frame_num}.png`.
+        By default, the image will be saved as `frame_{frame_num}.png`.
 
         IDs for each pixel are stored in the RGBA channels of the image.
+
+        Args:
+          seg_remapped (np.ndarray[int]): A 2D numpy array of integers, where each value in the array is the object ID of the
+          segmentation that occupies that pixel.
+          frame_num (int): The frame number.
+
+        Positional args:
+          frame_prefix (str): The prefix of the file to be written. This can include subdirectory paths. By default, this is `frame_`.
+          frame_suffix (str); The suffix of the file to be written. By default, this is `.png`.
+
+        Effects:
+          Writes the ID information to an RGB image file at the path `{frame_prefix}{frame_num}{frame_suffix}`. (By default, this looks
+          like `frame_n.png`.)
 
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#3-frames)
         """
@@ -547,4 +568,43 @@ class ColorizerDatasetWriter:
         seg_rgba[:, :, 2] = (seg_remapped & 0x00FF0000) >> 16
         seg_rgba[:, :, 3] = 255  # (seg2d & 0xFF000000) >> 24
         img = Image.fromarray(seg_rgba)  # new("RGBA", (xres, yres), seg2d)
-        img.save(self.outpath + "/frame_" + str(frame_num) + ".png")
+        # TODO: Automatically create subdirectories if `frame_prefix` contains them.
+        img.save(self.outpath + "/" + frame_prefix + str(frame_num) + frame_suffix)
+
+    def validate_dataset(
+        self,
+    ):
+        """
+        Logs warnings to the console if any expected files are missing.
+        """
+        if self.manifest["times"] is None:
+            logging.warn("No times JSON information provided!")
+        if not os.path.isfile(self.outpath + "/" + self.manifest["times"]):
+            logging.warn(
+                "Times JSON file does not exist at expected path '{}'".format(
+                    self.manifest["times"]
+                )
+            )
+
+        # TODO: Add validation for other required data files
+
+        if self.manifest["frames"] is None:
+            logging.warn(
+                "No frames are provided! Did you forget to call `set_frame_paths` on the writer?"
+            )
+        else:
+            # Check that all the frame paths exist
+            missing_frames = []
+            for i in range(len(self.manifest["frames"])):
+                path = self.manifest["frames"][i]
+                if not os.path.isfile(self.outpath + "/" + path):
+                    missing_frames.append([i, path])
+            if len(missing_frames) > 0:
+                logging.warn(
+                    "{} image frame(s) missing from the dataset! The following files could not be found:".format(
+                        len(missing_frames)
+                    )
+                )
+                for i in range(len(missing_frames)):
+                    index, path = missing_frames[i]
+                    logging.warn("  {}: '{}'".format(index, path))
