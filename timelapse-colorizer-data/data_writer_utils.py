@@ -15,8 +15,6 @@ from PIL import Image
 
 MAX_CATEGORIES = 12
 INITIAL_INDEX_COLUMN = "initialIndex"
-DEFAULT_FRAME_PREFIX = "frame_"
-DEFAULT_FRAME_SUFFIX = ".png"
 """
 Column added to reduced datasets, holding the original indices of each row.
 
@@ -27,6 +25,8 @@ reduced_dataset = reduced_dataset.reset_index(drop=True)
 reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
 ```
 """
+DEFAULT_FRAME_PREFIX = "frame_"
+DEFAULT_FRAME_SUFFIX = ".png"
 RESERVED_INDICES = 1
 """Reserved indices that cannot be used for cell data. 
 0 is reserved for the background."""
