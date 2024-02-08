@@ -1,5 +1,7 @@
 # Timelapse-Colorizer Data Format
 
+Version Info: *v0.0.0, updated 2024-02-08*
+
 Timelapse-Colorizer can only load datasets that follow the defined data specification.
 
 The easiest way to get started is to modify one of our existing data processing scripts, like [`convert_nucmorph_data.py`](../timelapse-colorizer-data/convert_nucmorph_data.py)!
