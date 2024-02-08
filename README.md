@@ -1,6 +1,6 @@
 # colorizer-data
 
-#### A Python package of utilities to prepare data for the [Timelapse Colorizer app](https://github.com/allen-cell-animated/nucmorph-colorizer).
+## A Python package of utilities to prepare data for the [Timelapse Colorizer app](https://github.com/allen-cell-animated/nucmorph-colorizer).
 
 [Timelapse Colorizer](https://github.com/allen-cell-animated/nucmorph-colorizer) is a browser-based web app for viewing tracked segmented data.
 
@@ -8,25 +8,20 @@ Utilities are included in this repository to convert time-series data to the Tim
 
 Example scripts are also included in this repository, based on some of our internal projects. You can edit these scripts to work with your datasets as part of a processing pipeline.
 
-If using these example scripts, you'll need to run these commands from a device that has access to the Allen Institute's on-premises data storage. If running off of shared resources, remember to initialize your virtual environment first! This may look like `conda activate {my_env}`.
+If using these example scripts, you'll need to run these commands in an environment with read access to the datasets and write access to the output directory.
 
 ## Installation
 
-To install the package, you can either install it via `pip` or in a `requirements.txt` file.
+To install the package, you can either install it via `pip` or in a `requirements.txt` file. You can specify a specific version or branch to install with a `@vX.X.X` or `@{branch-name}`.
 
 ```
 # pip
-pip install git+https://github.com/allen-cell-animated/colorizer-data.git
+pip install git+https://github.com/allen-cell-animated/colorizer-data.git@v1.0.0
+pip install git+https://github.com/allen-cell-animated/colorizer-data.git@my-branch-name
 
 # requirements.txt
-colorizer-data @ git+https://github.com/allen-cell-animated/colorizer-data.git
-```
-
-To install a specific tagged version or branch, add `@{version tag/branch name}` to the end of the git link.
-
-```
-pip install git+https://github.com/allen-cell-animated/colorizer-data.git@my-branch-name
-pip install git+https://github.com/allen-cell-animated/colorizer-data.git@v1.0.0
+colorizer-data @ git+https://github.com/allen-cell-animated/colorizer-data.git@v1.0.0
+colorizer-data @ git+https://github.com/allen-cell-animated/colorizer-data.git@my-branch-name
 ```
 
 ## Example Usage
@@ -109,20 +104,23 @@ Colorizer-data uses [semantic versioning](https://semver.org). All versions are 
 
 Contributing developers can update the version number using the [`bump-my-version`](https://github.com/callowayproject/bump-my-version) Python tool, which will automatically tag commits. You can learn more about [git tagging here.](https://git-scm.com/book/en/v2/Git-Basics-Tagging)
 
-### Basic Usage:
+### Basic Usage
 
 ```
 pip install --upgrade bump-my-version
+
+# Do a dry run and check the output before updating!
+bump-my-version bump --dry-run --tag -v --current-version [version] [type]
 
 bump-my-version bump --tag -v --current-version [version] [type]
 git push origin [new tag]
 ```
 
-`type` should be either `major`, `minor`, or `patch`.
+The `type` should be either `major`, `minor`, or `patch`.
 
-### Example:
+**Example:**
 
-```
+```cmd
 bump-my-version bump --tag -v --current-version 0.0.0 major
 git push origin v1.0.0
 ```
