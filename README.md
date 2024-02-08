@@ -110,9 +110,9 @@ Contributing developers can update the version number using the [`bump-my-versio
 pip install --upgrade bump-my-version
 
 # Do a dry run and check the output before updating!
-bump-my-version bump --dry-run --tag -v --current-version [version] [type]
+bump-my-version bump --dry-run -v [type]
 
-bump-my-version bump --tag -v --current-version [version] [type]
+bump-my-version bump -v [type]
 git push origin [new tag]
 ```
 
@@ -120,7 +120,9 @@ The `type` should be either `major`, `minor`, or `patch`.
 
 **Example:**
 
+Bumping major versions. The tag `v1.0.0` will be the newest tag created by `bump-my-version`.
+
 ```cmd
-bump-my-version bump --tag -v --current-version 0.0.0 major
+bump-my-version bump --tag -v major
 git push origin v1.0.0
 ```
