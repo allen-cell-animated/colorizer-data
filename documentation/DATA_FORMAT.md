@@ -1,6 +1,6 @@
 # Timelapse-Colorizer Data Format
 
-Version Info: *v0.0.0, updated 2024-02-08*
+Last release: v0.0.0
 
 Timelapse-Colorizer can only load datasets that follow the defined data specification.
 

@@ -6,9 +6,4 @@ tag_name = "v{new_version}"
 current_version = "0.0.0"
 
 [[tool.bumpversion.files]]
-filename = "README.md documentation/DATA_FORMAT.md"
-
-[[tool.bumpversion.files.dates]]
-glob = "*/**.md"
-search = "v{current_version}, updated \\d{{4}}-\\d{{2}}-\\d{{2}}"
-replace = "v{new_version}, updated {now:%Y-%m-%d}"
+glob = "**/*.md"
