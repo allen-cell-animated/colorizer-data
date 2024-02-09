@@ -1,6 +1,6 @@
 # colorizer-data
 
-## A Python package of utilities to prepare data for the [Timelapse Colorizer app](https://github.com/allen-cell-animated/nucmorph-colorizer).
+### Python utilities to prepare data for the [Timelapse Colorizer app](https://github.com/allen-cell-animated/nucmorph-colorizer)
 
 [Timelapse Colorizer](https://github.com/allen-cell-animated/nucmorph-colorizer) is a browser-based web app for viewing tracked segmented data.
 
@@ -16,11 +16,11 @@ To install the package, you can either install it via `pip` or in a `requirement
 
 ```
 # pip
-pip install git+https://github.com/allen-cell-animated/colorizer-data.git@v1.0.0
+pip install git+https://github.com/allen-cell-animated/colorizer-data.git@v0.0.0
 pip install git+https://github.com/allen-cell-animated/colorizer-data.git@my-branch-name
 
 # requirements.txt
-colorizer-data @ git+https://github.com/allen-cell-animated/colorizer-data.git@v1.0.0
+colorizer-data @ git+https://github.com/allen-cell-animated/colorizer-data.git@0.0.0
 colorizer-data @ git+https://github.com/allen-cell-animated/colorizer-data.git@my-branch-name
 ```
 
