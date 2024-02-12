@@ -98,17 +98,23 @@ metadata = ColorizerMetadata(
 writer.write_manifest(metadata=metadata)
 ```
 
-## Versioning
+## Developers
+
+You can install the project and its developer dependencies by cloning the repository and running the following `pip` command:
+
+```cmd
+pip install -e '.[dev]'
+```
+
+### Versioning
 
 Colorizer-data uses [semantic versioning](https://semver.org). All versions are tagged in this repository with `vX.Y.Z`, where `X`, `Y`, and `Z` correspond with major, minor, and patch version numbers. The API will be backwards-compatible within the same major version.
 
 Contributing developers can update the version number using the [`bump-my-version`](https://github.com/callowayproject/bump-my-version) Python tool, which will automatically tag commits. You can learn more about [git tagging here.](https://git-scm.com/book/en/v2/Git-Basics-Tagging)
 
-### Basic Usage
+#### Basic Usage
 
 ```
-pip install --upgrade bump-my-version
-
 # Do a dry run and check the output before updating!
 bump-my-version bump --dry-run -v [type]
 
@@ -118,7 +124,7 @@ git push origin [new tag]
 
 The `type` should be either `major`, `minor`, or `patch`.
 
-**Example:**
+#### Example
 
 Bumping major versions. The tag `v1.0.0` will be the newest tag created by `bump-my-version`.
 
