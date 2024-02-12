@@ -178,7 +178,7 @@ def scale_image(seg2d: np.ndarray, scale: float) -> np.ndarray:
     return seg2d
 
 
-def extract_units_from_feature_name(feature_name: str) -> tuple[str, Union[str, None]]:
+def extract_units_from_feature_name(feature_name: str) -> (str, Union[str, None]):
     """
     Extracts units from the parentheses at the end of a feature name string, returning
     the feature name (without units) and units as a tuple. Returns None for the units
@@ -200,7 +200,7 @@ def remap_segmented_image(
     frame: pd.DataFrame,
     object_id_column: str,
     absolute_id_column: str = INITIAL_INDEX_COLUMN,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> (np.ndarray, np.ndarray):
     """
     Remap the values in the segmented image 2d array so that each object has a
     unique ID across the whole dataset, accounting for reserved indices.
