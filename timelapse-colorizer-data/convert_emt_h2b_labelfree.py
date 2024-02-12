@@ -263,6 +263,14 @@ def make_frames_parallel(
             )
         writer.write_data(bounds=np.array(bounds_arr, dtype=np.uint32))
 
+    for backdrop_column in IMAGE_COLUMNS:
+        logging.info("Writing background images for '{}'".format(backdrop_column))
+        frame_paths = []
+        for group_name, frame in grouped_frames:
+            row = frame.iloc[0]
+            frame_paths.append(row[backdrop_column])
+        writer.copy_and_add_backdrops(backdrop_column, frame_paths)
+
 
 def make_frames(
     grouped_frames: DataFrameGroupBy,
