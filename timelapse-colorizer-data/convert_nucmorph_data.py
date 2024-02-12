@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import List
+import multiprocessing
+from typing import List, Sequence
 from aicsimageio import AICSImage
 import argparse
 import logging
@@ -27,6 +28,7 @@ from data_writer_utils import (
     FeatureInfo,
     FeatureType,
     configureLogging,
+    get_total_objects,
     make_bounding_box_array,
     sanitize_path_by_platform,
     scale_image,
@@ -34,11 +36,21 @@ from data_writer_utils import (
     update_bounding_box_data,
 )
 
+
+@dataclass
+class NucMorphFeatureSpec:
+    column_name: str
+    type: FeatureType = FeatureType.CONTINUOUS
+    categories: List = None
+
+
 # Example Commands:
 # pip install https://artifactory.corp.alleninstitute.org/artifactory/api/pypi/pypi-release-local/aicsfiles/5.1.0/aicsfiles-5.1.0.tar.gz git+https://github.com/aics-int/nuc-morph-analysis.git
 # python timelapse-colorizer-data/convert_nucmorph_data.py --output_dir /allen/aics/animated-cell/Dan/fileserver/colorizer/data --dataset mama_bear --scale 0.25
 # python timelapse-colorizer-data/convert_nucmorph_data.py --output_dir /allen/aics/animated-cell/Dan/fileserver/colorizer/data --dataset baby_bear --scale 0.25
 # python timelapse-colorizer-data/convert_nucmorph_data.py --output_dir /allen/aics/animated-cell/Dan/fileserver/colorizer/data --dataset goldilocks --scale 0.25
+
+# NOTE: If you are regenerating the dataset but have NOT changed the segmentations/object IDs, add the option `--noframes` to skip the frame generation step!
 
 # DATASET SPEC: See DATA_FORMAT.md for more details on the dataset format!
 # You can find the most updated version on GitHub here:
@@ -81,8 +93,24 @@ CENTROIDS_Y_COLUMN = "centroid_y"
 """Column of Y centroid coordinates, in pixels of original image data."""
 OUTLIERS_COLUMN = "is_outlier"
 """Column of outlier status for each object. (true/false)"""
-FEATURE_COLUMNS = ["NUC_shape_volume_lcc", "NUC_position_depth_lcc"]
+
 """Columns of feature data to include in the dataset. Each column will be its own feature file."""
+FEATURE_COLUMNS = [
+    NucMorphFeatureSpec("NUC_shape_volume_lcc"),
+    NucMorphFeatureSpec("NUC_position_depth"),
+    NucMorphFeatureSpec("is_outlier", FeatureType.CATEGORICAL, ["False", "True"]),
+    NucMorphFeatureSpec("edge_cell", FeatureType.CATEGORICAL, ["False", "True"]),
+    NucMorphFeatureSpec("NUC_roundness_surface_area"),
+    NucMorphFeatureSpec("NUC_position_height"),
+    NucMorphFeatureSpec("NUC_position_width"),
+    # 0 - track terminates by dividing
+    # 1 - track terminates by going off the edge of the FOV
+    # 2 - track terminates by apoptosis
+    NucMorphFeatureSpec(
+        "termination", FeatureType.CATEGORICAL, ["Division", "Leaves FOV", "Apoptosis"]
+    ),
+    NucMorphFeatureSpec("parent_id", FeatureType.DISCRETE),
+]
 
 
 def get_image_from_row(row: pd.DataFrame) -> AICSImage:
@@ -91,7 +119,46 @@ def get_image_from_row(row: pd.DataFrame) -> AICSImage:
     return AICSImage(zstackpath)
 
 
-def make_frames(
+def make_frame(
+    grouped_frames: DataFrameGroupBy,
+    group_name: int,
+    frame: pd.DataFrame,
+    scale: float,
+    bounds_arr: Sequence[int],
+    writer: ColorizerDatasetWriter,
+):
+    start_time = time.time()
+
+    # Get the path to the segmented zstack image frame from the first row (should be the same for
+    # all rows in this group, since they are all on the same frame).
+    row = frame.iloc[0]
+    frame_number = row[TIMES_COLUMN]
+    # Flatten the z-stack to a 2D image.
+    aics_image = get_image_from_row(row)
+    zstack = aics_image.get_image_data("ZYX", S=0, T=0, C=0)
+    seg2d = zstack.max(axis=0)
+
+    # Scale the image and format as integers.
+    seg2d = scale_image(seg2d, scale)
+    seg2d = seg2d.astype(np.uint32)
+
+    # Remap the frame image so the IDs are unique across the whole dataset.
+    seg_remapped, lut = remap_segmented_image(
+        seg2d,
+        frame,
+        OBJECT_ID_COLUMN,
+    )
+
+    writer.write_image(seg_remapped, frame_number)
+    update_bounding_box_data(bounds_arr, seg_remapped)
+
+    time_elapsed = time.time() - start_time
+    logging.info(
+        "Frame {} finished in {:5.2f} seconds.".format(int(frame_number), time_elapsed)
+    )
+
+
+def make_frames_parallel(
     grouped_frames: DataFrameGroupBy,
     scale: float,
     writer: ColorizerDatasetWriter,
@@ -100,47 +167,25 @@ def make_frames(
     Generate the images and bounding boxes for each time step in the dataset.
     """
     nframes = len(grouped_frames)
+    total_objects = get_total_objects(grouped_frames)
     logging.info("Making {} frames...".format(nframes))
-    bounds_arr = make_bounding_box_array(grouped_frames)
 
-    for group_name, frame in grouped_frames:
-        start_time = time.time()
-
-        # Get the path to the segmented zstack image frame from the first row (should be the same for
-        # all rows in this group, since they are all on the same frame).
-        row = frame.iloc[0]
-        frame_number = row[TIMES_COLUMN]
-        # Flatten the z-stack to a 2D image.
-        aics_image = get_image_from_row(row)
-        zstack = aics_image.get_image_data("ZYX", S=0, T=0, C=0)
-        seg2d = zstack.max(axis=0)
-
-        # Scale the image and format as integers.
-        seg2d = scale_image(seg2d, scale)
-        seg2d = seg2d.astype(np.uint32)
-
-        # Remap the frame image so the IDs are unique across the whole dataset.
-        seg_remapped, lut = remap_segmented_image(
-            seg2d,
-            frame,
-            OBJECT_ID_COLUMN,
-        )
-
-        writer.write_image(seg_remapped, frame_number)
-        update_bounding_box_data(bounds_arr, seg_remapped)
-
-        time_elapsed = time.time() - start_time
-        logging.info(
-            "Frame {} finished in {:5.2f} seconds.".format(
-                int(frame_number), time_elapsed
+    with multiprocessing.Manager() as manager:
+        bounds_arr = manager.Array("i", [0] * int(total_objects * 4))
+        with multiprocessing.Pool() as pool:
+            pool.starmap(
+                make_frame,
+                [
+                    (grouped_frames, group_name, frame, scale, bounds_arr, writer)
+                    for group_name, frame in grouped_frames
+                ],
             )
-        )
-    writer.write_data(bounds=bounds_arr)
+        writer.write_data(bounds=np.array(bounds_arr, dtype=np.uint32))
 
 
 def make_features(
     dataset: pd.DataFrame,
-    feature_names: List[str],
+    features: List[NucMorphFeatureSpec],
     dataset_name: str,
     writer: ColorizerDatasetWriter,
 ):
@@ -171,16 +216,31 @@ def make_features(
         "(min)": "min",
         "($\mu m^{-1}$)": "µm⁻¹",
     }
-    for feature in feature_names:
+    for feature in features:
+        if feature.column_name not in dataset.columns:
+            logging.warning(
+                "Feature '{}' not found in dataset. Skipping...".format(
+                    feature.column_name
+                )
+            )
+            continue
+
         (scale_factor, label, unit) = get_plot_labels_for_metric(
-            feature, dataset=dataset_name
+            feature.column_name, dataset=dataset_name
         )
         unit = formatted_units.get(unit)
+
+        data = dataset[feature.column_name]
+
         # Get data and scale to use actual units
-        data = dataset[feature].to_numpy() * scale_factor
+        if scale_factor is not None:
+            data = data * scale_factor
 
         writer.write_feature(
-            data, FeatureInfo(label=label, unit=unit, type=FeatureType.CONTINUOUS)
+            data,
+            FeatureInfo(
+                label=label, unit=unit, type=feature.type, categories=feature.categories
+            ),
         )
 
 
@@ -224,7 +284,7 @@ def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scal
     nframes = len(grouped_frames)
     make_features(full_dataset, FEATURE_COLUMNS, dataset, writer)
     if do_frames:
-        make_frames(grouped_frames, scale, writer)
+        make_frames_parallel(grouped_frames, scale, writer)
     writer.write_manifest(nframes, metadata=metadata)
 
 

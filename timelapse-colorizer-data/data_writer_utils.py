@@ -79,12 +79,6 @@ class FeatureMetadata(TypedDict):
     categories: List[str]
 
 
-class BackdropMetadata(TypedDict):
-    key: str
-    name: str
-    frames: List[str]
-
-
 class FrameDimensions(TypedDict):
     """Dimensions of each frame, in physical units (not pixels)."""
 
@@ -132,7 +126,6 @@ class DatasetManifest(TypedDict):
     bounds: str
     metadata: DatasetMetadata
     frames: List[str]
-    backdrops: List[BackdropMetadata]
 
 
 class NumpyValuesEncoder(json.JSONEncoder):
@@ -295,7 +288,7 @@ def update_bounding_box_data(
         seg_remapped (np.ndarray): Segmentation image whose indices start at 1 and are are absolutely unique across the whole dataset,
             such as the results of `remap_segmented_image()`.
 
-    [Documentation for bounds data format](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#8-bounds-optional)
+    [Documentation for bounds data format](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#7-bounds-optional)
     """
     # Capture bounding boxes
     object_ids = np.unique(seg_remapped)
@@ -372,14 +365,16 @@ class ColorizerDatasetWriter:
         Writes feature data arrays and stores feature metadata to be written to the manifest.
 
         Args:
-            data (np.ndarray): The numpy array for the feature, to be written to a JSON file.
-            info (FeatureInfo): Metadata for the feature.
+            data (`np.ndarray[int | float]`): The numeric numpy array for the feature, to be written to a JSON file.
+            info (`FeatureInfo`): Metadata for the feature.
 
         Feature JSON files are suffixed by index, starting at 0, which increments
         for each call to `write_feature()`. The first feature will have `feature_0.json`,
         the second `feature_1.json`, and so on.
 
         If the feature type is `FeatureType.CATEGORICAL`, `categories` must be defined in `info`.
+
+        See the [documentation on features](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#6-features) for more details.
         """
         # Fetch feature data
         num_features = len(self.manifest["features"])
@@ -451,7 +446,7 @@ class ColorizerDatasetWriter:
         Accepts numpy arrays for each file type and writes them to the configured
         output directory according to the data format.
 
-        [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#3-tracks)
+        [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#1-tracks)
         """
         # TODO check outlier and replace values with NaN or something!
         if outliers is not None:

@@ -31,7 +31,7 @@ The most important file is the **manifest**, which is a JSON file that describes
     ],
     "features": [
         {
-            "key": <feature key>,                                 // Must be unique across features. Lowercase alphanumeric characters and underscores only.
+            "key": <feature key>,                                 // See note on keys below.
             "name": <feature display name>,
             "data": <relative path to feature JSON>,
             "unit": <unit label>,                                 //< optional
@@ -57,11 +57,15 @@ The most important file is the **manifest**, which is a JSON file that describes
 
 Note that the `outliers`, `centroids`, and `bounds` files are optional, but certain features of Timelapse-Colorizer won't work without them.
 
-Features can also define additional optional metadata, such as the units and type. Note that there are additional restrictions on some of these fields. Type must have values `continuous` for floats or decimals, `discrete` for integers, or `categorical` for distinct labels.
+**Features** can also define additional optional metadata, such as the units and type. Note that there are additional restrictions on some of these fields. **`type`** must have values `continuous` for floats or decimals, `discrete` for integers, or `categorical` for distinct labels.
 
-Features that have the type `categorical` must also define an array of string `categories`, up to a maximum of 12.
+Features that have the `categorical` type must also define an array of string `categories`, up to a maximum of 12.
 
 A complete example dataset is also available in the [`documentation`](./example_dataset) directory of this project, and can be [viewed on Timelapse-Colorizer](https://dev-aics-dtp-001.int.allencell.org/nucmorph-colorizer/dist/?dataset=https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/example_dataset/manifest.json).
+
+### Note on keys
+
+Several fields in the manifest file have a `key` property. These keys must be unique and contain only lowercase **alphanumeric characters and underscores**. For example, `my_feature_1` is a valid key, but `My Feature 1` is not.
 
 <details>
 <summary><b>[Show me an example!]</b></summary>
@@ -134,6 +138,8 @@ The `manifest.json` file would look something like this:
 }
 ```
 
+See the [included example dataset](./example_dataset) for another example of backdrop images in action.
+
 ---
 
 </details>
@@ -201,7 +207,7 @@ The manifest file would look something like this:
 
 Multiple sets of **backdrop images** can be included in the manifest, which will be shown behind the colored objects in the UI. Each backdrop image set is defined by a JSON object with a `name`, `key`, and `frames`.
 
-The `key` must be unique across all backdrop image sets, and must only contain lowercase alphanumeric characters and underscores.
+The `key` must be unique across all backdrop image sets, and must only contain lowercase alphanumeric characters and underscores. (See note in [Dataset](#note-on-keys) for more details.)
 
 `frames` is a list of **relative image paths** corresponding to each frame in the time series. Each set must have **one backdrop image for every frame in the time series**, and they must all be listed in order in the manifest file.
 
@@ -213,7 +219,7 @@ The `key` must be unique across all backdrop image sets, and must only contain l
     "backdrops": [
         {
             "name": <backdrop name>,
-            "key": <backdrop key>, // Must be unique across backdrops. Lowercase alphanumeric characters and underscores only.
+            "key": <backdrop key>,
             "frames": [
                 <relative path to backdrop frame 0>,
                 <relative path to backdrop frame 1>,
