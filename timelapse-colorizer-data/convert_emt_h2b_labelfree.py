@@ -18,6 +18,7 @@ from data_writer_utils import (
     FeatureInfo,
     FeatureType,
     configureLogging,
+    generate_frame_paths,
     get_total_objects,
     sanitize_path_by_platform,
     scale_image,
@@ -367,11 +368,13 @@ def make_dataset(
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
+    writer.set_frame_paths(generate_frame_paths(nframes))
+
     make_features(full_dataset, writer)
     if do_frames:
         make_frames_parallel(grouped_frames, scale, writer)
 
-    writer.write_manifest(nframes, metadata=metadata)
+    writer.write_manifest(metadata=metadata)
 
 
 # TODO: Make top-level function
