@@ -10,6 +10,7 @@ from typing import Dict, List, Sequence, TypedDict, Union
 
 import numpy as np
 import pandas as pd
+import requests
 import skimage
 from PIL import Image
 
@@ -177,7 +178,7 @@ def scale_image(seg2d: np.ndarray, scale: float) -> np.ndarray:
     return seg2d
 
 
-def extract_units_from_feature_name(feature_name: str) -> (str, Union[str, None]):
+def extract_units_from_feature_name(feature_name: str) -> tuple[str, Union[str, None]]:
     """
     Extracts units from the parentheses at the end of a feature name string, returning
     the feature name (without units) and units as a tuple. Returns None for the units
@@ -199,7 +200,7 @@ def remap_segmented_image(
     frame: pd.DataFrame,
     object_id_column: str,
     absolute_id_column: str = INITIAL_INDEX_COLUMN,
-) -> (np.ndarray, np.ndarray):
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Remap the values in the segmented image 2d array so that each object has a
     unique ID across the whole dataset, accounting for reserved indices.
@@ -338,6 +339,7 @@ class ColorizerDatasetWriter:
 
     outpath: Union[str, pathlib.Path]
     manifest: DatasetManifest
+    backdrops: Dict[str, BackdropMetadata]
     scale: float
 
     def __init__(
@@ -345,11 +347,25 @@ class ColorizerDatasetWriter:
         output_dir: Union[str, pathlib.Path],
         dataset: str,
         scale: float = 1,
+        force_overwrite: bool = False,
     ):
         self.outpath = os.path.join(output_dir, dataset)
         os.makedirs(self.outpath, exist_ok=True)
         self.scale = scale
-        self.manifest = {"features": []}
+
+        # Check for existence of manifest file in expected path
+        manifest_path = self.outpath + "/manifest.json"
+        if os.path.exists(manifest_path) and not force_overwrite:
+            # Load in the existing file
+            with open(manifest_path, "r") as f:
+                self.manifest = json.load(f)
+        else:
+            self.manifest = {}
+
+        # Clear features
+        self.manifest["features"] = []
+
+        self.backdrops = {}
 
     def write_feature(self, data: np.ndarray, info: FeatureInfo):
         """
@@ -495,10 +511,43 @@ class ColorizerDatasetWriter:
         # Make sanitized version of name as key
         # If no subdir name, use sanitized name (key) too
         # For each frame path, copy to output directory. Assume they are in order.
+        if key is None:
+            key = sanitize_key_name(name)
+
+        if subdir_name is None:
+            subdir_name = key
+
+        # Create subdirectory if it does not exist
+        subdir_path = os.path.join(self.outpath, subdir_name)
+        os.makedirs(subdir_path, exist_ok=True)
+
+        frame_paths = []
+        for i, frame_path in enumerate(frame_paths):
+            # Copy frame to output directory
+            frame_name = "img_" + str(i) + ".png"
+            frame_outpath = os.path.join(subdir_path, frame_name)
+            if frame_path.startswith("http"):
+                # Download the image
+                r = requests.get(frame_path)
+                if not r.ok:
+                    raise FileNotFoundError(
+                        f"Backdrop image '{frame_path}' could not be downloaded."
+                    )
+                with open(frame_outpath, "wb") as f:
+                    f.write(r.content)
+            else:
+                # Copy the image
+                frame_path = sanitize_path_by_platform(frame_path)
+                frame_path = os.path.abspath(frame_path)
+                if not os.path.exists(frame_path):
+                    raise FileNotFoundError(
+                        f"Backdrop image '{frame_path}' does not exist."
+                    )
+                os.system(f"cp {frame_path} {frame_outpath}")
+            frame_paths.append(os.path.join(subdir_name, frame_name))
 
         # Save the updated paths and then call add_backdrops
         self.add_backdrops(self, name, frame_paths, key)
-        pass
 
     def add_backdrops(
         self,
@@ -517,7 +566,15 @@ class ColorizerDatasetWriter:
         # Make sanitized version of name as key if not provided
         # Check if key already exists in manifest, and throw a warning if so
         # Add to manifest
-        pass
+        if key is None:
+            key = sanitize_key_name(name)
+
+        if self.backdrops.get(key):
+            logging.warning(
+                f"Backdrop key '{key}' already exists in manifest. Overwriting..."
+            )
+
+        self.backdrops[key] = {"key": key, "name": name, "frames": frame_paths}
 
     def write_manifest(
         self,
@@ -563,6 +620,8 @@ class ColorizerDatasetWriter:
         self.manifest["frames"] = [
             "frame_" + str(i) + ".png" for i in range(num_frames)
         ]
+
+        self.backdrops = list(self.backdrops.values())
 
         with open(self.outpath + "/manifest.json", "w") as f:
             json.dump(self.manifest, f, indent=2)
