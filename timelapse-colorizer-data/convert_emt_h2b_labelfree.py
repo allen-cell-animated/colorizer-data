@@ -18,6 +18,7 @@ from data_writer_utils import (
     FeatureInfo,
     FeatureType,
     configureLogging,
+    generate_frame_paths,
     get_total_objects,
     sanitize_path_by_platform,
     scale_image,
@@ -49,66 +50,109 @@ CENTROIDS_X_COLUMN = "R0Nuclei_AreaShape_Center_X"
 CENTROIDS_Y_COLUMN = "R0Nuclei_AreaShape_Center_Y"
 """Column of Y centroid coordinates, in pixels of original image data."""
 FEATURE_COLUMNS = [
-    "R0Cell_Neighbors_NumberOfNeighbors_Adjacent",
-    "R0Nuclei_AreaShape_Area",
-    "R0Cell_AreaShape_Area",
-    "Migratory Cell (colony mask)",
-    "Edge cell (colony mask)",
-    "Colony cell (colony mask)",
-    "Radial distance from colony centroid (um)",
-    "Avg(Distance to Neighbor Nuclei)",
+    "R0Nuclei DNA mean pixel intens",
+    "R0Nuclei_AreaShape_Eccentricit",
+    "Radial distance from Col4Colon",
+    "Radial distance from BF colony",
+    # "BF MigratoryClass",
+    # "Col4 MigratoryClass",
+    # "Col4ColonyCell",
+    # "Col4EdgeCell",
+    # "Col4MigratoryCell",
+    # "Collagen4 area (um)",
+    # "Colony area (um)",
+    # "Min(Intranuclear distance to n",
+    # "Avg(Intranuclear distance to n",
+    # "Median(Intranuclear distance t",
+    # "Max(Intranuclear distance to n",
+    # "Avg(Collagen4_AreaShape_Center",
+    # "Avg(Collagen4_AreaShape_Center",
+    # "Avg(Colony_AreaShape_Center_X)",
+    # "Avg(Colony_AreaShape_Center_Y)",
+    # "R0Nuclei_AreaShape_FormFactor",
+    # "R0Nuclei_AreaShape_Compactness",
+    # "R0Nuclei_AreaShape_MajorAxisLe",
+    # "R0Nuclei_AreaShape_MinorAxisLe",
+    # "R0Nuclei_AreaShape_Orientation",
+    # "R0Nuclei_AreaShape_Perimeter",
+    # "R0Nuclei_AreaShape_EulerNumber",
+    # "R0Nuclei_Intensity_MeanIntensi",
+    # "R0Nuclei_Intensity_MeanIntensi",
+    # "R0Nuclei_Intensity_MeanIntensi",
+    # "R0Cell_Neighbors_AngleBetweenN",
+    # "R0Cell_Neighbors_NumberOfNeigh",
+    # "R0Cell_Neighbors_PercentTouchi",
+    # "R0Cell_AreaShape_Compactness",
+    # "R0Cell_AreaShape_ConvexArea",
+    # "R0Cell_AreaShape_Eccentricity",
+    # "R0Cell_AreaShape_EquivalentDia",
+    # "R0Cell_AreaShape_EulerNumber",
+    # "R0Cell_AreaShape_Extent",
+    # "R0Cell_AreaShape_FormFactor",
+    # "R0Cell_AreaShape_MajorAxisLeng",
+    # "R0Cell_AreaShape_MaxFeretDiame",
+    # "R0Cell_AreaShape_MaximumRadius",
+    # "R0Cell_AreaShape_MeanRadius",
+    # "R0Cell_AreaShape_MedianRadius",
+    # "R0Cell_AreaShape_MinFeretDiame",
+    # "R0Cell_AreaShape_MinorAxisLeng",
+    # "R0Cell_AreaShape_Orientation",
+    # "R0Cell_AreaShape_Perimeter",
+    # "R0Cell_AreaShape_Solidity",
+    # "R0Nuclei_AreaShape_Zernike_0_0",
+    # "R0Nuclei_AreaShape_Zernike_1_1",
+    # "R0Nuclei_AreaShape_Zernike_2_0",
+    # "R0Nuclei_AreaShape_Zernike_2_2",
+    # "R0Nuclei_AreaShape_Zernike_3_1",
+    # "R0Nuclei_AreaShape_Zernike_3_3",
+    # "R0Nuclei_AreaShape_Zernike_4_0",
+    # "R0Nuclei_AreaShape_Zernike_4_2",
+    # "R0Nuclei_AreaShape_Zernike_4_4",
+    # "R0Nuclei_AreaShape_Zernike_5_1",
+    # "R0Nuclei_AreaShape_Zernike_5_3",
+    # "R0Nuclei_AreaShape_Zernike_5_5",
+    # "R0Nuclei_AreaShape_Zernike_6_0",
+    # "R0Nuclei_AreaShape_Zernike_6_2",
+    # "R0Nuclei_AreaShape_Zernike_6_4",
+    # "R0Nuclei_AreaShape_Zernike_6_6",
+    # "R0Nuclei_AreaShape_Zernike_7_1",
+    # "R0Nuclei_AreaShape_Zernike_7_3",
+    # "R0Nuclei_AreaShape_Zernike_7_5",
+    # "R0Nuclei_AreaShape_Zernike_7_7",
+    # "R0Nuclei_AreaShape_Zernike_8_0",
+    # "R0Nuclei_AreaShape_Zernike_8_2",
+    # "R0Nuclei_AreaShape_Zernike_8_4",
+    # "R0Nuclei_AreaShape_Zernike_8_6",
+    # "R0Nuclei_AreaShape_Zernike_8_8",
+    # "R0Nuclei_AreaShape_Zernike_9_1",
+    # "R0Nuclei_AreaShape_Zernike_9_3",
+    # "R0Nuclei_AreaShape_Zernike_9_5",
+    # "R0Nuclei_AreaShape_Zernike_9_7",
+    # "R0Nuclei_AreaShape_Zernike_9_9",
 ]
 """Columns of feature data to include in the dataset. Each column will be its own feature file."""
 FEATURE_INFO: List[FeatureInfo] = [
     FeatureInfo(
-        label="Adjacent neighbors",
-        column_name="R0Cell_Neighbors_NumberOfNeighbors_Adjacent",
-        unit="",
-        type=FeatureType.DISCRETE,
+        label="R0Nuclei DNA mean pixel intens",
+        column_name="R0Nuclei DNA mean pixel intens",
     ),
     FeatureInfo(
-        label="Nuclei area",
-        column_name="R0Nuclei_AreaShape_Area",
+        label="R0Nuclei_AreaShape_Eccentricit",
+        column_name="R0Nuclei_AreaShape_Eccentricit",
+    ),
+    FeatureInfo(
+        label="Radial distance from Col4Colon",
+        column_name="Radial distance from Col4Colon",
+    ),
+    FeatureInfo(
+        label="Radial distance from BF colony",
+        column_name="Radial distance from BF colony",
         unit="",
         type=FeatureType.CONTINUOUS,
-    ),
-    FeatureInfo(
-        label="Cell area",
-        column_name="R0Cell_AreaShape_Area",
-        unit="",
-        type=FeatureType.CONTINUOUS,
-    ),
-    FeatureInfo(
-        label="Radial distance from colony center",
-        column_name="Radial distance from colony centroid (um)",
-        unit="",
-        type=FeatureType.CONTINUOUS,
-    ),
-    FeatureInfo(
-        label="Avg. distance to neighbor nuclei",
-        column_name="Avg(Distance to Neighbor Nuclei)",
-        unit="",
-        type=FeatureType.CONTINUOUS,
-    ),
-    FeatureInfo(
-        label="Migratory cell mask",
-        column_name="Migratory Cell (colony mask)",
-        unit="",
-        type=FeatureType.DISCRETE,
-    ),
-    FeatureInfo(
-        label="Edge cell mask",
-        column_name="Edge cell (colony mask)",
-        unit="",
-        type=FeatureType.DISCRETE,
-    ),
-    FeatureInfo(
-        label="Colony cell mask",
-        column_name="Colony cell (colony mask)",
-        unit="",
-        type=FeatureType.DISCRETE,
     ),
 ]
+
+IMAGE_COLUMNS = ["PNG overlay (NucObjNum)", "PNG overlay (no obj num label)"]
 
 PHYSICAL_PIXEL_SIZE_XY = 0.271
 PHYSICAL_PIXEL_UNIT_XY = "µm"
@@ -367,11 +411,13 @@ def make_dataset(
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
+    writer.set_frame_paths(generate_frame_paths(nframes))
+
     make_features(full_dataset, writer)
     if do_frames:
         make_frames_parallel(grouped_frames, scale, writer)
 
-    writer.write_manifest(nframes, metadata=metadata)
+    writer.write_manifest(metadata=metadata)
 
 
 # TODO: Make top-level function
@@ -380,18 +426,18 @@ def make_collection(output_dir="./data/", do_frames=True, scale=1, dataset=""):
     # example dataset name : 3500005820_3
     # use pandas to load data
     # a is the full collection!
-    file_path = "//allen/aics/microscopy/ClusterOutput/H2B_LabelFree_Deliverable_MIP_Zrange/H2BLabelFree_Deliverable/EMT_Deliverable_ColorizerVisualizationTable_AddedMeanNeighborDistanceAndCentroids.csv"
+    file_path = "//allen/aics/microscopy/ClusterOutput/H2B_Deliverable_AnalysisPipelineOutput/H2B_Deliverable_InputImages_123Timelapses_Composite_Output/H2B_2DMIP_Colorizer_InputTable_103col.csv"
 
     encoding = detect_encoding(file_path)
     a = pd.read_csv(file_path, encoding=encoding)
 
-    if dataset != "":
+    if True:
         # convert just the described dataset.
-        plate = dataset.split("_")[0]
-        position = dataset.split("_")[1]
-        c = a.loc[a["Image_Metadata_Plate"] == int(plate)]
-        c = c.loc[c["Image_Metadata_Position"] == int(position)]
-        make_dataset(c, output_dir, dataset, do_frames, scale)
+        # plate = dataset.split("_")[0]
+        # position = dataset.split("_")[1]
+        # c = a.loc[a["Image_Metadata_Plate"] == int(plate)]
+        # c = c.loc[c["Image_Metadata_Position"] == int(position)]
+        make_dataset(a, output_dir, dataset, do_frames, scale)
     else:
         # for every combination of plate and position, make a dataset
         b = a.groupby(["Image_Metadata_Plate", "Image_Metadata_Position"])
