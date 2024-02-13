@@ -327,7 +327,9 @@ parser.add_argument(
 )
 
 args = parser.parse_args()
-if __name__ == "__main__":
+
+
+def main():
     configureLogging(args.output_dir)
     logging.info("Starting...")
 
@@ -337,3 +339,7 @@ if __name__ == "__main__":
         do_frames=not args.noframes,
         scale=args.scale,
     )
+
+
+if __name__ == "__main__":
+    main()
