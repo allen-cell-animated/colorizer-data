@@ -98,7 +98,7 @@ writer.write_manifest(metadata=metadata)
 
 ## Developers
 
-You can install the project and its developer dependencies by cloning the repository and running the following `pip` command:
+After cloning the repository, you can install the project in **editable mode** with **dev dependencies** by running the following `pip` command:
 
 ```cmd
 pip install -e '.[dev]'
