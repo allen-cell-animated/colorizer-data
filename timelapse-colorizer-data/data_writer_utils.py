@@ -523,8 +523,72 @@ class ColorizerDatasetWriter:
                 json.dump(bounds_json, f)
             self.manifest["bounds"] = "bounds.json"
 
-    def get_non_overlapping_image_names(frame_path: List[str]) -> List[str]:
-        pass
+    def __make_relative_image_paths(
+        self, frame_paths: List[str], subdir_path: str
+    ) -> List[str]:
+        """
+        Strips the base filename from a list of file paths or URLs, and maps them
+        as an array of relative file paths to files in the subdirectory.
+
+        If file names are duplicated, renames the files to prevent overwriting.
+        (`img.png, img(0).png, img(1).png, etc.`)
+
+        @example
+        ```python
+        frame_paths = [
+        "/local/test/frame_0.png",
+        "/local/test/frame_1.png",
+        "https://url.com/1/my_image.png",
+        "https://url.com/2/my_image.png",
+        ]
+        subdir_path = "./img/"
+        relative_paths = __make_relative_image_paths(frame_paths, subdir_path)
+        # relative_paths = [
+        #  "./img/frame_0.png",
+        #  "./img/frame_1.png",
+        #  "./img/my_image.png",
+        #  "./img/my_image(0).png"
+        # ]
+        ```
+        """
+        relative_paths = []
+        # Handle case where files can be duplicated
+        filename_count: Dict[str, int] = {}
+        for path in frame_paths:
+            # Get the filename from the paths
+            # TODO: potentially unsafe for URLs
+            filename = path.rsplit("/", 1)[-1]
+            basename, extension = os.path.splitext(filename)
+            if filename in filename_count:
+                count = filename_count[filename]
+                new_filename = "{}({}){}".format(basename, count, extension)
+                relative_paths.append(os.path.join(subdir_path, new_filename))
+                filename_count[filename] = count + 1
+            else:
+                relative_paths.append(os.path.join(subdir_path, filename))
+                filename_count[filename] = 0
+        return relative_paths
+
+    def __copy_image(self, src: str, dst: str) -> None:
+        if src.startswith("http"):
+            # Download the image
+            r = requests.get(src)
+            if not r.ok:
+                raise FileNotFoundError(
+                    f"Backdrop image '{src}' could not be downloaded."
+                )
+            with open(dst, "wb") as f:
+                f.write(r.content)
+        else:
+            # Copy the image
+            src = sanitize_path_by_platform(src)
+            if not os.path.exists(src):
+                raise FileNotFoundError(f"Backdrop image '{src}' does not exist.")
+            shutil.copyfile(src, dst)
+
+        # TODO: Resize the images once downloaded if needed?
+        if self.scale != 1.0:
+            pass
 
     def copy_and_add_backdrops(
         self,
@@ -533,7 +597,7 @@ class ColorizerDatasetWriter:
         key=None,
         subdir_name: str = None,
         clear_subdir: bool = True,
-    ):
+    ) -> None:
         """
         Copies a set of backdrop images from the provided paths (either filepaths or URLs) to the
         dataset's output directory, then registers the backdrop image set in the dataset.
@@ -554,34 +618,14 @@ class ColorizerDatasetWriter:
             shutil.rmtree(subdir_path)
         os.makedirs(subdir_path, exist_ok=True)
 
-        # TODO: Scale images
-        # TODO: Preserve existing file names for better debugging. Needs to handle potentially identical image names (img, img (1), img (2), etc.)
-        # TODO: Parallelize
-        relative_paths = []
+        frame_paths = list(map((lambda path: path.strip("'\" \t")), frame_paths))
+        # Filenames are preserved for better troubleshooting of datasets.
+        relative_paths = self.__make_relative_image_paths(frame_paths, subdir_path)
 
-        for i, frame_path in enumerate(frame_paths):
-            frame_path = frame_path.strip("'\" \t")
-            # Copy frame to output directory
-            frame_name = "img_" + str(i) + ".png"
-            frame_outpath = os.path.join(subdir_path, frame_name)
-            if frame_path.startswith("http"):
-                # Download the image
-                r = requests.get(frame_path)
-                if not r.ok:
-                    raise FileNotFoundError(
-                        f"Backdrop image '{frame_path}' could not be downloaded."
-                    )
-                with open(frame_outpath, "wb") as f:
-                    f.write(r.content)
-            else:
-                # Copy the image
-                frame_path = sanitize_path_by_platform(frame_path)
-                if not os.path.exists(frame_path):
-                    raise FileNotFoundError(
-                        f"Backdrop image '{frame_path}' does not exist."
-                    )
-                shutil.copyfile(frame_path, frame_outpath)
-            relative_paths.append(os.path.join(subdir_name, frame_name))
+        # TODO: Parallelize using multiprocessing
+        for i, src_path in enumerate(frame_paths):
+            dst_path = relative_paths[i]
+            self.__copy_image(src_path, dst_path)
 
         # Save the updated paths and then call add_backdrops
         self.add_backdrops(name, relative_paths, key)
