@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 import json
 import logging
+import multiprocessing
 import os
 import pathlib
 import platform
@@ -351,6 +352,23 @@ def generate_frame_paths(
     return [file_prefix + str(i + start_frame) + file_suffix for i in range(num_frames)]
 
 
+def copy_remote_or_local_file(src: str, dst: str) -> None:
+    """Copies a source file from a URL or filepath to the defined local filepath."""
+    if src.startswith("http"):
+        # Download the image
+        r = requests.get(src)
+        if not r.ok:
+            raise FileNotFoundError(f"Backdrop image '{src}' could not be downloaded.")
+        with open(dst, "wb") as f:
+            f.write(r.content)
+    else:
+        # Copy the image
+        src = sanitize_path_by_platform(src)
+        if not os.path.exists(src):
+            raise FileNotFoundError(f"Backdrop image '{src}' does not exist.")
+        shutil.copyfile(src, dst)
+
+
 class ColorizerDatasetWriter:
     """
     Writes provided data as Colorizer-compatible dataset files to the configured output directory.
@@ -569,27 +587,6 @@ class ColorizerDatasetWriter:
                 filename_count[filename] = 0
         return relative_paths
 
-    def __copy_image(self, src: str, dst: str) -> None:
-        if src.startswith("http"):
-            # Download the image
-            r = requests.get(src)
-            if not r.ok:
-                raise FileNotFoundError(
-                    f"Backdrop image '{src}' could not be downloaded."
-                )
-            with open(dst, "wb") as f:
-                f.write(r.content)
-        else:
-            # Copy the image
-            src = sanitize_path_by_platform(src)
-            if not os.path.exists(src):
-                raise FileNotFoundError(f"Backdrop image '{src}' does not exist.")
-            shutil.copyfile(src, dst)
-
-        # TODO: Resize the images once downloaded if needed?
-        if self.scale != 1.0:
-            pass
-
     def copy_and_add_backdrops(
         self,
         name: str,
@@ -623,9 +620,11 @@ class ColorizerDatasetWriter:
         relative_paths = self.__make_relative_image_paths(frame_paths, subdir_path)
 
         # TODO: Parallelize using multiprocessing
-        for i, src_path in enumerate(frame_paths):
-            dst_path = relative_paths[i]
-            self.__copy_image(src_path, dst_path)
+        with multiprocessing.Pool() as pool:
+            pool.starmap(
+                copy_remote_or_local_file,
+                [(frame_paths[i], relative_paths[i]) for i in range(len(frame_paths))],
+            )
 
         # Save the updated paths and then call add_backdrops
         self.add_backdrops(name, relative_paths, key)
