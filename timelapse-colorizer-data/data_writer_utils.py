@@ -6,7 +6,8 @@ import os
 import pathlib
 import platform
 import re
-from typing import List, Sequence, TypedDict, Union
+import shutil
+from typing import List, Dict, Sequence, TypedDict, Union
 
 import numpy as np
 import pandas as pd
@@ -79,6 +80,12 @@ class FeatureMetadata(TypedDict):
     unit: str
     type: FeatureType
     categories: List[str]
+
+
+class BackdropMetadata(TypedDict):
+    frames: List[str]
+    name: str
+    key: str
 
 
 class FrameDimensions(TypedDict):
@@ -516,12 +523,16 @@ class ColorizerDatasetWriter:
                 json.dump(bounds_json, f)
             self.manifest["bounds"] = "bounds.json"
 
+    def get_non_overlapping_image_names(frame_path: List[str]) -> List[str]:
+        pass
+
     def copy_and_add_backdrops(
         self,
         name: str,
         frame_paths: List[str],
         key=None,
         subdir_name: str = None,
+        clear_subdir: bool = True,
     ):
         """
         Copies a set of backdrop images from the provided paths (either filepaths or URLs) to the
@@ -536,12 +547,20 @@ class ColorizerDatasetWriter:
         if subdir_name is None:
             subdir_name = key
 
-        # Create subdirectory if it does not exist
+        # Optionally clear subdirectory. Create it if it does not exist
         subdir_path = os.path.join(self.outpath, subdir_name)
+        if clear_subdir and os.path.isdir(subdir_path):
+            # Note: this will throw errors if there are read-only files inside the directory.
+            shutil.rmtree(subdir_path)
         os.makedirs(subdir_path, exist_ok=True)
 
-        frame_paths = []
+        # TODO: Scale images
+        # TODO: Preserve existing file names for better debugging. Needs to handle potentially identical image names (img, img (1), img (2), etc.)
+        # TODO: Parallelize
+        relative_paths = []
+
         for i, frame_path in enumerate(frame_paths):
+            frame_path = frame_path.strip("'\" \t")
             # Copy frame to output directory
             frame_name = "img_" + str(i) + ".png"
             frame_outpath = os.path.join(subdir_path, frame_name)
@@ -557,16 +576,15 @@ class ColorizerDatasetWriter:
             else:
                 # Copy the image
                 frame_path = sanitize_path_by_platform(frame_path)
-                frame_path = os.path.abspath(frame_path)
                 if not os.path.exists(frame_path):
                     raise FileNotFoundError(
                         f"Backdrop image '{frame_path}' does not exist."
                     )
-                os.system(f"cp {frame_path} {frame_outpath}")
-            frame_paths.append(os.path.join(subdir_name, frame_name))
+                shutil.copyfile(frame_path, frame_outpath)
+            relative_paths.append(os.path.join(subdir_name, frame_name))
 
         # Save the updated paths and then call add_backdrops
-        self.add_backdrops(self, name, frame_paths, key)
+        self.add_backdrops(name, relative_paths, key)
 
     def add_backdrops(
         self,
@@ -629,7 +647,7 @@ class ColorizerDatasetWriter:
 
         self.validate_dataset()
 
-        self.backdrops = list(self.backdrops.values())
+        self.manifest["backdrops"] = list(self.backdrops.values())
 
         with open(self.outpath + "/manifest.json", "w") as f:
             json.dump(self.manifest, f, indent=2)

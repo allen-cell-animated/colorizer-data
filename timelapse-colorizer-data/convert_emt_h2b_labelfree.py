@@ -43,17 +43,22 @@ TRACK_ID_COLUMN = "R0Nuclei_Number_Object_Number"
 """Column of track ID for each object."""
 TIMES_COLUMN = "Image_Metadata_Timepoint"
 """Column of frame number that the object ID appears in."""
-SEGMENTED_IMAGE_COLUMN = "OutputMask ((labelfreeCAAX))"
+SEGMENTED_IMAGE_COLUMN = "Output Mask (label-free cell)"
 """Column of path to the segmented image data or z stack for the frame."""
-CENTROIDS_X_COLUMN = "R0Nuclei_AreaShape_Center_X"
+CENTROIDS_X_COLUMN = "Avg(Collagen4_AreaShape_Center_X)"
 """Column of X centroid coordinates, in pixels of original image data."""
-CENTROIDS_Y_COLUMN = "R0Nuclei_AreaShape_Center_Y"
+CENTROIDS_Y_COLUMN = "Avg(Collagen4_AreaShape_Center_Y)"
 """Column of Y centroid coordinates, in pixels of original image data."""
+
+IMAGE_COLUMNS = ["PNG overlay (NucObjNum)", "PNG overlay (no obj num label)"]
+
 FEATURE_COLUMNS = [
-    "R0Nuclei DNA mean pixel intens",
-    "R0Nuclei_AreaShape_Eccentricit",
-    "Radial distance from Col4Colon",
+    "R0Nuclei DNA mean pixel intensity",
+    "R0Nuclei_AreaShape_Eccentricity",
+    "Radial distance from Col4Colony",
     "Radial distance from BF colony",
+    "PNG overlay (NucObjNum)",
+    "PNG overlay (no obj num label)",
     # "BF MigratoryClass",
     # "Col4 MigratoryClass",
     # "Col4ColonyCell",
@@ -133,26 +138,25 @@ FEATURE_COLUMNS = [
 """Columns of feature data to include in the dataset. Each column will be its own feature file."""
 FEATURE_INFO: List[FeatureInfo] = [
     FeatureInfo(
-        label="R0Nuclei DNA mean pixel intens",
-        column_name="R0Nuclei DNA mean pixel intens",
+        label="R0Nuclei DNA mean pixel intensity",
+        column_name="R0Nuclei DNA mean pixel intensity",
     ),
     FeatureInfo(
-        label="R0Nuclei_AreaShape_Eccentricit",
-        column_name="R0Nuclei_AreaShape_Eccentricit",
+        label="R0Nuclei_AreaShape_Eccentricity",
+        column_name="R0Nuclei_AreaShape_Eccentricity",
     ),
     FeatureInfo(
-        label="Radial distance from Col4Colon",
-        column_name="Radial distance from Col4Colon",
+        label="Radial distance from Col4Colony",
+        column_name="Radial distance from Col4Colony (um)",
+        unit="µm",
     ),
     FeatureInfo(
         label="Radial distance from BF colony",
-        column_name="Radial distance from BF colony",
-        unit="",
+        column_name="Radial distance from BF colony centroid (um)",
+        unit="µm",
         type=FeatureType.CONTINUOUS,
     ),
 ]
-
-IMAGE_COLUMNS = ["PNG overlay (NucObjNum)", "PNG overlay (no obj num label)"]
 
 PHYSICAL_PIXEL_SIZE_XY = 0.271
 PHYSICAL_PIXEL_UNIT_XY = "µm"
@@ -251,17 +255,17 @@ def make_frames_parallel(
     total_objects = get_total_objects(grouped_frames)
     logging.info("Making {} frames...".format(nframes))
 
-    with multiprocessing.Manager() as manager:
-        bounds_arr = manager.Array("i", [0] * int(total_objects * 4))
-        with multiprocessing.Pool() as pool:
-            pool.starmap(
-                make_frame,
-                [
-                    (grouped_frames, group_name, frame, scale, bounds_arr, writer)
-                    for group_name, frame in grouped_frames
-                ],
-            )
-        writer.write_data(bounds=np.array(bounds_arr, dtype=np.uint32))
+    # with multiprocessing.Manager() as manager:
+    #     bounds_arr = manager.Array("i", [0] * int(total_objects * 4))
+    #     with multiprocessing.Pool() as pool:
+    #         pool.starmap(
+    #             make_frame,
+    #             [
+    #                 (grouped_frames, group_name, frame, scale, bounds_arr, writer)
+    #                 for group_name, frame in grouped_frames
+    #             ],
+    #         )
+    #     writer.write_data(bounds=np.array(bounds_arr, dtype=np.uint32))
 
     for backdrop_column in IMAGE_COLUMNS:
         logging.info("Writing background images for '{}'".format(backdrop_column))
@@ -269,6 +273,7 @@ def make_frames_parallel(
         for group_name, frame in grouped_frames:
             row = frame.iloc[0]
             frame_paths.append(row[backdrop_column])
+        print(len(frame_paths))
         writer.copy_and_add_backdrops(backdrop_column, frame_paths)
 
 
@@ -351,19 +356,19 @@ def make_features(
 
     # Custom: Write a categorical feature based on cell type by aggregating the masks
     # 0 = colony cell, 1 = edge cell, 2 = migratory cell
-    migratory_mask = dataset["Migratory Cell (colony mask)"].to_numpy()
-    edge_mask = dataset["Edge cell (colony mask)"].to_numpy()
-    cell_types = np.zeros(shape=edge_mask.shape)
-    cell_types += edge_mask
-    cell_types += migratory_mask * 2
-    writer.write_feature(
-        cell_types,
-        FeatureInfo(
-            label="Cell type",
-            type=FeatureType.CATEGORICAL,
-            categories=["Colony Cell", "Edge Cell", "Migratory Cell"],
-        ),
-    )
+    # migratory_mask = dataset["Migratory Cell (colony mask)"].to_numpy()
+    # edge_mask = dataset["Edge cell (colony mask)"].to_numpy()
+    # cell_types = np.zeros(shape=edge_mask.shape)
+    # cell_types += edge_mask
+    # cell_types += migratory_mask * 2
+    # writer.write_feature(
+    #     cell_types,
+    #     FeatureInfo(
+    #         label="Cell type",
+    #         type=FeatureType.CATEGORICAL,
+    #         categories=["Colony Cell", "Edge Cell", "Migratory Cell"],
+    #     ),
+    # )
 
 
 def get_dataset_dimensions(grouped_frames: DataFrameGroupBy) -> (float, float, str):
@@ -407,6 +412,7 @@ def make_dataset(
         SEGMENTED_IMAGE_COLUMN,
         OBJECT_ID_COLUMN,
     ]
+    columns.extend(IMAGE_COLUMNS)
     reduced_dataset = full_dataset[columns]
     reduced_dataset = reduced_dataset.reset_index(drop=True)
     reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
@@ -436,16 +442,22 @@ def make_collection(output_dir="./data/", do_frames=True, scale=1, dataset=""):
     # a is the full collection!
     file_path = "//allen/aics/microscopy/ClusterOutput/H2B_Deliverable_AnalysisPipelineOutput/H2B_Deliverable_InputImages_123Timelapses_Composite_Output/H2B_2DMIP_Colorizer_InputTable_103col.csv"
 
+    # encoding = detect_encoding(file_path)
+    # a = pd.read_csv(file_path, encoding=encoding)
+
+    file_path = "./data/h2b.csv"
     encoding = detect_encoding(file_path)
     a = pd.read_csv(file_path, encoding=encoding)
+    make_dataset(a, output_dir, "test", do_frames, scale)
+    return
 
-    if True:
+    if dataset != "":
         # convert just the described dataset.
-        # plate = dataset.split("_")[0]
-        # position = dataset.split("_")[1]
-        # c = a.loc[a["Image_Metadata_Plate"] == int(plate)]
-        # c = c.loc[c["Image_Metadata_Position"] == int(position)]
-        make_dataset(a, output_dir, dataset, do_frames, scale)
+        plate = dataset.split("_")[0]
+        position = dataset.split("_")[1]
+        c = a.loc[a["Image_Metadata_Plate"] == int(plate)]
+        c = c.loc[c["Image_Metadata_Position"] == int(position)]
+        make_dataset(c, output_dir, dataset, do_frames, scale)
     else:
         # for every combination of plate and position, make a dataset
         b = a.groupby(["Image_Metadata_Plate", "Image_Metadata_Position"])
@@ -456,6 +468,7 @@ def make_collection(output_dir="./data/", do_frames=True, scale=1, dataset=""):
             collection.append({"name": dataset, "path": dataset})
             c = a.loc[a["Image_Metadata_Plate"] == name[0]]
             c = c.loc[c["Image_Metadata_Position"] == name[1]]
+            c.to_csv("./data/h2b.csv")
             make_dataset(c, output_dir, dataset, do_frames, scale)
         # write the collection.json file
         with open(output_dir + "/collection.json", "w") as f:
