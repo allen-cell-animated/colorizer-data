@@ -17,7 +17,7 @@ If using these example scripts, you'll need to run these commands in an environm
 pip install git+https://github.com/allen-cell-animated/colorizer-data.git@v0.0.0
 
 # requirements.txt
-colorizer-data @ git+https://github.com/allen-cell-animated/colorizer-data.git@0.0.0
+colorizer_data @ git+https://github.com/allen-cell-animated/colorizer-data.git@0.0.0
 ```
 
 To install a different version, replace the end of the URL with a specific version or branch, like `@vX.X.X` or `@{branch-name}`.
