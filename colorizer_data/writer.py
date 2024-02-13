@@ -531,4 +531,8 @@ class ColorizerDatasetWriter:
                 for i in range(len(missing_frames)):
                     index, path = missing_frames[i]
                     logging.warn("  {}: '{}'".format(index, path))
-                logging.warn("For auto-generated frame numbers, you may need to ")
+                logging.warn(
+                    "For auto-generated frame numbers, check that no frames are missing data in the original dataset,"
+                    + " or add an offset if your frame numbers do not start at 0."
+                    + " You may also need to generate the list of frames yourself if your dataset is skipping frames."
+                )
