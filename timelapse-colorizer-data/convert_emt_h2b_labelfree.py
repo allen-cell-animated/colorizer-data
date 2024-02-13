@@ -257,25 +257,26 @@ def make_frames_parallel(
     total_objects = get_total_objects(grouped_frames)
     logging.info("Making {} frames...".format(nframes))
 
-    # with multiprocessing.Manager() as manager:
-    #     bounds_arr = manager.Array("i", [0] * int(total_objects * 4))
-    #     with multiprocessing.Pool() as pool:
-    #         pool.starmap(
-    #             make_frame,
-    #             [
-    #                 (grouped_frames, group_name, frame, scale, bounds_arr, writer)
-    #                 for group_name, frame in grouped_frames
-    #             ],
-    #         )
-    #     writer.write_data(bounds=np.array(bounds_arr, dtype=np.uint32))
+    with multiprocessing.Manager() as manager:
+        bounds_arr = manager.Array("i", [0] * int(total_objects * 4))
+        with multiprocessing.Pool() as pool:
+            pool.starmap(
+                make_frame,
+                [
+                    (grouped_frames, group_name, frame, scale, bounds_arr, writer)
+                    for group_name, frame in grouped_frames
+                ],
+            )
+        writer.write_data(bounds=np.array(bounds_arr, dtype=np.uint32))
 
     for backdrop_column in IMAGE_COLUMNS:
-        logging.info("Writing background images for '{}'".format(backdrop_column))
+        logging.info(
+            "Writing background images from column '{}'".format(backdrop_column)
+        )
         frame_paths = []
         for group_name, frame in grouped_frames:
             row = frame.iloc[0]
             frame_paths.append(row[backdrop_column])
-        print(len(frame_paths))
         writer.copy_and_add_backdrops(backdrop_column, frame_paths)
 
 
