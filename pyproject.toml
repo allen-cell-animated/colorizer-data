@@ -2,8 +2,17 @@
 requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
+[tools.setuptools]
+packages = ["colorizer_data"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["colorizer_data"]
+exclude = ["data", "timelapse-colorizer-data"]
+namespaces = false
+
 [project]
-name = "colorizer-data"
+name = "colorizer_data"
 authors = [
     {name = "", email = "danielt@alleninstitute.org"},
     {name = "", email = "peyton.lee@alleninstitute.org"},
@@ -28,9 +37,6 @@ dynamic = ["version"]
 dev = [  
     'bump-my-version', 
 ]
-
-[project.scripts]
-my-script = "my_package.module:function"
 
 [project.urls]
 Homepage = "https://github.com/allen-cell-animated/colorizer-data"
