@@ -8,7 +8,6 @@ packages = ["colorizer_data"]
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["colorizer_data"]
-exclude = ["data", "timelapse-colorizer-data"]
 namespaces = false
 
 [project]
