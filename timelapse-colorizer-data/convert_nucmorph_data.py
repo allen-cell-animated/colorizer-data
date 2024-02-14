@@ -21,6 +21,9 @@ from nuc_morph_analysis.lib.preprocessing.load_data import (
 from nuc_morph_analysis.lib.visualization.plotting_tools import (
     get_plot_labels_for_metric,
 )
+from nuc_morph_analysis.lib.visualization.add_features_for_colorizer import (
+    add_growth_features
+)
 from data_writer_utils import (
     INITIAL_INDEX_COLUMN,
     ColorizerDatasetWriter,
@@ -111,6 +114,8 @@ FEATURE_COLUMNS = [
         "termination", FeatureType.CATEGORICAL, ["Division", "Leaves FOV", "Apoptosis"]
     ),
     NucMorphFeatureSpec("parent_id", FeatureType.DISCRETE),
+    NucMorphFeatureSpec("Late_growth_rate_fitted"),
+    NucMorphFeatureSpec("Late_growth_duration"),
 ]
 
 
@@ -266,8 +271,12 @@ def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scal
     datadir, figdir = create_base_directories(dataset)
     pixsize = get_dataset_pixel_size(dataset)
 
-    full_dataset: pd.DataFrame = load_dataset(dataset, datadir=None)
+    df_original = load_dataset(dataset, datadir=None)
     logging.info("Loaded dataset '" + str(dataset) + "'.")
+
+    df_add_features = add_growth_features(df_original)
+    full_dataset: pd.DataFrame = df_add_features
+    logging.info("Calculated and added growth features.")
 
     # Make a reduced dataframe grouped by time (frame number).
     columns = [TRACK_ID_COLUMN, TIMES_COLUMN, SEGMENTED_IMAGE_COLUMN, OBJECT_ID_COLUMN]
