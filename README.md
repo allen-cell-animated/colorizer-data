@@ -17,14 +17,14 @@ If using these example scripts, you'll need to run these commands in an environm
 pip install git+https://github.com/allen-cell-animated/colorizer-data.git@v0.0.0
 
 # requirements.txt
-colorizer-data @ git+https://github.com/allen-cell-animated/colorizer-data.git@0.0.0
+colorizer_data @ git+https://github.com/allen-cell-animated/colorizer-data.git@0.0.0
 ```
 
 To install a different version, replace the end of the URL with a specific version or branch, like `@vX.X.X` or `@{branch-name}`.
 
 ## Example Usage
 
-This is a simplified example. See the data scripts in [`timelapse-colorizer-data`](./timelapse-colorizer-data/) for complete working examples!
+This is a simplified example. See our example scripts(./colorizer_data/bin/example_scripts/) for complete working code!
 
 ```python
 import pandas as pd
@@ -98,7 +98,7 @@ writer.write_manifest(metadata=metadata)
 
 ## Developers
 
-You can install the project and its developer dependencies by cloning the repository and running the following `pip` command:
+After cloning the repository, you can install the project in **editable mode** with **dev dependencies** by running the following `pip` command:
 
 ```cmd
 pip install -e '.[dev]'
