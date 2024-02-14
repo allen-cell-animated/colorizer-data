@@ -46,7 +46,7 @@ TRACK_ID_COLUMN = "R0Nuclei_Number_Object_Number"
 """Column of track ID for each object."""
 TIMES_COLUMN = "Image_Metadata_Timepoint"
 """Column of frame number that the object ID appears in."""
-SEGMENTED_IMAGE_COLUMN = "Output Mask (label-free cell)"
+SEGMENTED_IMAGE_COLUMN = "OutputMask (H2B)"
 """Column of path to the segmented image data or z stack for the frame."""
 CENTROIDS_X_COLUMN = "Avg(Collagen4_AreaShape_Center_X)"
 """Column of X centroid coordinates, in pixels of original image data."""
@@ -140,6 +140,24 @@ FEATURE_COLUMNS = [
 ]
 """Columns of feature data to include in the dataset. Each column will be its own feature file."""
 FEATURE_INFO_OVERRIDES: Dict[str, FeatureInfo] = {
+    "Col4ColonyCell": FeatureInfo(
+        column_name="Col4ColonyCell",
+        label="Col4ColonyCell",
+        type=FeatureType.CATEGORICAL,
+        categories=["False", "True"],
+    ),
+    "Col4EdgeCell": FeatureInfo(
+        column_name="Col4EdgeCell",
+        label="Col4EdgeCell",
+        type=FeatureType.CATEGORICAL,
+        categories=["False", "True"],
+    ),
+    "Col4MigratoryCell": FeatureInfo(
+        column_name="Col4MigratoryCell",
+        label="Col4MigratoryCell",
+        type=FeatureType.CATEGORICAL,
+        categories=["False", "True"],
+    ),
     "Min(Intranuclear distance to neighbors (um))": FeatureInfo(
         label="Min intranuclear distance to neighbors",
         unit="µm",
@@ -360,10 +378,8 @@ def make_features(
     centroids_x = dataset[CENTROIDS_X_COLUMN].to_numpy()
     centroids_y = dataset[CENTROIDS_Y_COLUMN].to_numpy()
 
-    # This dataset does not have tracks, so we just generate a list of indices, one for each
-    # object. This will be a very simple numpy table, where tracks[i] = i.
-    shape = dataset.shape
-    tracks = np.array([*range(shape[0])])
+    # Save object ID as track
+    tracks = dataset[TRACK_ID_COLUMN].to_numpy()
 
     writer.write_data(
         tracks=tracks,
@@ -482,7 +498,7 @@ def make_collection(output_dir="./data/", do_frames=True, scale=1, dataset=""):
     # example dataset name : 3500005820_3
     # use pandas to load data
     # a is the full collection!
-    file_path = "//allen/aics/microscopy/ClusterOutput/H2B_Deliverable_AnalysisPipelineOutput/H2B_Deliverable_InputImages_123Timelapses_Composite_Output/H2B_2DMIP_Colorizer_InputTable_103col.csv"
+    file_path = "//allen/aics/microscopy/ClusterOutput/H2B_Deliverable_AnalysisPipelineOutput/H2B_Deliverable_InputImages_123Timelapses_Composite_Output/H2B_2DMIP_Colorizer_InputTable_104col.csv"
 
     # encoding = detect_encoding(file_path)
     # a = pd.read_csv(file_path, encoding=encoding)
