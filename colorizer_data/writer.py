@@ -158,15 +158,25 @@ class ColorizerDatasetWriter:
         manifest_path = self.outpath + "/manifest.json"
         if os.path.exists(manifest_path) and not force_overwrite:
             # Load in the existing file
-            with open(manifest_path, "r") as f:
-                self.manifest = json.load(f)
+            try:
+                with open(manifest_path, "r") as f:
+                    self.manifest = json.load(f)
+            except:
+                logging.warning(
+                    "A manifest file exists in this output directory but could not be loaded, and will be overwritten instead!"
+                )
+                self.manifest = {}
         else:
             self.manifest = {}
 
         # Clear features
         self.manifest["features"] = []
 
+        # Load features from existing manifest, if applicable
         self.backdrops = {}
+        if "backdrops" in self.manifest:
+            for backdrop_metadata in self.manifest["backdrops"]:
+                self.backdrops[backdrop_metadata["key"]] = backdrop_metadata
 
     def write_feature_categorical(self, data: np.ndarray, info: FeatureInfo) -> None:
         """
@@ -178,16 +188,17 @@ class ColorizerDatasetWriter:
             in order of appearance in `data`.
             info (`FeatureInfo`): Metadata for the feature. The `categories` array and `type` will be overridden.
         """
-        categories, indexed_data = np.unique(data, return_inverse=True)
+        categories, indexed_data = np.unique(data.astype(str), return_inverse=True)
         if len(categories) > MAX_CATEGORIES:
-            raise RuntimeError(
-                "write_feature_categorical: Too many unique categories in provided data for feature '{}' ({} > max {}). Categories provided: {}".format(
-                    info.key, len(categories), MAX_CATEGORIES, categories
+            logging.warning(
+                "write_feature_categorical: Too many unique categories in provided data for feature column '{}' ({} > max {}).\nFEATURE WILL BE SKIPPED.\nCategories provided: {}".format(
+                    info.column_name, len(categories), MAX_CATEGORIES, categories
                 )
             )
-        info.categories = categories
+            return
+        info.categories = categories.tolist()
         info.type = FeatureType.CATEGORICAL
-        return self.write_feature(indexed_data, categories)
+        return self.write_feature(indexed_data, info)
 
     def write_feature(self, data: np.ndarray, info: FeatureInfo) -> None:
         """
@@ -358,13 +369,16 @@ class ColorizerDatasetWriter:
         os.makedirs(subdir_path, exist_ok=True)
 
         frame_paths = list(map((lambda path: path.strip("'\" \t")), frame_paths))
-        relative_paths = make_relative_image_paths(frame_paths, subdir_path)
+        relative_paths = make_relative_image_paths(frame_paths, subdir_name)
 
         # TODO: Parallelize using multiprocessing
         with multiprocessing.Pool() as pool:
             pool.starmap(
                 copy_remote_or_local_file,
-                [(frame_paths[i], relative_paths[i]) for i in range(len(frame_paths))],
+                [
+                    (frame_paths[i], os.path.join(self.outpath, relative_paths[i]))
+                    for i in range(len(frame_paths))
+                ],
             )
 
         # Save the updated paths and then call add_backdrops

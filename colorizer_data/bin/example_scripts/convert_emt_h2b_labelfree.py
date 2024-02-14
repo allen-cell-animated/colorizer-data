@@ -1,4 +1,4 @@
-from typing import List, Sequence
+from typing import Dict, List, Sequence
 from aicsimageio import AICSImage
 import argparse
 import json
@@ -20,6 +20,7 @@ from colorizer_data.writer import (
 from colorizer_data.utils import (
     INITIAL_INDEX_COLUMN,
     configureLogging,
+    extract_units_from_feature_name,
     generate_frame_paths,
     get_total_objects,
     sanitize_path_by_platform,
@@ -57,108 +58,109 @@ IMAGE_COLUMNS = ["PNG overlay (NucObjNum)", "PNG overlay (no obj num label)"]
 FEATURE_COLUMNS = [
     "R0Nuclei DNA mean pixel intensity",
     "R0Nuclei_AreaShape_Eccentricity",
-    "Radial distance from Col4Colony",
-    "Radial distance from BF colony",
-    "PNG overlay (NucObjNum)",
-    "PNG overlay (no obj num label)",
-    # "BF MigratoryClass",
-    # "Col4 MigratoryClass",
-    # "Col4ColonyCell",
-    # "Col4EdgeCell",
-    # "Col4MigratoryCell",
-    # "Collagen4 area (um)",
-    # "Colony area (um)",
-    # "Min(Intranuclear distance to n",
-    # "Avg(Intranuclear distance to n",
-    # "Median(Intranuclear distance t",
-    # "Max(Intranuclear distance to n",
-    # "Avg(Collagen4_AreaShape_Center",
-    # "Avg(Collagen4_AreaShape_Center",
-    # "Avg(Colony_AreaShape_Center_X)",
-    # "Avg(Colony_AreaShape_Center_Y)",
-    # "R0Nuclei_AreaShape_FormFactor",
-    # "R0Nuclei_AreaShape_Compactness",
-    # "R0Nuclei_AreaShape_MajorAxisLe",
-    # "R0Nuclei_AreaShape_MinorAxisLe",
-    # "R0Nuclei_AreaShape_Orientation",
-    # "R0Nuclei_AreaShape_Perimeter",
-    # "R0Nuclei_AreaShape_EulerNumber",
-    # "R0Nuclei_Intensity_MeanIntensi",
-    # "R0Nuclei_Intensity_MeanIntensi",
-    # "R0Nuclei_Intensity_MeanIntensi",
-    # "R0Cell_Neighbors_AngleBetweenN",
-    # "R0Cell_Neighbors_NumberOfNeigh",
-    # "R0Cell_Neighbors_PercentTouchi",
-    # "R0Cell_AreaShape_Compactness",
-    # "R0Cell_AreaShape_ConvexArea",
-    # "R0Cell_AreaShape_Eccentricity",
-    # "R0Cell_AreaShape_EquivalentDia",
-    # "R0Cell_AreaShape_EulerNumber",
-    # "R0Cell_AreaShape_Extent",
-    # "R0Cell_AreaShape_FormFactor",
-    # "R0Cell_AreaShape_MajorAxisLeng",
-    # "R0Cell_AreaShape_MaxFeretDiame",
-    # "R0Cell_AreaShape_MaximumRadius",
-    # "R0Cell_AreaShape_MeanRadius",
-    # "R0Cell_AreaShape_MedianRadius",
-    # "R0Cell_AreaShape_MinFeretDiame",
-    # "R0Cell_AreaShape_MinorAxisLeng",
-    # "R0Cell_AreaShape_Orientation",
-    # "R0Cell_AreaShape_Perimeter",
-    # "R0Cell_AreaShape_Solidity",
-    # "R0Nuclei_AreaShape_Zernike_0_0",
-    # "R0Nuclei_AreaShape_Zernike_1_1",
-    # "R0Nuclei_AreaShape_Zernike_2_0",
-    # "R0Nuclei_AreaShape_Zernike_2_2",
-    # "R0Nuclei_AreaShape_Zernike_3_1",
-    # "R0Nuclei_AreaShape_Zernike_3_3",
-    # "R0Nuclei_AreaShape_Zernike_4_0",
-    # "R0Nuclei_AreaShape_Zernike_4_2",
-    # "R0Nuclei_AreaShape_Zernike_4_4",
-    # "R0Nuclei_AreaShape_Zernike_5_1",
-    # "R0Nuclei_AreaShape_Zernike_5_3",
-    # "R0Nuclei_AreaShape_Zernike_5_5",
-    # "R0Nuclei_AreaShape_Zernike_6_0",
-    # "R0Nuclei_AreaShape_Zernike_6_2",
-    # "R0Nuclei_AreaShape_Zernike_6_4",
-    # "R0Nuclei_AreaShape_Zernike_6_6",
-    # "R0Nuclei_AreaShape_Zernike_7_1",
-    # "R0Nuclei_AreaShape_Zernike_7_3",
-    # "R0Nuclei_AreaShape_Zernike_7_5",
-    # "R0Nuclei_AreaShape_Zernike_7_7",
-    # "R0Nuclei_AreaShape_Zernike_8_0",
-    # "R0Nuclei_AreaShape_Zernike_8_2",
-    # "R0Nuclei_AreaShape_Zernike_8_4",
-    # "R0Nuclei_AreaShape_Zernike_8_6",
-    # "R0Nuclei_AreaShape_Zernike_8_8",
-    # "R0Nuclei_AreaShape_Zernike_9_1",
-    # "R0Nuclei_AreaShape_Zernike_9_3",
-    # "R0Nuclei_AreaShape_Zernike_9_5",
-    # "R0Nuclei_AreaShape_Zernike_9_7",
-    # "R0Nuclei_AreaShape_Zernike_9_9",
+    "Radial distance from Col4Colony (um)",
+    "Radial distance from BF colony centroid (um)",
+    "BF MigratoryClass",
+    "Col4 MigratoryClass",
+    "Col4ColonyCell",
+    "Col4EdgeCell",
+    "Col4MigratoryCell",
+    "Collagen4 area (um)",
+    "Colony area (um)",
+    "Min(Intranuclear distance to neighbors (um))",
+    "Avg(Intranuclear distance to neighbors (um))",
+    "Median(Intranuclear distance to neighbors (um))",
+    "Max(Intranuclear distance to neighbors (um))",
+    "Avg(Collagen4_AreaShape_Center_X)",
+    "Avg(Collagen4_AreaShape_Center_Y)",
+    "Avg(Colony_AreaShape_Center_X)",
+    "Avg(Colony_AreaShape_Center_Y)",
+    "R0Nuclei_AreaShape_FormFactor",
+    "R0Nuclei_AreaShape_Compactness",
+    "R0Nuclei_AreaShape_MajorAxisLength",
+    "R0Nuclei_AreaShape_MinorAxisLength",
+    "R0Nuclei_AreaShape_Orientation",
+    "R0Nuclei_AreaShape_Perimeter",
+    "R0Nuclei_AreaShape_EulerNumber",
+    "R0Nuclei_Intensity_MeanIntensity_Collagen4BinaryMaskImage",
+    "R0Nuclei_Intensity_MeanIntensity_ColonyBinaryMaskImage",
+    "R0Nuclei_Intensity_MeanIntensity_FOVEdge1PxBoundary",
+    "R0Cell_Neighbors_AngleBetweenNeighbors_Adjacent",
+    "R0Cell_Neighbors_NumberOfNeighbors_Adjacent",
+    "R0Cell_Neighbors_PercentTouching_Adjacent",
+    "R0Cell_AreaShape_Compactness",
+    "R0Cell_AreaShape_ConvexArea",
+    "R0Cell_AreaShape_Eccentricity",
+    "R0Cell_AreaShape_EquivalentDiameter",
+    "R0Cell_AreaShape_EulerNumber",
+    "R0Cell_AreaShape_Extent",
+    "R0Cell_AreaShape_FormFactor",
+    "R0Cell_AreaShape_MajorAxisLength",
+    "R0Cell_AreaShape_MaxFeretDiameter",
+    "R0Cell_AreaShape_MaximumRadius",
+    "R0Cell_AreaShape_MeanRadius",
+    "R0Cell_AreaShape_MedianRadius",
+    "R0Cell_AreaShape_MinFeretDiameter",
+    "R0Cell_AreaShape_MinorAxisLength",
+    "R0Cell_AreaShape_Orientation",
+    "R0Cell_AreaShape_Perimeter",
+    "R0Cell_AreaShape_Solidity",
+    "R0Nuclei_AreaShape_Zernike_0_0",
+    "R0Nuclei_AreaShape_Zernike_1_1",
+    "R0Nuclei_AreaShape_Zernike_2_0",
+    "R0Nuclei_AreaShape_Zernike_2_2",
+    "R0Nuclei_AreaShape_Zernike_3_1",
+    "R0Nuclei_AreaShape_Zernike_3_3",
+    "R0Nuclei_AreaShape_Zernike_4_0",
+    "R0Nuclei_AreaShape_Zernike_4_2",
+    "R0Nuclei_AreaShape_Zernike_4_4",
+    "R0Nuclei_AreaShape_Zernike_5_1",
+    "R0Nuclei_AreaShape_Zernike_5_3",
+    "R0Nuclei_AreaShape_Zernike_5_5",
+    "R0Nuclei_AreaShape_Zernike_6_0",
+    "R0Nuclei_AreaShape_Zernike_6_2",
+    "R0Nuclei_AreaShape_Zernike_6_4",
+    "R0Nuclei_AreaShape_Zernike_6_6",
+    "R0Nuclei_AreaShape_Zernike_7_1",
+    "R0Nuclei_AreaShape_Zernike_7_3",
+    "R0Nuclei_AreaShape_Zernike_7_5",
+    "R0Nuclei_AreaShape_Zernike_7_7",
+    "R0Nuclei_AreaShape_Zernike_8_0",
+    "R0Nuclei_AreaShape_Zernike_8_2",
+    "R0Nuclei_AreaShape_Zernike_8_4",
+    "R0Nuclei_AreaShape_Zernike_8_6",
+    "R0Nuclei_AreaShape_Zernike_8_8",
+    "R0Nuclei_AreaShape_Zernike_9_1",
+    "R0Nuclei_AreaShape_Zernike_9_3",
+    "R0Nuclei_AreaShape_Zernike_9_5",
+    "R0Nuclei_AreaShape_Zernike_9_7",
+    "R0Nuclei_AreaShape_Zernike_9_9",
+    "UniqueConcatenate(object_number2)",
+    "UniqueConcatenate(Intranuclear distance to neighbors (um))",
 ]
 """Columns of feature data to include in the dataset. Each column will be its own feature file."""
-FEATURE_INFO: List[FeatureInfo] = [
-    FeatureInfo(
+FEATURE_INFO_OVERRIDES: Dict[str, FeatureInfo] = {
+    "R0Nuclei DNA mean pixel intensity": FeatureInfo(
         label="R0Nuclei DNA mean pixel intensity",
         column_name="R0Nuclei DNA mean pixel intensity",
     ),
-    FeatureInfo(
+    "R0Nuclei_AreaShape_Eccentricity": FeatureInfo(
         label="R0Nuclei_AreaShape_Eccentricity",
         column_name="R0Nuclei_AreaShape_Eccentricity",
     ),
-    FeatureInfo(
+    "Radial distance from Col4Colony (um)": FeatureInfo(
         label="Radial distance from Col4Colony",
         column_name="Radial distance from Col4Colony (um)",
         unit="µm",
     ),
-    FeatureInfo(
+    "Radial distance from BF colony centroid (um)": FeatureInfo(
         label="Radial distance from BF colony",
         column_name="Radial distance from BF colony centroid (um)",
         unit="µm",
         type=FeatureType.CONTINUOUS,
     ),
-]
+}
+
 
 PHYSICAL_PIXEL_SIZE_XY = 0.271
 PHYSICAL_PIXEL_UNIT_XY = "µm"
@@ -353,9 +355,28 @@ def make_features(
         outliers=outliers,
     )
 
-    for info in FEATURE_INFO:
-        data = dataset[info.column_name].to_numpy()
-        writer.write_feature(data, info)
+    for feature_column in FEATURE_COLUMNS:
+        info = None
+        data = dataset[feature_column].to_numpy()
+
+        if feature_column in FEATURE_INFO_OVERRIDES:
+            info = FEATURE_INFO_OVERRIDES[feature_column]
+            writer.write_feature(data, info)
+        else:
+            # Get default feature info
+            (label, units) = extract_units_from_feature_name(feature_column)
+            if units == "um":
+                units = "µm"
+            info = FeatureInfo(
+                label=label,
+                unit=units,
+                column_name=feature_column,
+                type=FeatureType.CONTINUOUS,
+            )
+            if data.dtype.kind in {"U", "S", "O"}:
+                writer.write_feature_categorical(data, info)
+            else:
+                writer.write_feature(data, info)
 
     # Custom: Write a categorical feature based on cell type by aggregating the masks
     # 0 = colony cell, 1 = edge cell, 2 = migratory cell
