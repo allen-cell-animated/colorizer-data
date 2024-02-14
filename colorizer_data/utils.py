@@ -82,12 +82,15 @@ def extract_units_from_feature_name(feature_name: str) -> (str, Union[str, None]
 
     ex: `"Feature Name (units)" -> ("Feature Name", "units")`
     """
-    match = re.search(r"\((.+)\)$", feature_name)
-    if match is None:
+    matches = [x for x in re.finditer(r"(\([^\(]*?\))", feature_name)]
+    if len(matches) == 0:
         return (feature_name, None)
+    match = matches[-1]  # Find last instance
     units = match.group()
-    units = units[1:-1]  # Remove parentheses
-    feature_name = feature_name[: match.start()].strip()
+    # Splice out the units
+    feature_name = (
+        feature_name[: match.start()].strip() + feature_name[match.end() :].strip()
+    )
     return (feature_name, units)
 
 
