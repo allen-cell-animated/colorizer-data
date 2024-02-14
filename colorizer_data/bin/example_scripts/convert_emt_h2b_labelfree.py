@@ -140,24 +140,41 @@ FEATURE_COLUMNS = [
 ]
 """Columns of feature data to include in the dataset. Each column will be its own feature file."""
 FEATURE_INFO_OVERRIDES: Dict[str, FeatureInfo] = {
-    "R0Nuclei DNA mean pixel intensity": FeatureInfo(
-        label="R0Nuclei DNA mean pixel intensity",
-        column_name="R0Nuclei DNA mean pixel intensity",
-    ),
-    "R0Nuclei_AreaShape_Eccentricity": FeatureInfo(
-        label="R0Nuclei_AreaShape_Eccentricity",
-        column_name="R0Nuclei_AreaShape_Eccentricity",
-    ),
-    "Radial distance from Col4Colony (um)": FeatureInfo(
-        label="Radial distance from Col4Colony",
-        column_name="Radial distance from Col4Colony (um)",
+    "Min(Intranuclear distance to neighbors (um))": FeatureInfo(
+        label="Min intranuclear distance to neighbors",
         unit="µm",
+        column_name="Min(Intranuclear distance to neighbors (um))",
     ),
-    "Radial distance from BF colony centroid (um)": FeatureInfo(
-        label="Radial distance from BF colony",
-        column_name="Radial distance from BF colony centroid (um)",
+    "Avg(Intranuclear distance to neighbors (um))": FeatureInfo(
+        label="Avg intranuclear distance to neighbors",
         unit="µm",
-        type=FeatureType.CONTINUOUS,
+        column_name="Avg(Intranuclear distance to neighbors (um))",
+    ),
+    "Median(Intranuclear distance to neighbors (um))": FeatureInfo(
+        label="Median intranuclear distance to neighbors",
+        unit="µm",
+        column_name="Median(Intranuclear distance to neighbors (um))",
+    ),
+    "Max(Intranuclear distance to neighbors (um))": FeatureInfo(
+        label="Max intranuclear distance to neighbors",
+        unit="µm",
+        column_name="Max(Intranuclear distance to neighbors (um))",
+    ),
+    "Avg(Collagen4_AreaShape_Center_X)": FeatureInfo(
+        label="Avg Collagen4 AreaShape Center X",
+        column_name="Avg(Collagen4_AreaShape_Center_X)",
+    ),
+    "Avg(Collagen4_AreaShape_Center_Y)": FeatureInfo(
+        label="Avg Collagen4 AreaShape Center Y",
+        column_name="Avg(Collagen4_AreaShape_Center_Y)",
+    ),
+    "Avg(Colony_AreaShape_Center_X)": FeatureInfo(
+        label="Avg Colony AreaShape Center X",
+        column_name="Avg(Colony_AreaShape_Center_X)",
+    ),
+    "Avg(Colony_AreaShape_Center_Y)": FeatureInfo(
+        label="Avg Colony AreaShape Center Y",
+        column_name="Avg(Colony_AreaShape_Center_Y)",
     ),
 }
 
@@ -204,6 +221,7 @@ def get_image_from_row(row: pd.DataFrame) -> AICSImage:
     zstackpath = row[SEGMENTED_IMAGE_COLUMN]
     zstackpath = zstackpath.strip('"')
     zstackpath = sanitize_path_by_platform(zstackpath)
+    print(zstackpath)
     return AICSImage(zstackpath)
 
 
