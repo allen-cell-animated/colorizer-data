@@ -16,6 +16,7 @@ from colorizer_data.utils import (
     DEFAULT_FRAME_SUFFIX,
     copy_remote_or_local_file,
     generate_frame_paths,
+    make_relative_image_paths,
     sanitize_key_name,
     MAX_CATEGORIES,
     NumpyValuesEncoder,
@@ -299,52 +300,6 @@ class ColorizerDatasetWriter:
                 json.dump(bounds_json, f)
             self.manifest["bounds"] = "bounds.json"
 
-    def __make_relative_image_paths(
-        self, frame_paths: List[str], subdir_path: str
-    ) -> List[str]:
-        """
-        Strips the base filename from a list of file paths or URLs, and maps them
-        as an array of relative file paths to files in the subdirectory.
-
-        If file names are duplicated, renames the files to prevent overwriting.
-        (`img.png, img(0).png, img(1).png, etc.`)
-
-        @example
-        ```python
-        frame_paths = [
-        "/local/test/frame_0.png",
-        "/local/test/frame_1.png",
-        "https://url.com/1/my_image.png",
-        "https://url.com/2/my_image.png",
-        ]
-        subdir_path = "./img/"
-        relative_paths = __make_relative_image_paths(frame_paths, subdir_path)
-        # relative_paths = [
-        #  "./img/frame_0.png",
-        #  "./img/frame_1.png",
-        #  "./img/my_image.png",
-        #  "./img/my_image(0).png"
-        # ]
-        ```
-        """
-        relative_paths = []
-        # Handle case where files can be duplicated
-        filename_count: Dict[str, int] = {}
-        for path in frame_paths:
-            # Get the filename from the paths
-            # TODO: potentially unsafe for URLs
-            filename = path.rsplit("/", 1)[-1]
-            basename, extension = os.path.splitext(filename)
-            if filename in filename_count:
-                count = filename_count[filename]
-                new_filename = "{}({}){}".format(basename, count, extension)
-                relative_paths.append(os.path.join(subdir_path, new_filename))
-                filename_count[filename] = count + 1
-            else:
-                relative_paths.append(os.path.join(subdir_path, filename))
-                filename_count[filename] = 0
-        return relative_paths
-
     def copy_and_add_backdrops(
         self,
         name: str,
@@ -356,6 +311,13 @@ class ColorizerDatasetWriter:
         """
         Copies a set of backdrop images from the provided paths (either filepaths or URLs) to the
         dataset's output directory, then registers the backdrop image set in the dataset.
+
+        Args:
+            name (str): The name of the backdrop set.
+            frame_paths (List[str]): The relative paths to the backdrop images.
+            key (str): The key of the backdrop set. If not provided, a sanitized version of the name will be used.
+            subdir_name (str): The subdirectory to create. If not provided, uses the key.
+            clear_subdir (bool): Whether to delete the contents of the subdirectory before copying files. True by default.
         """
         # Make sanitized version of name as key
         # If no subdir name, use sanitized name (key) too
@@ -374,8 +336,7 @@ class ColorizerDatasetWriter:
         os.makedirs(subdir_path, exist_ok=True)
 
         frame_paths = list(map((lambda path: path.strip("'\" \t")), frame_paths))
-        # Filenames are preserved for better troubleshooting of datasets.
-        relative_paths = self.__make_relative_image_paths(frame_paths, subdir_path)
+        relative_paths = make_relative_image_paths(frame_paths, subdir_path)
 
         # TODO: Parallelize using multiprocessing
         with multiprocessing.Pool() as pool:
