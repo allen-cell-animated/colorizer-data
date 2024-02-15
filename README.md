@@ -8,7 +8,7 @@ Utilities are included in this repository to convert time-series data to the Tim
 
 Example scripts are also included in this repository, based on some of our internal projects. You can edit these scripts to work with your datasets as part of a processing pipeline.
 
-If using these example scripts, you'll need to run these commands in an environment with read access to the datasets and write access to the output directory.
+If using these example scripts, you'll need to run these commands in an environment with read access to the datasets and write access to the output directory. **The scripts also have their own external dependencies which must be installed separately**, as they are not direct dependencies of this package.
 
 ## Installation
 
