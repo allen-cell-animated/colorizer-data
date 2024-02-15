@@ -265,6 +265,7 @@ def make_relative_image_paths(frame_paths: List[str], subdir_path: str) -> List[
     | 2       | `http://url.com/1/my_image.png` | ./img/my_image.png    |
     | 3       | `http://url.com/2/my_image.png` | ./img/my_image(0).png |
     """
+    # TODO: Unit testing
     relative_paths = []
     # Handle case where files can be duplicated
     filename_count: Dict[str, int] = {}

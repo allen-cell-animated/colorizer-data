@@ -399,7 +399,7 @@ def make_features(
             )
             # Auto-detect categorical features
             if data.dtype.kind in {"U", "S", "O"}:  # unicode, string, or object
-                writer.write_feature_categorical(data, info)
+                writer.write_categorical_feature(data, info)
             else:
                 writer.write_feature(data, info)
 

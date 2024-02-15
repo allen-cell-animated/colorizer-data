@@ -175,16 +175,18 @@ class ColorizerDatasetWriter:
         # Clear features
         self.manifest["features"] = []
 
-        # Load features from existing manifest, if applicable
+        # Load backdrops from existing manifest, if applicable
         self.backdrops = {}
         if "backdrops" in self.manifest:
             for backdrop_metadata in self.manifest["backdrops"]:
                 self.backdrops[backdrop_metadata["key"]] = backdrop_metadata
 
-    def write_feature_categorical(self, data: np.ndarray, info: FeatureInfo) -> None:
+    def write_categorical_feature(self, data: np.ndarray, info: FeatureInfo) -> None:
         """
         Writes a categorical feature data array and stores feature metadata to be written to the manifest. See
         `write_feature` for full description of file writing behavior and naming.
+
+        Skips features that have more than 12 categories.
 
         Args:
             data (`np.ndarray`): An array with dtype string, with no more than 12 unique values. Categories will be ordered
@@ -354,12 +356,14 @@ class ColorizerDatasetWriter:
             name (str): The name of the backdrop set.
             frame_paths (List[str]): The relative paths to the backdrop images.
             key (str): The key of the backdrop set. If not provided, a sanitized version of the name will be used.
-            subdir_name (str): The subdirectory to create. If not provided, uses the key.
+            subdir_name (str): The subdirectory to save images to. If not provided, uses the key. The subdirectory will be
+            created if it does not exist.
             clear_subdir (bool): Whether to delete the contents of the subdirectory before copying files. True by default.
         """
+        # TODO: Scale images with the writer's set scale. Images will likely need to be saved first,
+        # then opened, scaled, and saved out again.
+
         # Make sanitized version of name as key
-        # If no subdir name, use sanitized name (key) too
-        # For each frame path, copy to output directory. Assume they are in order.
         if key is None:
             key = sanitize_key_name(name)
 
@@ -376,7 +380,6 @@ class ColorizerDatasetWriter:
         frame_paths = list(map((lambda path: path.strip("'\" \t")), frame_paths))
         relative_paths = make_relative_image_paths(frame_paths, subdir_name)
 
-        # TODO: Parallelize using multiprocessing
         with multiprocessing.Pool() as pool:
             pool.starmap(
                 copy_remote_or_local_file,
@@ -404,16 +407,12 @@ class ColorizerDatasetWriter:
             key (str): The key of the backdrop set. If not provided, a sanitized version of the name will be used.
         """
         # Make sanitized version of name as key if not provided
-        # Check if key already exists in manifest, and throw a warning if so
-        # Add to manifest
         if key is None:
             key = sanitize_key_name(name)
-
         if self.backdrops.get(key):
             logging.warning(
                 f"Backdrop key '{key}' already exists in manifest. Overwriting..."
             )
-
         self.backdrops[key] = {"key": key, "name": name, "frames": frame_paths}
 
     def set_frame_paths(self, paths: List[str]) -> None:
