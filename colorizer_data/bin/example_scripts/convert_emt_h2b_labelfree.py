@@ -141,58 +141,48 @@ FEATURE_COLUMNS = [
 """Columns of feature data to include in the dataset. Each column will be its own feature file."""
 FEATURE_INFO_OVERRIDES: Dict[str, FeatureInfo] = {
     "Col4ColonyCell": FeatureInfo(
-        column_name="Col4ColonyCell",
         label="Col4ColonyCell",
         type=FeatureType.CATEGORICAL,
         categories=["False", "True"],
     ),
     "Col4EdgeCell": FeatureInfo(
-        column_name="Col4EdgeCell",
         label="Col4EdgeCell",
         type=FeatureType.CATEGORICAL,
         categories=["False", "True"],
     ),
     "Col4MigratoryCell": FeatureInfo(
-        column_name="Col4MigratoryCell",
         label="Col4MigratoryCell",
         type=FeatureType.CATEGORICAL,
         categories=["False", "True"],
     ),
+    # Parentheses will be auto-parsed as units
     "Min(Intranuclear distance to neighbors (um))": FeatureInfo(
         label="Min intranuclear distance to neighbors",
         unit="µm",
-        column_name="Min(Intranuclear distance to neighbors (um))",
     ),
     "Avg(Intranuclear distance to neighbors (um))": FeatureInfo(
         label="Avg intranuclear distance to neighbors",
         unit="µm",
-        column_name="Avg(Intranuclear distance to neighbors (um))",
     ),
     "Median(Intranuclear distance to neighbors (um))": FeatureInfo(
         label="Median intranuclear distance to neighbors",
         unit="µm",
-        column_name="Median(Intranuclear distance to neighbors (um))",
     ),
     "Max(Intranuclear distance to neighbors (um))": FeatureInfo(
         label="Max intranuclear distance to neighbors",
         unit="µm",
-        column_name="Max(Intranuclear distance to neighbors (um))",
     ),
     "Avg(Collagen4_AreaShape_Center_X)": FeatureInfo(
         label="Avg Collagen4 AreaShape Center X",
-        column_name="Avg(Collagen4_AreaShape_Center_X)",
     ),
     "Avg(Collagen4_AreaShape_Center_Y)": FeatureInfo(
         label="Avg Collagen4 AreaShape Center Y",
-        column_name="Avg(Collagen4_AreaShape_Center_Y)",
     ),
     "Avg(Colony_AreaShape_Center_X)": FeatureInfo(
         label="Avg Colony AreaShape Center X",
-        column_name="Avg(Colony_AreaShape_Center_X)",
     ),
     "Avg(Colony_AreaShape_Center_Y)": FeatureInfo(
         label="Avg Colony AreaShape Center Y",
-        column_name="Avg(Colony_AreaShape_Center_Y)",
     ),
 }
 
@@ -239,7 +229,6 @@ def get_image_from_row(row: pd.DataFrame) -> AICSImage:
     zstackpath = row[SEGMENTED_IMAGE_COLUMN]
     zstackpath = zstackpath.strip('"')
     zstackpath = sanitize_path_by_platform(zstackpath)
-    print(zstackpath)
     return AICSImage(zstackpath)
 
 
@@ -395,6 +384,7 @@ def make_features(
 
         if feature_column in FEATURE_INFO_OVERRIDES:
             info = FEATURE_INFO_OVERRIDES[feature_column]
+            info.column_name = feature_column
             writer.write_feature(data, info)
         else:
             # Get default feature info
@@ -407,26 +397,11 @@ def make_features(
                 column_name=feature_column,
                 type=FeatureType.CONTINUOUS,
             )
-            if data.dtype.kind in {"U", "S", "O"}:
+            # Auto-detect categorical features
+            if data.dtype.kind in {"U", "S", "O"}:  # unicode, string, or object
                 writer.write_feature_categorical(data, info)
             else:
                 writer.write_feature(data, info)
-
-    # Custom: Write a categorical feature based on cell type by aggregating the masks
-    # 0 = colony cell, 1 = edge cell, 2 = migratory cell
-    # migratory_mask = dataset["Migratory Cell (colony mask)"].to_numpy()
-    # edge_mask = dataset["Edge cell (colony mask)"].to_numpy()
-    # cell_types = np.zeros(shape=edge_mask.shape)
-    # cell_types += edge_mask
-    # cell_types += migratory_mask * 2
-    # writer.write_feature(
-    #     cell_types,
-    #     FeatureInfo(
-    #         label="Cell type",
-    #         type=FeatureType.CATEGORICAL,
-    #         categories=["Colony Cell", "Edge Cell", "Migratory Cell"],
-    #     ),
-    # )
 
 
 def get_dataset_dimensions(grouped_frames: DataFrameGroupBy) -> (float, float, str):

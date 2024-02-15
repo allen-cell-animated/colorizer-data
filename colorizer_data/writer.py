@@ -161,6 +161,9 @@ class ColorizerDatasetWriter:
             try:
                 with open(manifest_path, "r") as f:
                     self.manifest = json.load(f)
+                logging.info(
+                    "An existing manifest file was found in the output directory and will be updated."
+                )
             except:
                 logging.warning(
                     "A manifest file exists in this output directory but could not be loaded, and will be overwritten instead!"
@@ -191,10 +194,12 @@ class ColorizerDatasetWriter:
         categories, indexed_data = np.unique(data.astype(str), return_inverse=True)
         if len(categories) > MAX_CATEGORIES:
             logging.warning(
-                "write_feature_categorical: Too many unique categories in provided data for feature column '{}' ({} > max {}).\nFEATURE WILL BE SKIPPED.\nCategories provided: {}".format(
-                    info.column_name, len(categories), MAX_CATEGORIES, categories
+                "write_feature_categorical: Too many unique categories in provided data for feature column '{}' ({} > max {}).".format(
+                    info.column_name, len(categories), MAX_CATEGORIES
                 )
             )
+            logging.warning("\tFEATURE WILL BE SKIPPED.")
+            logging.warning("\tCategories provided: {}".format(categories))
             return
         info.categories = categories.tolist()
         info.type = FeatureType.CATEGORICAL
