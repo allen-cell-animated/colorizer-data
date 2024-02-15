@@ -475,14 +475,8 @@ def make_collection(output_dir="./data/", do_frames=True, scale=1, dataset=""):
     # a is the full collection!
     file_path = "//allen/aics/microscopy/ClusterOutput/H2B_Deliverable_AnalysisPipelineOutput/H2B_Deliverable_InputImages_123Timelapses_Composite_Output/H2B_2DMIP_Colorizer_InputTable_104col.csv"
 
-    # encoding = detect_encoding(file_path)
-    # a = pd.read_csv(file_path, encoding=encoding)
-
-    file_path = "./data/h2b.csv"
     encoding = detect_encoding(file_path)
     a = pd.read_csv(file_path, encoding=encoding)
-    make_dataset(a, output_dir, "test", do_frames, scale)
-    return
 
     if dataset != "":
         # convert just the described dataset.
@@ -501,7 +495,6 @@ def make_collection(output_dir="./data/", do_frames=True, scale=1, dataset=""):
             collection.append({"name": dataset, "path": dataset})
             c = a.loc[a["Image_Metadata_Plate"] == name[0]]
             c = c.loc[c["Image_Metadata_Position"] == name[1]]
-            c.to_csv("./data/h2b.csv")
             make_dataset(c, output_dir, dataset, do_frames, scale)
         # write the collection.json file
         with open(output_dir + "/collection.json", "w") as f:
