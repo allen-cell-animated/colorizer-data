@@ -116,6 +116,9 @@ FEATURE_COLUMNS = [
     NucMorphFeatureSpec("parent_id", FeatureType.DISCRETE),
     NucMorphFeatureSpec("Late_growth_rate_fitted"),
     NucMorphFeatureSpec("Late_growth_duration"),
+    NucMorphFeatureSpec("Volume_foldchange_BC"),
+    NucMorphFeatureSpec("Volume_change_BC"),
+    NucMorphFeatureSpec("Volume_C"),
 ]
 
 
