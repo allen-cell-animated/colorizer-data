@@ -102,23 +102,25 @@ OUTLIERS_COLUMN = "is_outlier"
 FEATURE_COLUMNS = [
     NucMorphFeatureSpec("NUC_shape_volume_lcc"),
     NucMorphFeatureSpec("NUC_position_depth"),
-    NucMorphFeatureSpec("is_outlier", FeatureType.CATEGORICAL, ["False", "True"]),
-    NucMorphFeatureSpec("edge_cell", FeatureType.CATEGORICAL, ["False", "True"]),
-    NucMorphFeatureSpec("NUC_roundness_surface_area"),
     NucMorphFeatureSpec("NUC_position_height"),
     NucMorphFeatureSpec("NUC_position_width"),
+    NucMorphFeatureSpec("xy_aspect"),
     # 0 - track terminates by dividing
     # 1 - track terminates by going off the edge of the FOV
     # 2 - track terminates by apoptosis
+    NucMorphFeatureSpec("Volume_change_BC"),
+    NucMorphFeatureSpec("Volume_foldchange_BC"),
+    NucMorphFeatureSpec("Late_growth_rate_fitted"),
+    NucMorphFeatureSpec("Late_growth_duration"),
+    NucMorphFeatureSpec("colony_depth"),
+    NucMorphFeatureSpec("density"),
     NucMorphFeatureSpec(
         "termination", FeatureType.CATEGORICAL, ["Division", "Leaves FOV", "Apoptosis"]
     ),
     NucMorphFeatureSpec("parent_id", FeatureType.DISCRETE),
-    NucMorphFeatureSpec("Late_growth_rate_fitted"),
-    NucMorphFeatureSpec("Late_growth_duration"),
-    NucMorphFeatureSpec("Volume_foldchange_BC"),
-    NucMorphFeatureSpec("Volume_change_BC"),
-    NucMorphFeatureSpec("Volume_C"),
+    NucMorphFeatureSpec("family_id", FeatureType.DISCRETE),
+    NucMorphFeatureSpec("is_outlier", FeatureType.CATEGORICAL, ["False", "True"]),
+    NucMorphFeatureSpec("edge_cell", FeatureType.CATEGORICAL, ["False", "True"]),
 ]
 
 
