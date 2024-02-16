@@ -4,9 +4,9 @@ provided by Leigh Harris!
 
 Note that this dataset does not have track IDs, so each unique object ID is treated as its own track.
 
-To export the default datasets, you can run:
+To export the default datasets, you can run the following commands from the root directory:
 ```
-python timelapse-colorizer-data/convert_emt_nuclear_data.py --scale 1.0 --output_dir=/allen/aics/animated-cell/Dan/fileserver/colorizer/EMT_nuclear
+python colorizer_data/bin/example_scripts/convert_emt_nuclear_data.py --scale 1.0 --output_dir=/allen/aics/animated-cell/Dan/fileserver/colorizer/EMT_nuclear
 ```
 """
 
@@ -21,16 +21,17 @@ from pandas.core.groupby.generic import DataFrameGroupBy
 import time
 from typing import List, Sequence
 
-from data_writer_utils import (
-    INITIAL_INDEX_COLUMN,
+from colorizer_data.writer import (
     ColorizerDatasetWriter,
     ColorizerMetadata,
     FeatureInfo,
     FeatureType,
+)
+from colorizer_data.utils import (
+    INITIAL_INDEX_COLUMN,
     configureLogging,
     generate_frame_paths,
     get_total_objects,
-    make_bounding_box_array,
     sanitize_path_by_platform,
     scale_image,
     remap_segmented_image,
@@ -326,7 +327,9 @@ parser.add_argument(
 )
 
 args = parser.parse_args()
-if __name__ == "__main__":
+
+
+def main():
     configureLogging(args.output_dir)
     logging.info("Starting...")
 
@@ -336,3 +339,7 @@ if __name__ == "__main__":
         do_frames=not args.noframes,
         scale=args.scale,
     )
+
+
+if __name__ == "__main__":
+    main()

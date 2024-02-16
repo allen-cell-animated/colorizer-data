@@ -21,16 +21,17 @@ from nuc_morph_analysis.lib.preprocessing.load_data import (
 from nuc_morph_analysis.lib.visualization.plotting_tools import (
     get_plot_labels_for_metric,
 )
-from data_writer_utils import (
-    INITIAL_INDEX_COLUMN,
+from colorizer_data.writer import (
     ColorizerDatasetWriter,
     ColorizerMetadata,
     FeatureInfo,
     FeatureType,
+)
+from colorizer_data.utils import (
+    INITIAL_INDEX_COLUMN,
     configureLogging,
     generate_frame_paths,
     get_total_objects,
-    make_bounding_box_array,
     sanitize_path_by_platform,
     scale_image,
     remap_segmented_image,
@@ -47,9 +48,9 @@ class NucMorphFeatureSpec:
 
 # Example Commands:
 # pip install https://artifactory.corp.alleninstitute.org/artifactory/api/pypi/pypi-release-local/aicsfiles/5.1.0/aicsfiles-5.1.0.tar.gz git+https://github.com/aics-int/nuc-morph-analysis.git
-# python timelapse-colorizer-data/convert_nucmorph_data.py --output_dir /allen/aics/animated-cell/Dan/fileserver/colorizer/data --dataset mama_bear --scale 0.25
-# python timelapse-colorizer-data/convert_nucmorph_data.py --output_dir /allen/aics/animated-cell/Dan/fileserver/colorizer/data --dataset baby_bear --scale 0.25
-# python timelapse-colorizer-data/convert_nucmorph_data.py --output_dir /allen/aics/animated-cell/Dan/fileserver/colorizer/data --dataset goldilocks --scale 0.25
+# python colorizer_data/bin/example_scripts/convert_nucmorph_data.py --output_dir /allen/aics/animated-cell/Dan/fileserver/colorizer/data --dataset mama_bear --scale 0.25
+# python colorizer_data/bin/example_scripts/convert_nucmorph_data.py --output_dir /allen/aics/animated-cell/Dan/fileserver/colorizer/data --dataset baby_bear --scale 0.25
+# python colorizer_data/bin/example_scripts/convert_nucmorph_data.py --output_dir /allen/aics/animated-cell/Dan/fileserver/colorizer/data --dataset goldilocks --scale 0.25
 
 # NOTE: If you are regenerating the dataset but have NOT changed the segmentations/object IDs, add the option `--noframes` to skip the frame generation step!
 
@@ -317,7 +318,9 @@ parser.add_argument(
 )
 
 args = parser.parse_args()
-if __name__ == "__main__":
+
+
+def main():
     configureLogging(args.output_dir)
     logging.info("Starting...")
 
@@ -327,3 +330,7 @@ if __name__ == "__main__":
         do_frames=not args.noframes,
         scale=args.scale,
     )
+
+
+if __name__ == "__main__":
+    main()

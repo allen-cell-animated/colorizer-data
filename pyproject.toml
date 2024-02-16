@@ -2,22 +2,28 @@
 requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
+[tools.setuptools]
+packages = ["colorizer_data"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["colorizer_data"]
+namespaces = false
+
 [project]
-name = "timelapse-colorizer-data"
+name = "colorizer_data"
 authors = [
     {name = "", email = "danielt@alleninstitute.org"},
+    {name = "", email = "peyton.lee@alleninstitute.org"},
 ]
-description = "data prep scripts"
-# readme = ""
+description = "Utilities to convert data for viewing in Timelapse Colorizer"
+readme = "README.md"
 requires-python = ">=3.8"
-keywords = ["one", "two"]
 license = {text = "BSD-3-Clause"}
 classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "aicsimageio[czi]>=4.11.0",
-    "aicspylibczi>=3.0.5",
     "numpy",
     "pandas",
     "pillow",
@@ -25,8 +31,21 @@ dependencies = [
 ]
 dynamic = ["version"]
 
+[project.optional-dependencies]
+# To install, run `pip install -e '.[dev]'`
+dev = [  
+    'bump-my-version', 
+]
+
+[project.urls]
+Homepage = "https://github.com/allen-cell-animated/colorizer-data"
+Issues = "https://github.com/allen-cell-animated/colorizer-data/issues"
+
 [project.scripts]
-my-script = "my_package.module:function"
+convert_nucmorph_data = "colorizer_data.bin.example_scripts.convert_nucmorph_data:main"
+convert_emt_migration_data = "colorizer_data.bin.example_scripts.convert_emt_migration_data:main"
+convert_emt_nuclear_data = "colorizer_data.bin.example_scripts.convert_emt_nuclear_data:main"
+convert_emt_h2b_labelfree = "colorizer_data.bin.example_scripts.convert_emt_h2b_labelfree:main"
 
 # ... other project metadata fields as specified in:
 #     https://packaging.python.org/en/latest/specifications/declaring-project-metadata/

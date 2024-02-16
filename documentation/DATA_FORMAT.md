@@ -1,8 +1,10 @@
 # Timelapse-Colorizer Data Format
 
+Last release: v0.0.0
+
 Timelapse-Colorizer can only load datasets that follow the defined data specification.
 
-The easiest way to get started is to modify one of our existing data processing scripts, like [`convert_nucmorph_data.py`](../timelapse-colorizer-data/convert_nucmorph_data.py)!
+The easiest way to get started is to modify one of our existing data processing scripts, like [`convert_nucmorph_data.py`](../colorizer_data/bin/example_scripts/convert_nucmorph_data.py)! See the [README](../README.md) for more details on how to install this package.
 
 (Check with your team or one of the developers on the Animated Cell team to see if there's already a data generation script for your project!)
 
