@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import dataclasses
 from enum import Enum
 import json
 import logging
@@ -33,6 +34,11 @@ class FeatureType(str, Enum):
     `categories` field. The feature data value for each object ID should be the
     integer index of the name in the `categories` field.
     """
+    INDETERMINATE = "indeterminate"
+    """An unknown or indeterminate feature type; the default for FeatureInfo.
+    The writer will attempt to detect indeterminate feature types in provided feature data
+    and cast it to a continuous, discrete, or categorical value.
+    """
 
 
 @dataclass
@@ -47,7 +53,7 @@ class FeatureInfo:
         key is provided. Empty string (`""`) by default.
         - `unit` (`str`): Units this feature is measured in. Empty string (`""`) by default.
         - `type` (`FeatureType`): The type, either continuous, discrete, or categorical, of this feature.
-        `FeatureType.CONTINUOUS` by default.
+        `FeatureType.INDETERMINATE` by default.
         - `categories` (`List`[str]): The ordered categories for categorical features. `None` by default.
     """
 
@@ -55,7 +61,7 @@ class FeatureInfo:
     key: str = ""
     column_name: str = ""
     unit: str = ""
-    type: FeatureType = FeatureType.CONTINUOUS
+    type: FeatureType = FeatureType.INDETERMINATE
     categories: Union[List[str], None] = None
 
 
@@ -180,6 +186,74 @@ class ColorizerDatasetWriter:
         if "backdrops" in self.manifest:
             for backdrop_metadata in self.manifest["backdrops"]:
                 self.backdrops[backdrop_metadata["key"]] = backdrop_metadata
+
+    def infer_feature_type(data: np.ndarray, info: FeatureInfo) -> FeatureType:
+        """
+        Get a concrete (non-indeterminant) feature type from possibly unknown feature data and info.
+
+        If FeatureInfo has a type already defined, returns it.
+        """
+        if info.type != FeatureType.INDETERMINATE:
+            return info.type
+
+        # See https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html
+        kind = data.dtype.kind
+        if info.categories is not None:
+            return FeatureType.CATEGORICAL
+        elif kind in {"i", "u"}:
+            # TODO: Check for floats that only have integer values
+            return FeatureType.DISCRETE
+        elif kind in {"f"}:
+            return FeatureType.CONTINUOUS
+        else:
+            return FeatureType.CATEGORICAL
+
+    def cast_feature_to_type(
+        type: FeatureType, data: np.ndarray, info: FeatureInfo
+    ) -> (np.ndarray, FeatureInfo):
+        kind = data.dtype.kind
+
+        if info.type == FeatureType.CONTINUOUS:
+            if kind in {"u", "i", "f"}:
+                return (data.astype(float), info)
+            raise RuntimeError(
+                "Feature '{}' is marked as continuous, but data type is not an int or float.".format(
+                    info.key
+                )
+            )
+
+        if info.type == FeatureType.DISCRETE:
+            if kind in {"u", "i"}:
+                return (data, info)
+            elif kind == "f":  # Cast to int
+                logging.warn(
+                    "Float type was provided for discrete feature '{}'. Values will be truncated as integers.".format(
+                        info.key
+                    )
+                )
+                return (data.astype(int), info)
+            else:
+                raise RuntimeError(
+                    "Feature type was provided as discrete, but data type is not an int or float."
+                )
+
+        if info.type == FeatureType.CATEGORICAL:
+            if info.categories is not None and kind in {"i", "u", "f"}:
+                return (data.astype(int), info)
+            # Attempt to parse the data
+            if info.categories:
+                # Feature has predefined categories. Attempt to index values based on it?
+                # TODO:
+                pass
+            else:
+                new_info = dataclasses.replace(info)  # shallow copy
+                categories, indexed_data = np.unique(
+                    data.astype(str), return_inverse=True
+                )
+                new_info.categories = categories
+                return (indexed_data, new_info)
+
+        raise RuntimeError("Unrecognized feature type '{}'".format(info.type))
 
     def write_categorical_feature(self, data: np.ndarray, info: FeatureInfo) -> None:
         """
