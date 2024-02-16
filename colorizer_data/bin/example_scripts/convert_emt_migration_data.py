@@ -8,8 +8,8 @@ import pandas as pd
 from pandas.core.groupby.generic import DataFrameGroupBy
 import time
 
-from colorizer_data.writer import (
-    ColorizerDatasetWriter,
+from colorizer_data.writer import ColorizerDatasetWriter
+from colorizer_data.types import (
     ColorizerMetadata,
     FeatureInfo,
     FeatureType,
