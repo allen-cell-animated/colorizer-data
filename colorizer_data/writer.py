@@ -99,7 +99,7 @@ class ColorizerDatasetWriter:
         if len(categories) > MAX_CATEGORIES:
             logging.warning(
                 "write_feature_categorical: Too many unique categories in provided data for feature column '{}' ({} > max {}).".format(
-                    info.column_name, len(categories), MAX_CATEGORIES
+                    info.get_name(), len(categories), MAX_CATEGORIES
                 )
             )
             logging.warning("\tFEATURE WILL BE SKIPPED.")
@@ -132,7 +132,7 @@ class ColorizerDatasetWriter:
         if info.type == FeatureType.CATEGORICAL and info.categories > MAX_CATEGORIES:
             logging.warning(
                 "write_feature_categorical: Too many unique categories in provided data for feature column '{}' ({} > max {}).".format(
-                    info.column_name, len(info.categories), MAX_CATEGORIES
+                    info.get_name(), len(info.categories), MAX_CATEGORIES
                 )
             )
             logging.warning("\tFEATURE WILL BE SKIPPED.")
@@ -165,7 +165,7 @@ class ColorizerDatasetWriter:
             if info.categories is None:
                 raise RuntimeError(
                     "write_feature: Feature '{}' has type CATEGORICAL but no categories were provided.".format(
-                        info.label
+                        info.get_name()
                     )
                 )
             if len(info.categories) > MAX_CATEGORIES:
@@ -188,7 +188,9 @@ class ColorizerDatasetWriter:
         label = info.label or info.column_name
         if not label:
             raise RuntimeError(
-                "write_feature: Provided FeatureInfo has no label or column name."
+                "write_feature: Provided FeatureInfo '{}' has no label or column name.".format(
+                    info.get_name()
+                )
             )
 
         self.manifest["features"].append(metadata)

@@ -44,6 +44,15 @@ class FeatureInfo:
     type: FeatureType = FeatureType.INDETERMINATE
     categories: Union[List[str], None] = None
 
+    def get_name(self) -> str:
+        if self.label != "":
+            return self.label
+        if self.key != "":
+            return self.key
+        if self.column_name != "":
+            return self.column_name
+        return "N/A"
+
 
 class FeatureMetadata(TypedDict):
     """For data writer internal use. Represents the metadata that will be saved for each feature."""

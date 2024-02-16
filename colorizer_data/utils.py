@@ -357,7 +357,7 @@ def cast_feature_to_info_type(
     if info.type == FeatureType.INDETERMINATE:
         logging.warn(
             "Info type for feature '{}' is indeterminate. Will attempt to infer feature type.".format(
-                info.column_name
+                info.get_name()
             )
         )
         info.type = infer_feature_type(data, info)
@@ -376,7 +376,7 @@ def cast_feature_to_info_type(
             # Feature has predefined categories. Warn that values will be remapped.
             logging.warn(
                 "Categorical feature '{}' has category array defined, but data type is not an int or float.".format(
-                    info.column_name
+                    info.get_name()
                 )
             )
             logging.warn(
