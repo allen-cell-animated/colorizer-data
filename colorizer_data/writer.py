@@ -1,16 +1,21 @@
-from dataclasses import dataclass
-import dataclasses
-from enum import Enum
 import json
 import logging
 import multiprocessing
 import os
 import pathlib
 import shutil
-from typing import Dict, List, TypedDict, Union
+from typing import Dict, List, Union
 
 import numpy as np
 from PIL import Image
+from colorizer_data.types import (
+    BackdropMetadata,
+    ColorizerMetadata,
+    DatasetManifest,
+    FeatureInfo,
+    FeatureMetadata,
+    FeatureType,
+)
 
 from colorizer_data.utils import (
     DEFAULT_FRAME_PREFIX,
@@ -22,116 +27,6 @@ from colorizer_data.utils import (
     MAX_CATEGORIES,
     NumpyValuesEncoder,
 )
-
-
-class FeatureType(str, Enum):
-    CONTINUOUS = "continuous"
-    """For continuous decimal values."""
-    DISCRETE = "discrete"
-    """For integer-only values."""
-    CATEGORICAL = "categorical"
-    """For category labels. Can include up to 12 string categories, stored in the feature's
-    `categories` field. The feature data value for each object ID should be the
-    integer index of the name in the `categories` field.
-    """
-    INDETERMINATE = "indeterminate"
-    """An unknown or indeterminate feature type; the default for FeatureInfo.
-    The writer will attempt to detect indeterminate feature types in provided feature data
-    and cast it to a continuous, discrete, or categorical value.
-    """
-
-
-@dataclass
-class FeatureInfo:
-    """Represents a feature's metadata.
-
-    Args:
-        - `label` (`str`): The human-readable name of the feature. Empty string (`""`) by default.
-        - `column_name` (`str`): The column name, in the dataset, of the feature. Used for the feature's name
-        if no label is provided. Empty string (`""`) by default.
-        - `key` (`str`): The internal key name of the feature. Formats the feature label if no
-        key is provided. Empty string (`""`) by default.
-        - `unit` (`str`): Units this feature is measured in. Empty string (`""`) by default.
-        - `type` (`FeatureType`): The type, either continuous, discrete, or categorical, of this feature.
-        `FeatureType.INDETERMINATE` by default.
-        - `categories` (`List`[str]): The ordered categories for categorical features. `None` by default.
-    """
-
-    label: str = ""
-    key: str = ""
-    column_name: str = ""
-    unit: str = ""
-    type: FeatureType = FeatureType.INDETERMINATE
-    categories: Union[List[str], None] = None
-
-
-class FeatureMetadata(TypedDict):
-    """For data writer internal use. Represents the metadata that will be saved for each feature."""
-
-    data: str
-    key: str
-    name: str
-    """The relative path from the manifest to the feature JSON file."""
-    unit: str
-    type: FeatureType
-    categories: List[str]
-
-
-class BackdropMetadata(TypedDict):
-    frames: List[str]
-    name: str
-    key: str
-
-
-class FrameDimensions(TypedDict):
-    """Dimensions of each frame, in physical units (not pixels)."""
-
-    units: str
-    width: float
-    """Width of a frame in physical units (not pixels)."""
-    height: float
-    """Height of a frame in physical units (not pixels)."""
-
-
-class DatasetMetadata(TypedDict):
-    frameDims: FrameDimensions
-    frameDurationSeconds: float
-    startTimeSeconds: float
-
-
-@dataclass
-class ColorizerMetadata:
-    """Data class representation of metadata for a Colorizer dataset."""
-
-    frame_width: float = 0
-    frame_height: float = 0
-    frame_units: str = ""
-    frame_duration_sec: float = 0
-    start_time_sec: float = 0
-    start_frame_num: int = 0
-
-    def to_json(self) -> DatasetMetadata:
-        return {
-            "frameDims": {
-                "width": self.frame_width,
-                "height": self.frame_height,
-                "units": self.frame_units,
-            },
-            "startTimeSeconds": self.start_time_sec,
-            "frameDurationSeconds": self.frame_duration_sec,
-            "startingFrameNumber": self.start_frame_num,
-        }
-
-
-class DatasetManifest(TypedDict):
-    features: List[FeatureMetadata]
-    outliers: str
-    tracks: str
-    centroids: str
-    times: str
-    bounds: str
-    metadata: DatasetMetadata
-    frames: List[str]
 
 
 class ColorizerDatasetWriter:
@@ -187,69 +82,6 @@ class ColorizerDatasetWriter:
             for backdrop_metadata in self.manifest["backdrops"]:
                 self.backdrops[backdrop_metadata["key"]] = backdrop_metadata
 
-    def infer_feature_type(data: np.ndarray, info: FeatureInfo) -> FeatureType:
-        """
-        Get a concrete (non-indeterminant) feature type from possibly unknown feature data and info.
-
-        If FeatureInfo has a type already defined, returns it.
-        """
-        if info.type != FeatureType.INDETERMINATE:
-            return info.type
-
-        # See https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html
-        kind = data.dtype.kind
-        if info.categories is not None:
-            return FeatureType.CATEGORICAL
-        elif kind in {"i", "u"}:
-            # TODO: Check for floats that only have integer values
-            return FeatureType.DISCRETE
-        elif kind in {"f"}:
-            return FeatureType.CONTINUOUS
-        else:
-            return FeatureType.CATEGORICAL
-
-    def cast_feature_to_info_type(
-        data: np.ndarray, info: FeatureInfo
-    ) -> (np.ndarray, FeatureInfo):
-        """
-        Validates the feature type using `info.type` and the data array type. If there is a mismatch, attempts to
-        convert or format the data to match.
-        """
-
-        if info.type == FeatureType.INDETERMINATE:
-            logging.warn(
-                "Info type for feature '{}' is indeterminate. Will attempt to infer feature type.".format(
-                    info.column_name
-                )
-            )
-            info = dataclasses.replace(info)  # shallow copy
-            info.type = infer_feature_type(data, info)
-
-        if info.type == FeatureType.CONTINUOUS:
-            return (data.astype(float), info)
-        if info.type == FeatureType.DISCRETE:
-            return (data.astype(int), info)
-        if info.type == FeatureType.CATEGORICAL:
-            kind = data.dtype.kind
-            if info.categories is not None and kind in {"i", "u", "f"}:
-                # Formatted correctly, return directly
-                return (data.astype(int), info)
-            # Attempt to parse the data
-            if info.categories:
-                # Feature has predefined categories. Warn that values will be remapped.
-                logging.warn(
-                    "Categorical feature has category array defined, but data type is not an int or float."
-                )
-                logging.warn(
-                    "Categories will be auto-detected and the categories array will be overwritten."
-                )
-            new_info = dataclasses.replace(info)  # shallow copy
-            categories, indexed_data = np.unique(data.astype(str), return_inverse=True)
-            new_info.categories = categories
-            return (indexed_data, new_info)
-
-        raise RuntimeError("Unrecognized feature type '{}'".format(info.type))
-
     def write_categorical_feature(self, data: np.ndarray, info: FeatureInfo) -> None:
         """
         Writes a categorical feature data array and stores feature metadata to be written to the manifest. See
@@ -301,7 +133,7 @@ class ColorizerDatasetWriter:
                 )
             )
             logging.warning("\tFEATURE WILL BE SKIPPED.")
-            logging.warning("\tCategories provided: {}".format(categories))
+            logging.warning("\tCategories provided: {}".format(info.categories))
             return
 
         # Fetch feature data
