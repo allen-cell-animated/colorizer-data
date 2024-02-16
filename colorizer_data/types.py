@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import dataclasses
 from enum import Enum
-from typing import List, Self, TypedDict, Union
+from typing import List, TypedDict, Union
 
 
 class FeatureType(str, Enum):
@@ -53,7 +53,8 @@ class FeatureInfo:
             return self.column_name
         return "N/A"
 
-    def clone(self) -> Self:
+    # TODO: Use Self return type
+    def clone(self):
         new_info = dataclasses.replace(self)
         new_info.categories = self.categories.copy()
         return new_info
