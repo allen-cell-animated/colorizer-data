@@ -34,6 +34,7 @@ dynamic = ["version"]
 [project.optional-dependencies]
 # To install, run `pip install -e '.[dev]'`
 dev = [  
+    'pytest',
     'bump-my-version', 
 ]
 
