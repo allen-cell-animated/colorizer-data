@@ -1,3 +1,4 @@
+import os
 from typing import Dict, List, Sequence
 from aicsimageio import AICSImage
 import argparse
@@ -27,6 +28,7 @@ from colorizer_data.utils import (
     scale_image,
     remap_segmented_image,
     update_bounding_box_data,
+    update_collection,
 )
 
 # DATASET SPEC: See DATA_FORMAT.md for more details on the dataset format!
@@ -407,7 +409,8 @@ def make_features(
 def get_dataset_dimensions(grouped_frames: DataFrameGroupBy) -> (float, float, str):
     """Get the dimensions of the dataset from the first frame, in units.
     Returns (width, height, unit)."""
-    row = grouped_frames.get_group(0).iloc[0]
+    first_group = grouped_frames.get_group((list(grouped_frames.groups)[0]))
+    row = first_group.iloc[0]
     aics_image = get_image_from_row(row)
     dims = aics_image.dims
     # return (
@@ -496,7 +499,12 @@ def make_collection(output_dir="./data/", do_frames=True, scale=1, dataset=""):
             c = a.loc[a["Image_Metadata_Plate"] == name[0]]
             c = c.loc[c["Image_Metadata_Position"] == name[1]]
             make_dataset(c, output_dir, dataset, do_frames, scale)
-        # write the collection.json file
+            # Incrementally write completed datasets to the collection file
+            update_collection(
+                os.path.join(output_dir, "collection.json"), dataset, dataset
+            )
+
+        # Overwrite the whole collection.json file with the saved data once completed
         with open(output_dir + "/collection.json", "w") as f:
             json.dump(collection, f)
 
