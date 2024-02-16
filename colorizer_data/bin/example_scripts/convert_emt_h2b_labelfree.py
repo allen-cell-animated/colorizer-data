@@ -14,6 +14,8 @@ import multiprocessing
 
 from colorizer_data.writer import (
     ColorizerDatasetWriter,
+)
+from colorizer_data.types import (
     ColorizerMetadata,
     FeatureInfo,
     FeatureType,
