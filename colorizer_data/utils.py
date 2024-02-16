@@ -307,6 +307,15 @@ def copy_remote_or_local_file(src_path: str, dst_path: str) -> None:
         shutil.copyfile(src_path, dst_path)
 
 
+def convert_string_array_to_categorical_feature(
+    data: np.ndarray, info: FeatureInfo
+) -> Tuple[np.ndarray, FeatureInfo]:
+    new_info = info.clone()
+    categories, indexed_data = np.unique(data.astype(str), return_inverse=True)
+    new_info.categories = categories
+    return (indexed_data, new_info)
+
+
 def infer_feature_type(data: np.ndarray, info: FeatureInfo) -> FeatureType:
     """
     Infer a concrete (non-indeterminant) feature type from possibly unknown feature data and info.
@@ -316,7 +325,7 @@ def infer_feature_type(data: np.ndarray, info: FeatureInfo) -> FeatureType:
         info (FeatureInfo): The feature's metadata.
 
     Returns:
-        - If `info.type` is concrete, returns the type.
+        - If `info.type` is concrete (not `INDETERMINATE`), returns the type.
         - Otherwise, returns either `CATEGORICAL`, `DISCRETE`, or `CONTINUOUS` based on the type of the data array.
     """
     if info.type != FeatureType.INDETERMINATE:
@@ -347,12 +356,13 @@ def cast_feature_to_info_type(
         data (np.ndarray): The feature's data array.
         info (FeatureInfo): The feature's metadata.
 
-    Returns:
-        A tuple, containing an `np.ndarray` and a (possibly modified) shallow copy of `info`.
-    """
+    Raises:
+        RuntimeError if the feature type is continuous or discrete, but the data array is non-numeric.
 
-    # Make a shallow copy
-    info = dataclasses.replace(info)
+    Returns:
+        A tuple, containing an `np.ndarray` and a (possibly modified) copy of `info`.
+    """
+    info = info.clone()
 
     if info.type == FeatureType.INDETERMINATE:
         logging.warn(
@@ -362,12 +372,24 @@ def cast_feature_to_info_type(
         )
         info.type = infer_feature_type(data, info)
 
+    kind = data.dtype.kind
     if info.type == FeatureType.CONTINUOUS:
+        if kind not in {"f", "u", "i"}:
+            raise RuntimeError(
+                "Feature '{}' has type set to continuous, but has non-numeric data.".format(
+                    info.get_name()
+                )
+            )
         return (data.astype(float), info)
     if info.type == FeatureType.DISCRETE:
+        if kind not in {"f", "u", "i"}:
+            raise RuntimeError(
+                "Feature '{}' has type set to discrete, but has non-numeric data.".format(
+                    info.get_name()
+                )
+            )
         return (data.astype(int), info)
     if info.type == FeatureType.CATEGORICAL:
-        kind = data.dtype.kind
         if info.categories is not None and kind in {"i", "u", "f"}:
             # Formatted correctly, return directly
             return (data.astype(int), info)
@@ -382,8 +404,6 @@ def cast_feature_to_info_type(
             logging.warn(
                 "Categories will be auto-detected and the categories array will be overwritten."
             )
-        categories, indexed_data = np.unique(data.astype(str), return_inverse=True)
-        info.categories = categories
-        return (indexed_data, info)
+        return convert_string_array_to_categorical_feature(data, info)
 
     raise RuntimeError("Unrecognized feature type '{}'".format(info.type))

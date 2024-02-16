@@ -127,11 +127,19 @@ class ColorizerDatasetWriter:
         See the [documentation on features](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#6-features) for more details.
         """
 
-        data, info = cast_feature_to_info_type(data, info)
+        try:
+            data, info = cast_feature_to_info_type(data, info)
+        except RuntimeError as error:
+            logging.error("RuntimeError: {}".format(error))
+            logging.warning(
+                "Could not parse feature {}. FEATURE WILL BE SKIPPED.".format(
+                    info.get_name()
+                )
+            )
 
         if info.type == FeatureType.CATEGORICAL and info.categories > MAX_CATEGORIES:
             logging.warning(
-                "write_feature_categorical: Too many unique categories in provided data for feature column '{}' ({} > max {}).".format(
+                "Too many unique categories in provided data for feature column '{}' ({} > max {}).".format(
                     info.get_name(), len(info.categories), MAX_CATEGORIES
                 )
             )
