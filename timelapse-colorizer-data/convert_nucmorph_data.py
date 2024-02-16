@@ -21,9 +21,11 @@ from nuc_morph_analysis.lib.preprocessing.load_data import (
 from nuc_morph_analysis.lib.visualization.plotting_tools import (
     get_plot_labels_for_metric,
 )
+"""
 from nuc_morph_analysis.lib.visualization.add_features_for_colorizer import (
     add_growth_features
 )
+"""
 from data_writer_utils import (
     INITIAL_INDEX_COLUMN,
     ColorizerDatasetWriter,
@@ -99,30 +101,54 @@ OUTLIERS_COLUMN = "is_outlier"
 """Column of outlier status for each object. (true/false)"""
 
 """Columns of feature data to include in the dataset. Each column will be its own feature file."""
+
+
 FEATURE_COLUMNS = [
     NucMorphFeatureSpec("NUC_shape_volume_lcc"),
     NucMorphFeatureSpec("NUC_position_depth"),
+    NucMorphFeatureSpec("is_outlier", FeatureType.CATEGORICAL, ["False", "True"]),
+    NucMorphFeatureSpec("edge_cell", FeatureType.CATEGORICAL, ["False", "True"]),
+    NucMorphFeatureSpec("NUC_roundness_surface_area"),
     NucMorphFeatureSpec("NUC_position_height"),
     NucMorphFeatureSpec("NUC_position_width"),
-    NucMorphFeatureSpec("xy_aspect"),
     # 0 - track terminates by dividing
     # 1 - track terminates by going off the edge of the FOV
     # 2 - track terminates by apoptosis
-    NucMorphFeatureSpec("Volume_change_BC"),
-    NucMorphFeatureSpec("Volume_foldchange_BC"),
-    NucMorphFeatureSpec("Late_growth_rate_fitted"),
-    NucMorphFeatureSpec("Late_growth_duration"),
-    NucMorphFeatureSpec("colony_depth"),
-    NucMorphFeatureSpec("density"),
     NucMorphFeatureSpec(
         "termination", FeatureType.CATEGORICAL, ["Division", "Leaves FOV", "Apoptosis"]
     ),
     NucMorphFeatureSpec("parent_id", FeatureType.DISCRETE),
-    NucMorphFeatureSpec("family_id", FeatureType.DISCRETE),
-    NucMorphFeatureSpec("is_outlier", FeatureType.CATEGORICAL, ["False", "True"]),
-    NucMorphFeatureSpec("edge_cell", FeatureType.CATEGORICAL, ["False", "True"]),
 ]
 
+"""
+FEATURE_COLUMNS = [
+    NucMorphFeatureSpec("NUC_shape_volume_lcc"),
+    NucMorphFeatureSpec("NUC_position_depth"),
+    NucMorphFeatureSpec("is_outlier", FeatureType.CATEGORICAL, ["False", "True"]),
+    NucMorphFeatureSpec("edge_cell", FeatureType.CATEGORICAL, ["False", "True"]),
+    NucMorphFeatureSpec("NUC_roundness_surface_area"),
+    NucMorphFeatureSpec("NUC_position_height"),
+    NucMorphFeatureSpec("NUC_position_width"),
+    NucMorphFeatureSpec(
+        "termination", FeatureType.CATEGORICAL, ["Division", "Leaves FOV", "Apoptosis"]
+    ),
+    NucMorphFeatureSpec("parent_id", FeatureType.DISCRETE),
+    
+    # 0 - track terminates by dividing
+    # 1 - track terminates by going off the edge of the FOV
+    # 2 - track terminates by apoptosis
+    NucMorphFeatureSpec("Late_growth_rate_fitted"),
+    NucMorphFeatureSpec("Late_growth_duration"),
+    NucMorphFeatureSpec("Volume_change_BC"),
+    NucMorphFeatureSpec("Volume_foldchange_BC"),
+    NucMorphFeatureSpec("colony_depth"),
+    NucMorphFeatureSpec("xy_aspect"),
+    NucMorphFeatureSpec("density"),
+    
+    NucMorphFeatureSpec("family_id", FeatureType.DISCRETE),
+    
+]
+"""
 
 def get_image_from_row(row: pd.DataFrame) -> AICSImage:
     zstackpath = row[SEGMENTED_IMAGE_COLUMN]
@@ -276,12 +302,17 @@ def make_dataset(output_dir="./data/", dataset="baby_bear", do_frames=True, scal
     datadir, figdir = create_base_directories(dataset)
     pixsize = get_dataset_pixel_size(dataset)
 
+    full_dataset: pd.DataFrame = load_dataset(dataset, datadir=None)
+    logging.info("Loaded dataset '" + str(dataset) + "'.")
+
+    """
     df_original = load_dataset(dataset, datadir=None)
     logging.info("Loaded dataset '" + str(dataset) + "'.")
 
     df_add_features = add_growth_features(df_original)
     full_dataset: pd.DataFrame = df_add_features
     logging.info("Calculated and added growth features.")
+    """
 
     # Make a reduced dataframe grouped by time (frame number).
     columns = [TRACK_ID_COLUMN, TIMES_COLUMN, SEGMENTED_IMAGE_COLUMN, OBJECT_ID_COLUMN]
