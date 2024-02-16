@@ -20,6 +20,7 @@ from colorizer_data.types import (
 from colorizer_data.utils import (
     DEFAULT_FRAME_PREFIX,
     DEFAULT_FRAME_SUFFIX,
+    cast_feature_to_info_type,
     copy_remote_or_local_file,
     generate_frame_paths,
     make_relative_image_paths,
@@ -113,7 +114,7 @@ class ColorizerDatasetWriter:
         Writes a feature data array and stores feature metadata to be written to the manifest.
 
         Args:
-            data (`np.ndarray[int | float]`): The numeric numpy array for the feature, to be written to a JSON file.
+            data (`np.ndarray[int | float]`): The numpy array for the feature, to be written to a JSON file.
             info (`FeatureInfo`): Metadata for the feature.
 
         Feature JSON files are suffixed by index, starting at 0, which increments
@@ -125,6 +126,8 @@ class ColorizerDatasetWriter:
 
         See the [documentation on features](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#6-features) for more details.
         """
+
+        data, info = cast_feature_to_info_type(data, info)
 
         if info.type == FeatureType.CATEGORICAL and info.categories > MAX_CATEGORIES:
             logging.warning(

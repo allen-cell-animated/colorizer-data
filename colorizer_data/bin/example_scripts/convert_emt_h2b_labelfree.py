@@ -163,30 +163,34 @@ FEATURE_INFO_OVERRIDES: Dict[str, FeatureInfo] = {
     "Min(Intranuclear distance to neighbors (um))": FeatureInfo(
         label="Min intranuclear distance to neighbors",
         unit="µm",
+        type=FeatureType.CONTINUOUS,
     ),
     "Avg(Intranuclear distance to neighbors (um))": FeatureInfo(
         label="Avg intranuclear distance to neighbors",
         unit="µm",
+        type=FeatureType.CONTINUOUS,
     ),
     "Median(Intranuclear distance to neighbors (um))": FeatureInfo(
         label="Median intranuclear distance to neighbors",
         unit="µm",
+        type=FeatureType.CONTINUOUS,
     ),
     "Max(Intranuclear distance to neighbors (um))": FeatureInfo(
         label="Max intranuclear distance to neighbors",
         unit="µm",
+        type=FeatureType.CONTINUOUS,
     ),
     "Avg(Collagen4_AreaShape_Center_X)": FeatureInfo(
-        label="Avg Collagen4 AreaShape Center X",
+        label="Avg Collagen4 AreaShape Center X", type=FeatureType.CONTINUOUS
     ),
     "Avg(Collagen4_AreaShape_Center_Y)": FeatureInfo(
-        label="Avg Collagen4 AreaShape Center Y",
+        label="Avg Collagen4 AreaShape Center Y", type=FeatureType.CONTINUOUS
     ),
     "Avg(Colony_AreaShape_Center_X)": FeatureInfo(
-        label="Avg Colony AreaShape Center X",
+        label="Avg Colony AreaShape Center X", type=FeatureType.CONTINUOUS
     ),
     "Avg(Colony_AreaShape_Center_Y)": FeatureInfo(
-        label="Avg Colony AreaShape Center Y",
+        label="Avg Colony AreaShape Center Y", type=FeatureType.CONTINUOUS
     ),
 }
 

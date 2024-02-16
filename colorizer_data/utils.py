@@ -309,9 +309,15 @@ def copy_remote_or_local_file(src_path: str, dst_path: str) -> None:
 
 def infer_feature_type(data: np.ndarray, info: FeatureInfo) -> FeatureType:
     """
-    Get a concrete (non-indeterminant) feature type from possibly unknown feature data and info.
+    Infer a concrete (non-indeterminant) feature type from possibly unknown feature data and info.
 
-    If FeatureInfo has a type already defined, returns it.
+    Args:
+        data (np.ndarray): The feature's data array.
+        info (FeatureInfo): The feature's metadata.
+
+    Returns:
+        - If `info.type` is concrete, returns the type.
+        - Otherwise, returns either `CATEGORICAL`, `DISCRETE`, or `CONTINUOUS` based on the type of the data array.
     """
     if info.type != FeatureType.INDETERMINATE:
         return info.type
@@ -326,6 +332,7 @@ def infer_feature_type(data: np.ndarray, info: FeatureInfo) -> FeatureType:
     elif kind in {"f"}:
         return FeatureType.CONTINUOUS
     else:
+        # Potentially dangerous for floats/numbers stored as strings?
         return FeatureType.CATEGORICAL
 
 
@@ -333,9 +340,19 @@ def cast_feature_to_info_type(
     data: np.ndarray, info: FeatureInfo
 ) -> Tuple[np.ndarray, FeatureInfo]:
     """
-    Validates the feature type using `info.type` and the data array type. If there is a mismatch, attempts to
-    convert or format the data to match.
+    Validates the type of a feature, casting the data values if necessary.
+    If the feature info has no type (`FeatureType.INDETERMINATE`), attempts to infer the feature's type.
+
+    Args:
+        data (np.ndarray): The feature's data array.
+        info (FeatureInfo): The feature's metadata.
+
+    Returns:
+        A tuple, containing an `np.ndarray` and a (possibly modified) shallow copy of `info`.
     """
+
+    # Make a shallow copy
+    info = dataclasses.replace(info)
 
     if info.type == FeatureType.INDETERMINATE:
         logging.warn(
@@ -343,7 +360,6 @@ def cast_feature_to_info_type(
                 info.column_name
             )
         )
-        info = dataclasses.replace(info)  # shallow copy
         info.type = infer_feature_type(data, info)
 
     if info.type == FeatureType.CONTINUOUS:
@@ -359,14 +375,15 @@ def cast_feature_to_info_type(
         if info.categories:
             # Feature has predefined categories. Warn that values will be remapped.
             logging.warn(
-                "Categorical feature has category array defined, but data type is not an int or float."
+                "Categorical feature '{}' has category array defined, but data type is not an int or float.".format(
+                    info.column_name
+                )
             )
             logging.warn(
                 "Categories will be auto-detected and the categories array will be overwritten."
             )
-        new_info = dataclasses.replace(info)  # shallow copy
         categories, indexed_data = np.unique(data.astype(str), return_inverse=True)
-        new_info.categories = categories
-        return (indexed_data, new_info)
+        info.categories = categories
+        return (indexed_data, info)
 
     raise RuntimeError("Unrecognized feature type '{}'".format(info.type))
