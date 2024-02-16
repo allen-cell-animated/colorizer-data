@@ -208,50 +208,45 @@ class ColorizerDatasetWriter:
         else:
             return FeatureType.CATEGORICAL
 
-    def cast_feature_to_type(
-        type: FeatureType, data: np.ndarray, info: FeatureInfo
+    def cast_feature_to_info_type(
+        data: np.ndarray, info: FeatureInfo
     ) -> (np.ndarray, FeatureInfo):
-        kind = data.dtype.kind
+        """
+        Validates the feature type using `info.type` and the data array type. If there is a mismatch, attempts to
+        convert or format the data to match.
+        """
 
-        if info.type == FeatureType.CONTINUOUS:
-            if kind in {"u", "i", "f"}:
-                return (data.astype(float), info)
-            raise RuntimeError(
-                "Feature '{}' is marked as continuous, but data type is not an int or float.".format(
-                    info.key
+        if info.type == FeatureType.INDETERMINATE:
+            logging.warn(
+                "Info type for feature '{}' is indeterminate. Will attempt to infer feature type.".format(
+                    info.column_name
                 )
             )
+            info = dataclasses.replace(info)  # shallow copy
+            info.type = infer_feature_type(data, info)
 
+        if info.type == FeatureType.CONTINUOUS:
+            return (data.astype(float), info)
         if info.type == FeatureType.DISCRETE:
-            if kind in {"u", "i"}:
-                return (data, info)
-            elif kind == "f":  # Cast to int
-                logging.warn(
-                    "Float type was provided for discrete feature '{}'. Values will be truncated as integers.".format(
-                        info.key
-                    )
-                )
-                return (data.astype(int), info)
-            else:
-                raise RuntimeError(
-                    "Feature type was provided as discrete, but data type is not an int or float."
-                )
-
+            return (data.astype(int), info)
         if info.type == FeatureType.CATEGORICAL:
+            kind = data.dtype.kind
             if info.categories is not None and kind in {"i", "u", "f"}:
+                # Formatted correctly, return directly
                 return (data.astype(int), info)
             # Attempt to parse the data
             if info.categories:
-                # Feature has predefined categories. Attempt to index values based on it?
-                # TODO:
-                pass
-            else:
-                new_info = dataclasses.replace(info)  # shallow copy
-                categories, indexed_data = np.unique(
-                    data.astype(str), return_inverse=True
+                # Feature has predefined categories. Warn that values will be remapped.
+                logging.warn(
+                    "Categorical feature has category array defined, but data type is not an int or float."
                 )
-                new_info.categories = categories
-                return (indexed_data, new_info)
+                logging.warn(
+                    "Categories will be auto-detected and the categories array will be overwritten."
+                )
+            new_info = dataclasses.replace(info)  # shallow copy
+            categories, indexed_data = np.unique(data.astype(str), return_inverse=True)
+            new_info.categories = categories
+            return (indexed_data, new_info)
 
         raise RuntimeError("Unrecognized feature type '{}'".format(info.type))
 
@@ -298,6 +293,17 @@ class ColorizerDatasetWriter:
 
         See the [documentation on features](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#6-features) for more details.
         """
+
+        if info.type == FeatureType.CATEGORICAL and info.categories > MAX_CATEGORIES:
+            logging.warning(
+                "write_feature_categorical: Too many unique categories in provided data for feature column '{}' ({} > max {}).".format(
+                    info.column_name, len(info.categories), MAX_CATEGORIES
+                )
+            )
+            logging.warning("\tFEATURE WILL BE SKIPPED.")
+            logging.warning("\tCategories provided: {}".format(categories))
+            return
+
         # Fetch feature data
         num_features = len(self.manifest["features"])
         fmin = np.nanmin(data)
