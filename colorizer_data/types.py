@@ -94,7 +94,7 @@ class DatasetMetadata(TypedDict):
     startTimeSeconds: float
 
 
-@dataclasses
+@dataclass
 class ColorizerMetadata:
     """Data class representation of metadata for a Colorizer dataset."""
 
