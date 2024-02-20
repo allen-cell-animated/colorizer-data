@@ -1,4 +1,3 @@
-import dataclasses
 import json
 import logging
 import os
@@ -6,14 +5,12 @@ import pathlib
 import platform
 import re
 import shutil
-from typing import Dict, List, Sequence, Union, Tuple
+from typing import Dict, List, Sequence, Union
 
 import numpy as np
 import pandas as pd
 import requests
 import skimage
-
-from colorizer_data.types import FeatureInfo, FeatureType
 
 MAX_CATEGORIES = 12
 INITIAL_INDEX_COLUMN = "initialIndex"
@@ -77,7 +74,7 @@ def scale_image(seg2d: np.ndarray, scale: float) -> np.ndarray:
     return seg2d
 
 
-def extract_units_from_feature_name(feature_name: str) -> Tuple[str, Union[str, None]]:
+def extract_units_from_feature_name(feature_name: str) -> (str, Union[str, None]):
     """
     Extracts units from the parentheses at the end of a feature name string, returning
     the feature name (without units) and units as a tuple. Returns None for the units
@@ -102,7 +99,7 @@ def remap_segmented_image(
     frame: pd.DataFrame,
     object_id_column: str,
     absolute_id_column: str = INITIAL_INDEX_COLUMN,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> (np.ndarray, np.ndarray):
     """
     Remap the values in the segmented image 2d array so that each object has a
     unique ID across the whole dataset, accounting for reserved indices.
@@ -305,68 +302,3 @@ def copy_remote_or_local_file(src_path: str, dst_path: str) -> None:
         if not os.path.exists(src_path):
             raise FileNotFoundError(f"Backdrop image '{src_path}' does not exist.")
         shutil.copyfile(src_path, dst_path)
-
-
-def infer_feature_type(data: np.ndarray, info: FeatureInfo) -> FeatureType:
-    """
-    Get a concrete (non-indeterminant) feature type from possibly unknown feature data and info.
-
-    If FeatureInfo has a type already defined, returns it.
-    """
-    if info.type != FeatureType.INDETERMINATE:
-        return info.type
-
-    # See https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html
-    kind = data.dtype.kind
-    if info.categories is not None:
-        return FeatureType.CATEGORICAL
-    elif kind in {"i", "u"}:
-        # TODO: Check for floats that only have integer values
-        return FeatureType.DISCRETE
-    elif kind in {"f"}:
-        return FeatureType.CONTINUOUS
-    else:
-        return FeatureType.CATEGORICAL
-
-
-def cast_feature_to_info_type(
-    data: np.ndarray, info: FeatureInfo
-) -> Tuple[np.ndarray, FeatureInfo]:
-    """
-    Validates the feature type using `info.type` and the data array type. If there is a mismatch, attempts to
-    convert or format the data to match.
-    """
-
-    if info.type == FeatureType.INDETERMINATE:
-        logging.warn(
-            "Info type for feature '{}' is indeterminate. Will attempt to infer feature type.".format(
-                info.column_name
-            )
-        )
-        info = dataclasses.replace(info)  # shallow copy
-        info.type = infer_feature_type(data, info)
-
-    if info.type == FeatureType.CONTINUOUS:
-        return (data.astype(float), info)
-    if info.type == FeatureType.DISCRETE:
-        return (data.astype(int), info)
-    if info.type == FeatureType.CATEGORICAL:
-        kind = data.dtype.kind
-        if info.categories is not None and kind in {"i", "u", "f"}:
-            # Formatted correctly, return directly
-            return (data.astype(int), info)
-        # Attempt to parse the data
-        if info.categories:
-            # Feature has predefined categories. Warn that values will be remapped.
-            logging.warn(
-                "Categorical feature has category array defined, but data type is not an int or float."
-            )
-            logging.warn(
-                "Categories will be auto-detected and the categories array will be overwritten."
-            )
-        new_info = dataclasses.replace(info)  # shallow copy
-        categories, indexed_data = np.unique(data.astype(str), return_inverse=True)
-        new_info.categories = categories
-        return (indexed_data, new_info)
-
-    raise RuntimeError("Unrecognized feature type '{}'".format(info.type))
