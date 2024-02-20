@@ -403,13 +403,10 @@ def make_features(
                 label=label,
                 unit=units,
                 column_name=feature_column,
-                type=FeatureType.CONTINUOUS,
+                type=FeatureType.INDETERMINATE,
             )
             # Auto-detect categorical features
-            if data.dtype.kind in {"U", "S", "O"}:  # unicode, string, or object
-                writer.write_categorical_feature(data, info)
-            else:
-                writer.write_feature(data, info)
+            writer.write_feature(data, info)
 
 
 def get_dataset_dimensions(grouped_frames: DataFrameGroupBy) -> (float, float, str):

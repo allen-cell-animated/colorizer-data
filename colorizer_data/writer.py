@@ -126,13 +126,14 @@ class ColorizerDatasetWriter:
 
         See the [documentation on features](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#6-features) for more details.
         """
+        # TODO: Write feature files using the keys of the features instead
 
         try:
             data, info = cast_feature_to_info_type(data, info)
         except RuntimeError as error:
             logging.error("RuntimeError: {}".format(error))
             logging.warning(
-                "Could not parse feature {}. FEATURE WILL BE SKIPPED.".format(
+                "Could not parse feature '{}'. FEATURE WILL BE SKIPPED.".format(
                     info.get_name()
                 )
             )

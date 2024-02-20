@@ -348,7 +348,7 @@ def cast_feature_to_info_type(
     data: np.ndarray, info: FeatureInfo
 ) -> Tuple[np.ndarray, FeatureInfo]:
     """
-    Validates the type of a feature, casting the data values if necessary.
+    Validates the type of a feature, casting the data values if needed.
     If the feature info has no type (`FeatureType.INDETERMINATE`), attempts to infer the feature's type.
 
     Args:
@@ -356,7 +356,8 @@ def cast_feature_to_info_type(
         info (FeatureInfo): The feature's metadata.
 
     Raises:
-        RuntimeError if the feature type is continuous or discrete, but the data array is non-numeric.
+        RuntimeError if the feature type and data are a mismatch.
+        - If type is CONTINUOUS or DISCRETE, but data is non-numeric
 
     Returns:
         A tuple, containing an `np.ndarray` and a (possibly modified) copy of `info`.
@@ -387,22 +388,40 @@ def cast_feature_to_info_type(
                     info.get_name()
                 )
             )
+        if np.isnan(data).any():
+            # NaN values can't be represented as an integer (defaults to MIN_INT).
+            # Keep data as truncated float values.
+            return (np.trunc(data), info)
         return (data.astype(int), info)
     if info.type == FeatureType.CATEGORICAL:
         if info.categories is not None and kind in {"i", "u", "f"}:
             # Formatted correctly, return directly
             return (data.astype(int), info)
         # Attempt to parse the data
-        if info.categories:
+        if info.categories == None:
+            logging.warning(
+                "Feature '{}' has type set to categorical, but is missing a categories array.".format(
+                    info.get_name()
+                )
+            )
+            logging.warning("Categories will be automatically inferred from the data.")
+            logging.warning(
+                "If the output looks incorrect, provide the categories as a string array and the data as an array of integers."
+            )
+        else:
             # Feature has predefined categories. Warn that values will be remapped.
             logging.warning(
-                "Categorical feature '{}' has category array defined, but data type is not an int or float.".format(
+                "Categorical feature '{}' has a categories array defined, but data type is not an int or float.".format(
                     info.get_name()
                 )
             )
             logging.warning(
-                "Categories will be auto-detected and the categories array will be overwritten."
+                "Categories will be automatically inferred and the categories array will be overwritten."
             )
         return convert_string_array_to_categorical_feature(data, info)
 
-    raise RuntimeError("Unrecognized feature type '{}'".format(info.type))
+    raise RuntimeError(
+        "Unrecognized feature type '{}' on feature '{}'".format(
+            info.type, info.get_name()
+        )
+    )

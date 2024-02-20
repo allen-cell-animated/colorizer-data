@@ -10,6 +10,21 @@ def test_infer_feature_type_detects_categories():
     assert infer_feature_type(data, info) == FeatureType.CATEGORICAL
 
 
+def test_infer_feature_type_detects_categories_via_dtype():
+    info = FeatureInfo(type=FeatureType.INDETERMINATE)
+    data = np.array(["0.1", "1.2", "2.3", "3.4"], dtype=str)
+    assert infer_feature_type(data, info) == FeatureType.CATEGORICAL
+
+    data = np.array(["A", "B", "C", "D"])
+    assert infer_feature_type(data, info) == FeatureType.CATEGORICAL
+
+
+def test_infer_feature_type_detects_categories_on_mixed_dtype():
+    info = FeatureInfo(type=FeatureType.INDETERMINATE)
+    data = np.array(["0.1", 0.0, 4, "C"], dtype=str)
+    assert infer_feature_type(data, info) == FeatureType.CATEGORICAL
+
+
 def test_infer_feature_type_detects_integers():
     info = FeatureInfo(type=FeatureType.INDETERMINATE)
     data = np.array([0, 1, 2, 3], dtype=int)
@@ -39,26 +54,17 @@ def discrete_info():
 
 @pytest.fixture
 def int_data():
-    return np.array([0, 1, 2, 3], dtype=int)
+    return np.array([0, 1, 2, 3, 4], dtype=int)
 
 
 @pytest.fixture
 def float_data():
-    return np.array([0.2, 0.5, 0.7, 1.2], dtype=float)
+    return np.array([0.2, 0.5, 0.7, 1.2, np.nan, 3], dtype=float)
 
 
 @pytest.fixture
 def string_data():
     return np.array(["a", "a", "b", "c", "d", "a"], dtype=str)
-
-
-def test_infer_feature_type_detects_strings():
-    info = FeatureInfo(type=FeatureType.INDETERMINATE)
-    data = np.array(["0.1", "1.2", "2.3", "3.4"], dtype=str)
-    assert infer_feature_type(data, info) == FeatureType.CATEGORICAL
-
-    data = np.array(["A", "B", "C", "D"])
-    assert infer_feature_type(data, info) == FeatureType.CATEGORICAL
 
 
 def test_cast_feature_to_info_type_exceptions():
@@ -82,26 +88,48 @@ def test_cast_feature_to_info_type_handles_string_arrays():
     assert info.categories == ["a", "b", "c", "d"]
 
 
+def test_cast_feature_to_info_type_truncates_floats_for_discrete_features(
+    discrete_info,
+):
+    expected_data = np.array([0, 0, 0, 1, 5], dtype=int)
+    data, info = cast_feature_to_info_type(
+        np.array([0.2, 0.5, 0.7, 1.2, 5], dtype=float), discrete_info
+    )
+    assert data.dtype.kind == "i"
+    assert np.array_equal(expected_data, data)
+
+
+def test_cast_feature_to_info_type_keeps_discrete_data_as_float_for_nan_values(
+    discrete_info,
+):
+    expected_data = np.array([0, 0, 0, 1, 5, np.nan], dtype=float)
+    data, info = cast_feature_to_info_type(
+        np.array([0.2, 0.5, 0.7, 1.2, 5, np.nan], dtype=float), discrete_info
+    )
+    assert data.dtype.kind == "f"
+    assert np.array_equal(expected_data, data, True)
+
+
 def test_cast_feature_to_info_type_does_not_modify_matching_types(
     float_data, int_data, continuous_info, discrete_info, categorical_info
 ):
     continuous_data, continuous_info_new = cast_feature_to_info_type(
         float_data, continuous_info
     )
-    assert np.array_equal(continuous_data, float_data)
-    assert np.array_equal(continuous_info_new, continuous_info)
+    assert np.array_equal(continuous_data, float_data, True)
+    assert continuous_info_new == continuous_info
 
     discrete_data, discrete_info_new = cast_feature_to_info_type(
         int_data, discrete_info
     )
     assert np.array_equal(discrete_data, int_data)
-    assert np.array_equal(discrete_info_new, discrete_info)
+    assert discrete_info_new == discrete_info
 
     categorical_data, categorical_info_new = cast_feature_to_info_type(
         int_data, categorical_info
     )
     assert np.array_equal(categorical_data, int_data)
-    assert np.array_equal(categorical_info_new, categorical_info)
+    assert categorical_info_new == categorical_info
 
 
 def test_cast_feature_to_info_type_accepts_bad_categories_length(
