@@ -138,14 +138,21 @@ class ColorizerDatasetWriter:
                 )
             )
 
-        if info.type == FeatureType.CATEGORICAL and info.categories > MAX_CATEGORIES:
+        if (
+            info.type == FeatureType.CATEGORICAL
+            and len(info.categories) > MAX_CATEGORIES
+        ):
             logging.warning(
                 "Too many unique categories in provided data for feature column '{}' ({} > max {}).".format(
                     info.get_name(), len(info.categories), MAX_CATEGORIES
                 )
             )
             logging.warning("\tFEATURE WILL BE SKIPPED.")
-            logging.warning("\tCategories provided: {}".format(info.categories))
+            logging.warning(
+                "\tCategories provided (up to first 25): {}".format(
+                    info.categories[:25]
+                )
+            )
             return
 
         # Fetch feature data
