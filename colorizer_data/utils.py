@@ -311,7 +311,7 @@ def convert_string_array_to_categorical_feature(
 ) -> Tuple[np.ndarray, FeatureInfo]:
     new_info = info.clone()
     categories, indexed_data = np.unique(data.astype(str), return_inverse=True)
-    new_info.categories = categories
+    new_info.categories = categories.tolist()
     return (indexed_data, new_info)
 
 
@@ -364,7 +364,7 @@ def cast_feature_to_info_type(
     info = info.clone()
 
     if info.type == FeatureType.INDETERMINATE:
-        logging.warn(
+        logging.warning(
             "Info type for feature '{}' is indeterminate. Will attempt to infer feature type.".format(
                 info.get_name()
             )
@@ -395,12 +395,12 @@ def cast_feature_to_info_type(
         # Attempt to parse the data
         if info.categories:
             # Feature has predefined categories. Warn that values will be remapped.
-            logging.warn(
+            logging.warning(
                 "Categorical feature '{}' has category array defined, but data type is not an int or float.".format(
                     info.get_name()
                 )
             )
-            logging.warn(
+            logging.warning(
                 "Categories will be auto-detected and the categories array will be overwritten."
             )
         return convert_string_array_to_categorical_feature(data, info)

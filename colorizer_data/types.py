@@ -56,7 +56,8 @@ class FeatureInfo:
     # TODO: Use Self return type
     def clone(self):
         new_info = dataclasses.replace(self)
-        new_info.categories = self.categories.copy()
+        if self.categories:
+            new_info.categories = self.categories.copy()
         return new_info
 
 
