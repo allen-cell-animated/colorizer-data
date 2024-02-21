@@ -1,4 +1,5 @@
-from typing import List
+import multiprocessing
+from typing import List, Sequence, Tuple
 from aicsimageio import AICSImage
 import argparse
 import json
@@ -18,6 +19,7 @@ from colorizer_data.utils import (
     INITIAL_INDEX_COLUMN,
     configureLogging,
     generate_frame_paths,
+    get_total_objects,
     make_bounding_box_array,
     sanitize_path_by_platform,
     scale_image,
@@ -100,7 +102,45 @@ def get_image_from_row(row: pd.DataFrame) -> AICSImage:
     return AICSImage(zstackpath)
 
 
-def make_frames(
+def make_frame(
+    grouped_frames: DataFrameGroupBy,
+    group_name: int,
+    frame: pd.DataFrame,
+    scale: float,
+    bounds_arr: Sequence[int],
+    writer: ColorizerDatasetWriter,
+):
+    start_time = time.time()
+
+    # Get the path to the segmented zstack image frame from the first row (should be the same for
+    # all rows in this group, since they are all on the same frame).
+    row = frame.iloc[0]
+    frame_number = row[TIMES_COLUMN]
+    # Flatten the z-stack to a 2D image.
+    aics_image = get_image_from_row(row)
+    seg2d = aics_image.get_image_data("YX", S=0, T=0, C=0)
+
+    # Scale the image and format as integers.
+    seg2d = scale_image(seg2d, scale)
+    seg2d = seg2d.astype(np.uint32)
+
+    # Remap the frame image so the IDs are unique across the whole dataset.
+    seg_remapped, lut = remap_segmented_image(
+        seg2d,
+        frame,
+        OBJECT_ID_COLUMN,
+    )
+
+    writer.write_image(seg_remapped, frame_number)
+    update_bounding_box_data(bounds_arr, seg_remapped)
+
+    time_elapsed = time.time() - start_time
+    logging.info(
+        "Frame {} finished in {:5.2f} seconds.".format(int(frame_number), time_elapsed)
+    )
+
+
+def make_frames_parallel(
     grouped_frames: DataFrameGroupBy,
     scale: float,
     writer: ColorizerDatasetWriter,
@@ -109,42 +149,22 @@ def make_frames(
     Generate the images and bounding boxes for each time step in the dataset.
     """
     nframes = len(grouped_frames)
+    total_objects = get_total_objects(grouped_frames)
     logging.info("Making {} frames...".format(nframes))
 
     bounds_arr = make_bounding_box_array(grouped_frames)
 
-    for group_name, frame in grouped_frames:
-        start_time = time.time()
-
-        # Get the path to the segmented zstack image frame from the first row (should be the same for
-        # all rows in this group, since they are all on the same frame).
-        row = frame.iloc[0]
-        frame_number = row[TIMES_COLUMN]
-        # Flatten the z-stack to a 2D image.
-        aics_image = get_image_from_row(row)
-        seg2d = aics_image.get_image_data("YX", S=0, T=0, C=0)
-
-        # Scale the image and format as integers.
-        seg2d = scale_image(seg2d, scale)
-        seg2d = seg2d.astype(np.uint32)
-
-        # Remap the frame image so the IDs are unique across the whole dataset.
-        seg_remapped, lut = remap_segmented_image(
-            seg2d,
-            frame,
-            OBJECT_ID_COLUMN,
-        )
-
-        writer.write_image(seg_remapped, frame_number)
-        update_bounding_box_data(bounds_arr, seg_remapped)
-
-        time_elapsed = time.time() - start_time
-        logging.info(
-            "Frame {} finished in {:5.2f} seconds.".format(
-                int(frame_number), time_elapsed
+    with multiprocessing.Manager() as manager:
+        bounds_arr = manager.Array("i", [0] * int(total_objects * 4))
+        with multiprocessing.Pool() as pool:
+            pool.starmap(
+                make_frame,
+                [
+                    (grouped_frames, group_name, frame, scale, bounds_arr, writer)
+                    for group_name, frame in grouped_frames
+                ],
             )
-        )
-    writer.write_data(bounds=bounds_arr)
+        writer.write_data(bounds=np.array(bounds_arr, dtype=np.uint32))
 
 
 def make_features(
@@ -181,7 +201,9 @@ def make_features(
         writer.write_feature(data, info)
 
 
-def get_dataset_dimensions(grouped_frames: DataFrameGroupBy) -> (float, float, str):
+def get_dataset_dimensions(
+    grouped_frames: DataFrameGroupBy,
+) -> Tuple[float, float, str]:
     """Get the dimensions of the dataset from the first frame, in units.
     Returns (width, height, unit)."""
     row = grouped_frames.get_group(0).iloc[0]
@@ -238,7 +260,7 @@ def make_dataset(
 
     make_features(full_dataset, writer)
     if do_frames:
-        make_frames(grouped_frames, scale, writer)
+        make_frames_parallel(grouped_frames, scale, writer)
     writer.write_manifest(metadata=metadata)
 
 
