@@ -53,7 +53,7 @@ class FeatureInfo:
             return self.column_name
         return "N/A"
 
-    # TODO: Use Self return type
+    # TODO: Use Self return type here if we support Python 3.11
     def clone(self):
         new_info = dataclasses.replace(self)
         if self.categories:

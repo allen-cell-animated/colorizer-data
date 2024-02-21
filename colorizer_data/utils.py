@@ -309,30 +309,48 @@ def copy_remote_or_local_file(src_path: str, dst_path: str) -> None:
 def convert_string_array_to_categorical_feature(
     data: np.ndarray, info: FeatureInfo
 ) -> Tuple[np.ndarray, FeatureInfo]:
+    """
+    Parses a string feature into the expected categorical feature format. Returns an updated copy of
+    `info` where `info.categories` is a list of unique strings in order of initial appearance, and a new data
+    integer array which indexes into `info.categories`.
+
+    Example:
+    ```
+    info = FeatureInfo(type=FeatureType.CATEGORICAL, categories=[])
+    data = np.array(["A", "B", "C", "A", "D"], dtype=str)
+
+    new_data, new_info = convert_string_array_to_categorical_feature(data, info)
+    print(new_data)  # [0, 1, 2, 0, 3]
+    print(new_info.categories)  # ["A", "B", "C", "D"]
+    ```
+    """
     new_info = info.clone()
     categories, indexed_data = np.unique(data.astype(str), return_inverse=True)
     new_info.categories = categories.tolist()
+    new_info.type = FeatureType.CATEGORICAL
     return (indexed_data, new_info)
 
 
 def infer_feature_type(data: np.ndarray, info: FeatureInfo) -> FeatureType:
     """
-    Infer a concrete (non-indeterminant) feature type from possibly unknown feature data and info.
+    Infer a concrete feature type from possibly unknown feature data and info types.
 
     Args:
         data (np.ndarray): The feature's data array.
         info (FeatureInfo): The feature's metadata.
 
     Returns:
-        - If `info.type` is concrete (not `INDETERMINATE`), returns the type.
-        - Otherwise, returns either `CATEGORICAL`, `DISCRETE`, or `CONTINUOUS` based on the type of the data array.
+        - If `info.type` is concrete (not `FeatureType.INDETERMINATE`), returns the type.
+        - Otherwise, returns either `CATEGORICAL`, `DISCRETE`, or `CONTINUOUS` based on the type of the data array
+        and other `info` metadata.
     """
     if info.type != FeatureType.INDETERMINATE:
         return info.type
 
     # See https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html
     kind = data.dtype.kind
-    if info.categories is not None:
+    if info.categories is not None and len(info.categories) > 0:
+        # Category array is defined; assume categorical
         return FeatureType.CATEGORICAL
     elif kind in {"i", "u"}:
         # TODO: Check for floats that only have integer values
@@ -344,29 +362,49 @@ def infer_feature_type(data: np.ndarray, info: FeatureInfo) -> FeatureType:
         return FeatureType.CATEGORICAL
 
 
+def safely_cast_array_to_int(data: np.ndarray) -> np.ndarray:
+    """
+    Transforms an array of numeric values into integer values, truncating float values if present.
+
+    (If the array contains NaN, the returned array will have dtype float, as NaN is not representable
+    with integers.)
+    """
+    if np.isnan(data).any():
+        # NaN values can't be represented as an integer (defaults to MIN_INT).
+        # Keep data as truncated float values.
+        return np.trunc(data)
+    return data.astype(int)
+
+
 def cast_feature_to_info_type(
     data: np.ndarray, info: FeatureInfo
 ) -> Tuple[np.ndarray, FeatureInfo]:
     """
     Validates the type of a feature, casting the data values if needed.
-    If the feature info has no type (`FeatureType.INDETERMINATE`), attempts to infer the feature's type.
+    If the feature info has no type (`FeatureType.INDETERMINATE`), attempts to infer the feature's type
+    and updates the feature info and data array.
+
+    - For `FeatureType.DISCRETE` features, float values will be truncated and cast to int (if possible).
+    - For `FeatureType.CONTINUOUS` features, values will be cast to float.
+    - For `FeatureType.CATEGORICAL` features, data values converted to integer indexes into the
+    `info.categories` array. If category information is missing or data is non-numeric, categories
+    will be automatically inferred.
 
     Args:
         data (np.ndarray): The feature's data array.
         info (FeatureInfo): The feature's metadata.
 
     Raises:
-        RuntimeError if the feature type and data are a mismatch.
-        - If type is CONTINUOUS or DISCRETE, but data is non-numeric
+        RuntimeError if the feature type is CONTINUOUS or DISCRETE, but data is non-numeric.
 
     Returns:
-        A tuple, containing an `np.ndarray` and a (possibly modified) copy of `info`.
+        A tuple, containing an `np.ndarray` and a (possibly updated) copy of `info`.
     """
     info = info.clone()
 
     if info.type == FeatureType.INDETERMINATE:
         logging.warning(
-            "Info type for feature '{}' is indeterminate. Will attempt to infer feature type.".format(
+            "Info type for feature '{}' is INDETERMINATE. Will attempt to infer feature type.".format(
                 info.get_name()
             )
         )
@@ -376,7 +414,7 @@ def cast_feature_to_info_type(
     if info.type == FeatureType.CONTINUOUS:
         if kind not in {"f", "u", "i"}:
             raise RuntimeError(
-                "Feature '{}' has type set to continuous, but has non-numeric data.".format(
+                "Feature '{}' has type set to CONTINUOUS, but has non-numeric data.".format(
                     info.get_name()
                 )
             )
@@ -384,23 +422,19 @@ def cast_feature_to_info_type(
     if info.type == FeatureType.DISCRETE:
         if kind not in {"f", "u", "i"}:
             raise RuntimeError(
-                "Feature '{}' has type set to discrete, but has non-numeric data.".format(
+                "Feature '{}' has type set to DISCRETE, but has non-numeric data.".format(
                     info.get_name()
                 )
             )
-        if np.isnan(data).any():
-            # NaN values can't be represented as an integer (defaults to MIN_INT).
-            # Keep data as truncated float values.
-            return (np.trunc(data), info)
-        return (data.astype(int), info)
+        return (safely_cast_array_to_int(data), info)
     if info.type == FeatureType.CATEGORICAL:
         if info.categories is not None and kind in {"i", "u", "f"}:
             # Formatted correctly, return directly
-            return (data.astype(int), info)
+            return (safely_cast_array_to_int(data), info)
         # Attempt to parse the data
         if info.categories == None:
             logging.warning(
-                "Feature '{}' has type set to categorical, but is missing a categories array.".format(
+                "Feature '{}' has type set to CATEGORICAL, but is missing a categories array.".format(
                     info.get_name()
                 )
             )
@@ -411,7 +445,7 @@ def cast_feature_to_info_type(
         else:
             # Feature has predefined categories. Warn that values will be remapped.
             logging.warning(
-                "Categorical feature '{}' has a categories array defined, but data type is not an int or float.".format(
+                "CATEGORICAL feature '{}' has a categories array defined, but data type is not an int or float.".format(
                     info.get_name()
                 )
             )

@@ -67,12 +67,14 @@ def string_data():
     return np.array(["a", "a", "b", "c", "d", "a"], dtype=str)
 
 
-def test_cast_feature_to_info_type_exceptions():
+def test_cast_feature_to_info_type_exceptions(
+    string_data, continuous_info, discrete_info
+):
     with pytest.raises(Exception):
-        cast_feature_to_info_type(*string_data, *continuous_info)
+        cast_feature_to_info_type(string_data, continuous_info)
 
     with pytest.raises(Exception):
-        cast_feature_to_info_type(*string_data, *discrete_info)
+        cast_feature_to_info_type(string_data, discrete_info)
 
 
 def test_cast_feature_to_info_type_handles_string_arrays():
@@ -91,10 +93,11 @@ def test_cast_feature_to_info_type_handles_string_arrays():
 def test_cast_feature_to_info_type_truncates_floats_for_discrete_features(
     discrete_info,
 ):
-    expected_data = np.array([0, 0, 0, 1, 5], dtype=int)
     data, info = cast_feature_to_info_type(
         np.array([0.2, 0.5, 0.7, 1.2, 5], dtype=float), discrete_info
     )
+    expected_data = np.array([0, 0, 0, 1, 5], dtype=int)
+    assert info.type == FeatureType.DISCRETE
     assert data.dtype.kind == "i"
     assert np.array_equal(expected_data, data)
 
@@ -102,12 +105,25 @@ def test_cast_feature_to_info_type_truncates_floats_for_discrete_features(
 def test_cast_feature_to_info_type_keeps_discrete_data_as_float_for_nan_values(
     discrete_info,
 ):
-    expected_data = np.array([0, 0, 0, 1, 5, np.nan], dtype=float)
+    # NaN values are unrepresentable with int, so expect float type with truncated
+    # integer values.
     data, info = cast_feature_to_info_type(
         np.array([0.2, 0.5, 0.7, 1.2, 5, np.nan], dtype=float), discrete_info
     )
+    expected_data = np.array([0, 0, 0, 1, 5, np.nan], dtype=float)
     assert data.dtype.kind == "f"
+    assert info.type == FeatureType.DISCRETE
     assert np.array_equal(expected_data, data, True)
+
+
+def test_cast_feature_to_info_type_handles_nan_in_categorical_data():
+    data = np.array([0, 1, 3, 2, np.nan], dtype=float)
+    info = FeatureInfo(type=FeatureType.CATEGORICAL, categories=["a", "b", "c", "d"])
+
+    cast_data, cast_info = cast_feature_to_info_type(data, info)
+    assert cast_data.dtype.kind == "f"
+    assert cast_info.type == FeatureType.CATEGORICAL
+    assert np.array_equal(cast_data, data, True)
 
 
 def test_cast_feature_to_info_type_does_not_modify_matching_types(
