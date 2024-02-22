@@ -306,57 +306,71 @@ def copy_remote_or_local_file(src_path: str, dst_path: str) -> None:
         shutil.copyfile(src_path, dst_path)
 
 
-def convert_string_array_to_categorical_feature(
-    data: np.ndarray, info: FeatureInfo
-) -> Tuple[np.ndarray, FeatureInfo]:
+def get_categories_from_feature_array(data: np.ndarray) -> Tuple[np.ndarray, List[str]]:
     """
-    Parses a string feature into the expected categorical feature format. Returns an updated copy of
-    `info` where `info.categories` is a list of unique strings in order of initial appearance, and a new data
-    integer array which indexes into `info.categories`.
+    Gets the list of unique category strings in order of initial appearance from the data,
+    which can be used with `info.categories`.
 
-    Example:
-    ```
-    info = FeatureInfo(type=FeatureType.CATEGORICAL, categories=[])
-    data = np.array(["A", "B", "C", "A", "D"], dtype=str)
+    Args:
+        data: A numpy array that can be parsed as a string.
 
-    new_data, new_info = convert_string_array_to_categorical_feature(data, info)
-    print(new_data)  # [0, 1, 2, 0, 3]
-    print(new_info.categories)  # ["A", "B", "C", "D"]
-    ```
+    Returns:
+        The list of string categories. (None or np.NaN values are not included.)
+
     """
-    new_info = info.clone()
-    categories, indexed_data = np.unique(data.astype(str), return_inverse=True)
-    new_info.categories = categories.tolist()
-    new_info.type = FeatureType.CATEGORICAL
-    return (indexed_data, new_info)
+
+    # Mask np.nan and/or None
+    mask = (data == np.NaN) | (data == None)
+    categories = np.unique(data[~mask].astype(str))
+    return categories.tolist()
 
 
-def find_unused_categories(data: np.ndarray, categories: List[str]) -> List[str]:
+def get_unused_categories(data: np.ndarray, categories: List[str]) -> List[str]:
+    """Returns any unique values of `data` that are not represented in `categories` as a list of strings."""
     inferred_categories = np.unique(data.astype(str))
     return np.setdiff1d(inferred_categories, categories, assume_unique=True)
 
 
-def remap_string_array_with_categories(
+def remap_categorical_feature_array(
     data: np.ndarray, categories: List[str]
 ) -> np.ndarray:
     """
-    Turns an array of strings (or object data) into an array of integers indexing into the `categories` array.
-    Values in `data` that are not present in `categories` are replaced with `np.nan`.
+    Turns an array of strings (or object data) into an array of (floating point) integers indexing
+    into the provided `categories` array. Values in `data` that are not present in `categories`
+    are replaced with `np.nan`.
 
-    TODO: Example
+    If you don't have a predetermined category array, use `get_categories_from_feature_array()` to find
+    these values automatically.
+
+    Example:
+    ```
+    categories = ["a", "b", "c"]
+    data = np.array(["d", "b", "a", "a", "b", "c", "d", None])
+    remapped_data = remap_categorical_feature_array(data, categories)
+    # remapped_data: [np.nan, 1, 0, 0, 1, 2, np.nan, np.nan]
+    ```
     """
     # Adapted from https://stackoverflow.com/a/8251757 "Numpy: For every element in one array, find the index in another array"
     data = data.astype(str)
-    index = np.argsort(categories)
-    sorted_categories = np.array(categories)[index]
-    sorted_index_data = np.searchsorted(sorted_categories, data)
 
-    data_index = np.take(index, sorted_index_data, mode="clip")
+    # index_to_sorted_index is a transform from the original category indices to their sorted order.
+    # We use np.searchsorted to map the values in data to their indices in the `sorted_categories` array,
+    # then invert the sorting transform to get the indexes relative to the original `categories` array.
+    index_to_sorted_index = np.argsort(categories)
+    sorted_categories = np.array(categories)[index_to_sorted_index]
+    data_index_into_sorted_categories = np.searchsorted(sorted_categories, data)
+
+    # Invert the sorting
+    data_index_into_categories = np.take(
+        index_to_sorted_index, data_index_into_sorted_categories, mode="clip"
+    )
+
     # Mask out values that are not present in the categories array
-    mask = np.array(categories)[data_index] != data
-    data_index = data_index.astype(float)
-    data_index[mask] = np.nan
-    return data_index
+    mask = np.array(categories)[data_index_into_categories] != data
+    data_index_into_categories = data_index_into_categories.astype(float)
+    data_index_into_categories[mask] = np.nan
+
+    return data_index_into_categories
 
 
 def infer_feature_type(data: np.ndarray, info: FeatureInfo) -> FeatureType:
@@ -415,8 +429,10 @@ def cast_feature_to_info_type(
     - For `FeatureType.DISCRETE` features, float values will be truncated and cast to int (if possible).
     - For `FeatureType.CONTINUOUS` features, values will be cast to float.
     - For `FeatureType.CATEGORICAL` features, data values converted to integer indexes into the
-    `info.categories` array. If category information is missing or data is non-numeric, categories
-    will be automatically inferred.
+    `info.categories` array.
+        - If `info.categories` is missing, categories will be automatically inferred.
+        - If `info.categories` is present but data is non-numeric, maps data to the provided categories array.
+        Values not in `info.categories` are replaced with `np.nan`.
 
     Args:
         data (np.ndarray): The feature's data array.
@@ -466,27 +482,26 @@ def cast_feature_to_info_type(
                     info.get_name()
                 )
             )
-            logging.warning("Categories will be automatically inferred from the data.")
             logging.warning(
-                "If the output looks incorrect, provide the categories as a string array and the data as an array of integers."
+                "Categories will be automatically inferred from the data. Set `FeatureInfo.categories` to override this behavior."
             )
-            return convert_string_array_to_categorical_feature(data, info)
+            info.categories = get_categories_from_feature_array(data)
         else:
-            # Feature has predefined categories. Warn that values will be remapped.
+            # Feature has predefined categories, warn that we are mapping to preexisting categories.
             logging.warning(
                 "CATEGORICAL feature '{}' has a categories array defined, but data type is not an int or float. Feature values will be mapped as integer indexes to categories.".format(
                     info.get_name()
                 )
             )
-            indexed_data = remap_string_array_with_categories(data, info.categories)
-            dropped_categories = find_unused_categories(data, info.categories)
-            if len(dropped_categories) > 0:
-                logging.warning(
-                    "\tThe following values were not in the categories array and will be replaced with NaN (up to first 25): {}".format(
-                        dropped_categories
-                    )
+        indexed_data = remap_categorical_feature_array(data, info.categories)
+        dropped_categories = get_unused_categories(data, info.categories)
+        if len(dropped_categories) > 0:
+            logging.warning(
+                "\tThe following values were not in the categories array and will be replaced with NaN (up to first 25): {}".format(
+                    dropped_categories
                 )
-            return (safely_cast_array_to_int(indexed_data), info)
+            )
+        return (safely_cast_array_to_int(indexed_data), info)
 
     raise RuntimeError(
         "Unrecognized feature type '{}' on feature '{}'".format(
