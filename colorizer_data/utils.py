@@ -319,8 +319,12 @@ def get_categories_from_feature_array(data: np.ndarray) -> Tuple[np.ndarray, Lis
 
     """
 
-    # Mask np.nan and/or None
-    mask = (data == np.NaN) | (data == None)
+    # Remove np.nan and/or None when getting unique values
+    mask = None
+    if data.dtype.kind == "f":
+        mask = data == np.NaN
+    else:
+        mask = data == None
     categories = np.unique(data[~mask].astype(str))
     return categories.tolist()
 
