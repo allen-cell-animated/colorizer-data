@@ -23,18 +23,19 @@ class FeatureType(str, Enum):
 
 @dataclass
 class FeatureInfo:
-    """Represents a feature's metadata.
+    """
+    Represents a feature's metadata.
 
     Args:
-        - `label` (`str`): The human-readable name of the feature. Empty string (`""`) by default.
-        - `column_name` (`str`): The column name, in the dataset, of the feature. Used for the feature's name
+        `label`: The human-readable name of the feature. Empty string (`""`) by default.
+        `column_name`: The column name, in the dataset, of the feature. Used for the feature's name
         if no label is provided. Empty string (`""`) by default.
-        - `key` (`str`): The internal key name of the feature. Formats the feature label if no
+        `key`: The internal key name of the feature. Formats the feature label if no
         key is provided. Empty string (`""`) by default.
-        - `unit` (`str`): Units this feature is measured in. Empty string (`""`) by default.
-        - `type` (`FeatureType`): The type, either continuous, discrete, or categorical, of this feature.
+        `unit`: Units this feature is measured in. Empty string (`""`) by default.
+        `type`: The type, either continuous, discrete, or categorical, of this feature.
         `FeatureType.INDETERMINATE` by default.
-        - `categories` (`List`[str]): The ordered categories for categorical features. `None` by default.
+        `categories`: The ordered categories for categorical features. `None` by default.
     """
 
     label: str = ""
@@ -44,17 +45,24 @@ class FeatureInfo:
     type: FeatureType = FeatureType.INDETERMINATE
     categories: Union[List[str], None] = None
 
-    def get_name(self) -> str:
+    def get_name(self) -> Union[str, None]:
+        """
+        Gets the name of the feature, returning the first non-empty string from `label`, `key`, or
+        `column_name` in that order. Returns None if all fields are empty strings.
+        """
         if self.label != "":
             return self.label
         if self.key != "":
             return self.key
         if self.column_name != "":
             return self.column_name
-        return "N/A"
+        return None
 
     # TODO: Use Self return type here if we support Python 3.11
     def clone(self):
+        """
+        Returns a copy of this FeatureInfo instance.
+        """
         new_info = dataclasses.replace(self)
         if self.categories:
             new_info.categories = self.categories.copy()
