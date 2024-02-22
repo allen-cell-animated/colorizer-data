@@ -355,7 +355,8 @@ def remap_string_array_with_categories(
     # Mask out values that are not present in the categories array
     mask = np.array(categories)[data_index] != data
     data_index = data_index.astype(float)
-    return np.ma.masked_array(data_index, mask=mask, fill_value=np.nan)
+    data_index[mask] = np.nan
+    return data_index
 
 
 def infer_feature_type(data: np.ndarray, info: FeatureInfo) -> FeatureType:
@@ -399,7 +400,7 @@ def safely_cast_array_to_int(data: np.ndarray) -> np.ndarray:
     if np.isnan(data).any():
         # NaN values can't be represented as an integer (defaults to MIN_INT).
         # Keep data as truncated float values.
-        return np.trunc(data)
+        return np.trunc(data).astype(float)
     return data.astype(int)
 
 
@@ -473,7 +474,7 @@ def cast_feature_to_info_type(
         else:
             # Feature has predefined categories. Warn that values will be remapped.
             logging.warning(
-                "CATEGORICAL feature '{}' has a categories array defined, but data type is not an int or float. Feature values will be remapped to integers.".format(
+                "CATEGORICAL feature '{}' has a categories array defined, but data type is not an int or float. Feature values will be mapped as integer indexes to categories.".format(
                     info.get_name()
                 )
             )
@@ -481,11 +482,11 @@ def cast_feature_to_info_type(
             dropped_categories = find_unused_categories(data, info.categories)
             if len(dropped_categories) > 0:
                 logging.warning(
-                    "The following data values were dropped and will be replaced with NaN (up to first 25): {}".format(
+                    "\tThe following values were not in the categories array and will be replaced with NaN (up to first 25): {}".format(
                         dropped_categories
                     )
                 )
-            return (indexed_data, info)
+            return (safely_cast_array_to_int(indexed_data), info)
 
     raise RuntimeError(
         "Unrecognized feature type '{}' on feature '{}'".format(

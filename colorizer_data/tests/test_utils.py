@@ -77,16 +77,26 @@ def test_cast_feature_to_info_type_exceptions(
         cast_feature_to_info_type(string_data, discrete_info)
 
 
-def test_cast_feature_to_info_type_handles_string_arrays():
-    categorical_info = FeatureInfo(
-        type=FeatureType.INDETERMINATE, categories=["a", "b", "c", "d"]
-    )
-    string_data = np.array(["d", "a", "a", "b", "c", "d", "a"], dtype=str)
+def test_cast_feature_to_info_type_infers_categories():
+    categorical_info = FeatureInfo(type=FeatureType.INDETERMINATE)
+    string_data = np.array(["a", "a", "b", "c", "d", "a"], dtype=str)
 
     data, info = cast_feature_to_info_type(string_data, categorical_info)
     assert info.type == FeatureType.CATEGORICAL
-    assert data.tolist() == [3, 0, 0, 1, 2, 3, 0]
+    assert data.tolist() == [0, 0, 1, 2, 3, 0]
     assert info.categories == ["a", "b", "c", "d"]
+
+
+def test_cast_feature_to_info_type_keeps_old_categories():
+    categorical_info = FeatureInfo(
+        type=FeatureType.INDETERMINATE, categories=["a", "b", "c"]
+    )
+    string_data = np.array(["d", "b", "a", "a", "b", "c", "d"], dtype=str)
+
+    data, info = cast_feature_to_info_type(string_data, categorical_info)
+    assert info.type == FeatureType.CATEGORICAL
+    assert np.array_equal(data, [np.nan, 1, 0, 0, 1, 2, np.nan], equal_nan=True)
+    assert info.categories == ["a", "b", "c"]
 
 
 def test_cast_feature_to_info_type_truncates_floats_for_discrete_features(
