@@ -81,12 +81,11 @@ def test_cast_feature_to_info_type_handles_string_arrays():
     categorical_info = FeatureInfo(
         type=FeatureType.INDETERMINATE, categories=["a", "b", "c", "d"]
     )
-    string_data = np.array(["a", "a", "b", "c", "d", "a"], dtype=str)
+    string_data = np.array(["d", "a", "a", "b", "c", "d", "a"], dtype=str)
 
     data, info = cast_feature_to_info_type(string_data, categorical_info)
     assert info.type == FeatureType.CATEGORICAL
-    assert data.dtype.kind == "i"
-    assert data.tolist() == [0, 0, 1, 2, 3, 0]
+    assert data.tolist() == [3, 0, 0, 1, 2, 3, 0]
     assert info.categories == ["a", "b", "c", "d"]
 
 

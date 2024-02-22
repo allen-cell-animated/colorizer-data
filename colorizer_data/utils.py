@@ -331,6 +331,33 @@ def convert_string_array_to_categorical_feature(
     return (indexed_data, new_info)
 
 
+def find_unused_categories(data: np.ndarray, categories: List[str]) -> List[str]:
+    inferred_categories = np.unique(data.astype(str))
+    return np.setdiff1d(inferred_categories, categories, assume_unique=True)
+
+
+def remap_string_array_with_categories(
+    data: np.ndarray, categories: List[str]
+) -> np.ndarray:
+    """
+    Turns an array of strings (or object data) into an array of integers indexing into the `categories` array.
+    Values in `data` that are not present in `categories` are replaced with `np.nan`.
+
+    TODO: Example
+    """
+    # Adapted from https://stackoverflow.com/a/8251757 "Numpy: For every element in one array, find the index in another array"
+    data = data.astype(str)
+    index = np.argsort(categories)
+    sorted_categories = np.array(categories)[index]
+    sorted_index_data = np.searchsorted(sorted_categories, data)
+
+    data_index = np.take(index, sorted_index_data, mode="clip")
+    # Mask out values that are not present in the categories array
+    mask = np.array(categories)[data_index] != data
+    data_index = data_index.astype(float)
+    return np.ma.masked_array(data_index, mask=mask, fill_value=np.nan)
+
+
 def infer_feature_type(data: np.ndarray, info: FeatureInfo) -> FeatureType:
     """
     Infer a concrete feature type from possibly unknown feature data and info types.
@@ -442,17 +469,23 @@ def cast_feature_to_info_type(
             logging.warning(
                 "If the output looks incorrect, provide the categories as a string array and the data as an array of integers."
             )
+            return convert_string_array_to_categorical_feature(data, info)
         else:
             # Feature has predefined categories. Warn that values will be remapped.
             logging.warning(
-                "CATEGORICAL feature '{}' has a categories array defined, but data type is not an int or float.".format(
+                "CATEGORICAL feature '{}' has a categories array defined, but data type is not an int or float. Feature values will be remapped to integers.".format(
                     info.get_name()
                 )
             )
-            logging.warning(
-                "Categories will be automatically inferred and the categories array will be overwritten."
-            )
-        return convert_string_array_to_categorical_feature(data, info)
+            indexed_data = remap_string_array_with_categories(data, info.categories)
+            dropped_categories = find_unused_categories(data, info.categories)
+            if len(dropped_categories) > 0:
+                logging.warning(
+                    "The following data values were dropped and will be replaced with NaN (up to first 25): {}".format(
+                        dropped_categories
+                    )
+                )
+            return (indexed_data, info)
 
     raise RuntimeError(
         "Unrecognized feature type '{}' on feature '{}'".format(
