@@ -315,16 +315,12 @@ def get_categories_from_feature_array(data: np.ndarray) -> Tuple[np.ndarray, Lis
         data: A numpy array that can be parsed as a string.
 
     Returns:
-        The list of string categories. (None or np.NaN values are not included.)
+        The list of string categories, excluding `None` and `np.NaN`.
 
     """
 
     # Remove np.nan and/or None when getting unique values
-    mask = None
-    if data.dtype.kind == "f":
-        mask = data == np.NaN
-    else:
-        mask = data == None
+    mask = pd.isnull(data)
     categories = np.unique(data[~mask].astype(str))
     return categories.tolist()
 
