@@ -28,6 +28,7 @@ dependencies = [
     "pandas",
     "pillow",
     "scikit-image",
+    "requests",
 ]
 dynamic = ["version"]
 
