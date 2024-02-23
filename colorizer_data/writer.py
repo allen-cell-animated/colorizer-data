@@ -24,6 +24,7 @@ from colorizer_data.utils import (
     copy_remote_or_local_file,
     generate_frame_paths,
     make_relative_image_paths,
+    replace_out_of_bounds_values_with_nan,
     sanitize_key_name,
     MAX_CATEGORIES,
     NumpyValuesEncoder,
@@ -121,8 +122,14 @@ class ColorizerDatasetWriter:
         for each call to `write_feature()`. The first feature will have `feature_0.json`,
         the second `feature_1.json`, and so on.
 
+        Feature data will be parsed and cast to data types using `info.type`. If the type is
+        `FeatureType.INDETERMINATE`, will attempt to infer the feature type from `data`. See
+        `utils.cast_feature_to_info_type` for casting behavior. If types are mismatched or cannot
+        be interpreted, skips writing the feature.
+
         If the feature type is `FeatureType.CATEGORICAL`, values will be interpreted as integer indices into a list of
-        string `categories`, defined in `info`.
+        string `categories`, defined in `info`. Values that don't match indices in the list
+        (e.g., `x < 0` or `x >= len(info.categories)`) will be replaced with `np.NaN`.
 
         See the [documentation on features](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#6-features) for more details.
         """
@@ -138,22 +145,29 @@ class ColorizerDatasetWriter:
                 )
             )
 
-        if (
-            info.type == FeatureType.CATEGORICAL
-            and len(info.categories) > MAX_CATEGORIES
-        ):
-            logging.warning(
-                "Too many unique categories in provided data for feature column '{}' ({} > max {}).".format(
-                    info.get_name(), len(info.categories), MAX_CATEGORIES
+        # Do additional validation on categorical data.
+        if info.type == FeatureType.CATEGORICAL:
+            if len(info.categories) > MAX_CATEGORIES:
+                logging.warning(
+                    "Feature '{}' has too many categories ({} > max {}).".format(
+                        info.get_name(), len(info.categories), MAX_CATEGORIES
+                    )
                 )
-            )
-            logging.warning("\tFEATURE WILL BE SKIPPED.")
-            logging.warning(
-                "\tCategories provided (up to first 25): {}".format(
-                    info.categories[:25]
+                logging.warning("\tFEATURE WILL BE SKIPPED.")
+                logging.warning(
+                    "\tCategories provided (up to first 25): {}".format(
+                        info.categories[:25]
+                    )
                 )
-            )
-            return
+                return
+            if np.min(data) < 0 or np.max(data) >= len(info.categories):
+                logging.warning(
+                    "Feature '{}' has values out of range of the defined categories.".format(
+                        info.get_name()
+                    )
+                )
+                logging.warning("\tBad values will be replaced with NaN.")
+                replace_out_of_bounds_values_with_nan(data, 0, len(info.categories) - 1)
 
         # Fetch feature data
         num_features = len(self.manifest["features"])

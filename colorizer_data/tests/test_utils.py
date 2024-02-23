@@ -1,6 +1,10 @@
 import numpy as np
 from colorizer_data.types import FeatureInfo, FeatureType
-from colorizer_data.utils import cast_feature_to_info_type, infer_feature_type
+from colorizer_data.utils import (
+    cast_feature_to_info_type,
+    infer_feature_type,
+    replace_out_of_bounds_values_with_nan,
+)
 import pytest
 
 
@@ -176,3 +180,10 @@ def test_cast_feature_to_info_type_accepts_bad_categories_length(
     categorical_info.categories = ["a"]
     # Does nothing
     cast_feature_to_info_type(int_data, categorical_info)
+
+
+def test_replace_out_of_bounds_values_with_nan():
+    data = np.array([-1, 0, 2, 4, 5, 10, np.nan])
+    expected = np.array([np.nan, 0, 2, 4, np.nan, np.nan, np.nan])
+    replace_out_of_bounds_values_with_nan(data, 0, 4)
+    assert np.array_equal(data, expected, True)

@@ -331,6 +331,16 @@ def get_unused_categories(data: np.ndarray, categories: List[str]) -> List[str]:
     return np.setdiff1d(inferred_categories, categories, assume_unique=True)
 
 
+def replace_out_of_bounds_values_with_nan(
+    data: np.ndarray, min: float, max: float
+) -> np.ndarray:
+    """
+    Replaces values in an array outside the min and max range (inclusive) with `np.nan`.
+    """
+    mask = (data < min) | (data > max)
+    data[mask] = np.nan
+
+
 def remap_categorical_feature_array(
     data: np.ndarray, categories: List[str]
 ) -> np.ndarray:
@@ -400,7 +410,11 @@ def infer_feature_type(data: np.ndarray, info: FeatureInfo) -> FeatureType:
     elif kind in {"f"}:
         return FeatureType.CONTINUOUS
     else:
-        # Potentially dangerous for floats/numbers stored as strings?
+        logging.warning(
+            "Feature '{}' has non-numeric data, and will be assumed to be type CATEGORICAL.".format(
+                info.get_name()
+            )
+        )
         return FeatureType.CATEGORICAL
 
 
