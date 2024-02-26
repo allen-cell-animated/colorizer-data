@@ -21,8 +21,8 @@ from pandas.core.groupby.generic import DataFrameGroupBy
 import time
 from typing import List, Sequence
 
+from colorizer_data.writer import ColorizerDatasetWriter
 from colorizer_data.writer import (
-    ColorizerDatasetWriter,
     ColorizerMetadata,
     FeatureInfo,
     FeatureType,
