@@ -4,10 +4,12 @@ import os
 import pathlib
 import platform
 import re
-from typing import List, Sequence, Union
+import shutil
+from typing import Dict, List, Sequence, Union
 
 import numpy as np
 import pandas as pd
+import requests
 import skimage
 
 MAX_CATEGORIES = 12
@@ -80,12 +82,15 @@ def extract_units_from_feature_name(feature_name: str) -> (str, Union[str, None]
 
     ex: `"Feature Name (units)" -> ("Feature Name", "units")`
     """
-    match = re.search(r"\((.+)\)$", feature_name)
-    if match is None:
+    matches = [x for x in re.finditer(r"(\([^\(]*?\))", feature_name)]
+    if len(matches) == 0:
         return (feature_name, None)
+    match = matches[-1]  # Find last instance
     units = match.group()
-    units = units[1:-1]  # Remove parentheses
-    feature_name = feature_name[: match.start()].strip()
+    # Splice out the units
+    feature_name = (
+        feature_name[: match.start()].strip() + feature_name[match.end() :].strip()
+    )
     return (feature_name, units)
 
 
@@ -239,3 +244,61 @@ def generate_frame_paths(
     - `frame_{num_frames - 1}.png`
     """
     return [file_prefix + str(i + start_frame) + file_suffix for i in range(num_frames)]
+
+
+def make_relative_image_paths(frame_paths: List[str], subdir_path: str) -> List[str]:
+    """
+    Preserves the base filename from a list of file paths or URLs, and maps them
+    as an array of relative paths to new files in the subdirectory.
+
+    If file names are duplicated, renames the files to prevent overwriting.
+    (`img.png, img(0).png, img(1).png, etc.`)
+
+    @example
+    If the following four paths are provided as an array, and `subdir_path="./img/"`,
+    they will be mapped to the following relative paths:
+
+    | `index` | `frame_paths`                   | returned array        |
+    | :-----: | :------------------------------ | :-------------------- |
+    | 0       | /local/test/frame_0.png         | ./img/frame_0.png     |
+    | 1       | /local/test/frame_1.png         | ./img/frame_1.png     |
+    | 2       | `http://url.com/1/my_image.png` | ./img/my_image.png    |
+    | 3       | `http://url.com/2/my_image.png` | ./img/my_image(0).png |
+    """
+    # TODO: Unit testing
+    relative_paths = []
+    # Handle case where files can be duplicated
+    filename_count: Dict[str, int] = {}
+    for path in frame_paths:
+        # Get the filename from the paths
+        # TODO: potentially unsafe for URLs if they have additional URL parameters?
+        filename = path.rsplit("/", 1)[-1]
+        basename, extension = os.path.splitext(filename)
+        if filename in filename_count:
+            count = filename_count[filename]
+            new_filename = "{}({}){}".format(basename, count, extension)
+            relative_paths.append(os.path.join(subdir_path, new_filename))
+            filename_count[filename] = count + 1
+        else:
+            relative_paths.append(os.path.join(subdir_path, filename))
+            filename_count[filename] = 0
+    return relative_paths
+
+
+def copy_remote_or_local_file(src_path: str, dst_path: str) -> None:
+    """Copies a source file from a URL or filepath to destination filename."""
+    if src_path.startswith("http"):
+        # Download the image
+        r = requests.get(src_path)
+        if not r.ok:
+            raise FileNotFoundError(
+                f"Backdrop image '{src_path}' could not be downloaded."
+            )
+        with open(dst_path, "wb") as f:
+            f.write(r.content)
+    else:
+        # Copy the image
+        src_path = sanitize_path_by_platform(src_path)
+        if not os.path.exists(src_path):
+            raise FileNotFoundError(f"Backdrop image '{src_path}' does not exist.")
+        shutil.copyfile(src_path, dst_path)

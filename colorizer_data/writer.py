@@ -2,9 +2,11 @@ from dataclasses import dataclass
 from enum import Enum
 import json
 import logging
+import multiprocessing
 import os
 import pathlib
-from typing import List, TypedDict, Union
+import shutil
+from typing import Dict, List, TypedDict, Union
 
 import numpy as np
 from PIL import Image
@@ -12,7 +14,9 @@ from PIL import Image
 from colorizer_data.utils import (
     DEFAULT_FRAME_PREFIX,
     DEFAULT_FRAME_SUFFIX,
+    copy_remote_or_local_file,
     generate_frame_paths,
+    make_relative_image_paths,
     sanitize_key_name,
     MAX_CATEGORIES,
     NumpyValuesEncoder,
@@ -65,6 +69,12 @@ class FeatureMetadata(TypedDict):
     unit: str
     type: FeatureType
     categories: List[str]
+
+
+class BackdropMetadata(TypedDict):
+    frames: List[str]
+    name: str
+    key: str
 
 
 class FrameDimensions(TypedDict):
@@ -130,6 +140,7 @@ class ColorizerDatasetWriter:
 
     outpath: Union[str, pathlib.Path]
     manifest: DatasetManifest
+    backdrops: Dict[str, BackdropMetadata]
     scale: float
 
     def __init__(
@@ -137,15 +148,68 @@ class ColorizerDatasetWriter:
         output_dir: Union[str, pathlib.Path],
         dataset: str,
         scale: float = 1,
+        force_overwrite: bool = False,
     ):
         self.outpath = os.path.join(output_dir, dataset)
         os.makedirs(self.outpath, exist_ok=True)
         self.scale = scale
-        self.manifest = {"features": []}
 
-    def write_feature(self, data: np.ndarray, info: FeatureInfo):
+        # Check for existence of manifest file in expected path
+        manifest_path = self.outpath + "/manifest.json"
+        if os.path.exists(manifest_path) and not force_overwrite:
+            # Load in the existing file
+            try:
+                with open(manifest_path, "r") as f:
+                    self.manifest = json.load(f)
+                logging.info(
+                    "An existing manifest file was found in the output directory and will be updated."
+                )
+            except:
+                logging.warning(
+                    "A manifest file exists in this output directory but could not be loaded, and will be overwritten instead!"
+                )
+                self.manifest = {}
+        else:
+            self.manifest = {}
+
+        # Clear features
+        self.manifest["features"] = []
+
+        # Load backdrops from existing manifest, if applicable
+        self.backdrops = {}
+        if "backdrops" in self.manifest:
+            for backdrop_metadata in self.manifest["backdrops"]:
+                self.backdrops[backdrop_metadata["key"]] = backdrop_metadata
+
+    def write_categorical_feature(self, data: np.ndarray, info: FeatureInfo) -> None:
         """
-        Writes feature data arrays and stores feature metadata to be written to the manifest.
+        Writes a categorical feature data array and stores feature metadata to be written to the manifest. See
+        `write_feature` for full description of file writing behavior and naming.
+
+        Skips features that have more than 12 categories.
+
+        Args:
+            data (`np.ndarray`): An array with dtype string, with no more than 12 unique values. Categories will be ordered
+            in order of appearance in `data`.
+            info (`FeatureInfo`): Metadata for the feature. The `categories` array and `type` will be overridden.
+        """
+        categories, indexed_data = np.unique(data.astype(str), return_inverse=True)
+        if len(categories) > MAX_CATEGORIES:
+            logging.warning(
+                "write_feature_categorical: Too many unique categories in provided data for feature column '{}' ({} > max {}).".format(
+                    info.column_name, len(categories), MAX_CATEGORIES
+                )
+            )
+            logging.warning("\tFEATURE WILL BE SKIPPED.")
+            logging.warning("\tCategories provided: {}".format(categories))
+            return
+        info.categories = categories.tolist()
+        info.type = FeatureType.CATEGORICAL
+        return self.write_feature(indexed_data, info)
+
+    def write_feature(self, data: np.ndarray, info: FeatureInfo) -> None:
+        """
+        Writes a feature data array and stores feature metadata to be written to the manifest.
 
         Args:
             data (`np.ndarray[int | float]`): The numeric numpy array for the feature, to be written to a JSON file.
@@ -155,7 +219,8 @@ class ColorizerDatasetWriter:
         for each call to `write_feature()`. The first feature will have `feature_0.json`,
         the second `feature_1.json`, and so on.
 
-        If the feature type is `FeatureType.CATEGORICAL`, `categories` must be defined in `info`.
+        If the feature type is `FeatureType.CATEGORICAL`, values will be interpreted as integer indices into a list of
+        string `categories`, defined in `info`.
 
         See the [documentation on features](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#6-features) for more details.
         """
@@ -275,6 +340,81 @@ class ColorizerDatasetWriter:
                 json.dump(bounds_json, f)
             self.manifest["bounds"] = "bounds.json"
 
+    def copy_and_add_backdrops(
+        self,
+        name: str,
+        frame_paths: List[str],
+        key=None,
+        subdir_name: str = None,
+        clear_subdir: bool = True,
+    ) -> None:
+        """
+        Copies a set of backdrop images from the provided paths (either filepaths or URLs) to the
+        dataset's output directory, then registers the backdrop image set in the dataset.
+
+        Args:
+            name (str): The name of the backdrop set.
+            frame_paths (List[str]): The relative paths to the backdrop images.
+            key (str): The key of the backdrop set. If not provided, a sanitized version of the name will be used.
+            subdir_name (str): The subdirectory to save images to. If not provided, uses the key. The subdirectory will be
+            created if it does not exist.
+            clear_subdir (bool): Whether to delete the contents of the subdirectory before copying files. True by default.
+        """
+        # TODO: Scale images with the writer's set scale. Images will likely need to be saved first,
+        # then opened, scaled, and saved out again.
+
+        # Make sanitized version of name as key
+        if key is None:
+            key = sanitize_key_name(name)
+
+        if subdir_name is None:
+            subdir_name = key
+
+        # Optionally clear subdirectory. Create it if it does not exist
+        subdir_path = os.path.join(self.outpath, subdir_name)
+        if clear_subdir and os.path.isdir(subdir_path):
+            # Note: this will throw errors if there are read-only files inside the directory.
+            shutil.rmtree(subdir_path)
+        os.makedirs(subdir_path, exist_ok=True)
+
+        frame_paths = list(map((lambda path: path.strip("'\" \t")), frame_paths))
+        relative_paths = make_relative_image_paths(frame_paths, subdir_name)
+
+        with multiprocessing.Pool() as pool:
+            pool.starmap(
+                copy_remote_or_local_file,
+                [
+                    (frame_paths[i], os.path.join(self.outpath, relative_paths[i]))
+                    for i in range(len(frame_paths))
+                ],
+            )
+
+        # Save the updated paths and then call add_backdrops
+        self.add_backdrops(name, relative_paths, key)
+
+    def add_backdrops(
+        self,
+        name: str,
+        frame_paths: List[str],
+        key=None,
+    ):
+        """
+        Registers a backdrop image set to the dataset.
+
+        Args:
+            name (str): The name of the backdrop set.
+            frame_paths (List[str]): The relative paths to the backdrop images.
+            key (str): The key of the backdrop set. If not provided, a sanitized version of the name will be used.
+        """
+        # Make sanitized version of name as key if not provided
+        if key is None:
+            key = sanitize_key_name(name)
+        if self.backdrops.get(key):
+            logging.warning(
+                f"Backdrop key '{key}' already exists in manifest. Overwriting..."
+            )
+        self.backdrops[key] = {"key": key, "name": name, "frames": frame_paths}
+
     def set_frame_paths(self, paths: List[str]) -> None:
         """
         Stores an ordered array of paths to image frames, to be written
@@ -308,6 +448,8 @@ class ColorizerDatasetWriter:
             self.manifest["metadata"] = metadata.to_json()
 
         self.validate_dataset()
+
+        self.manifest["backdrops"] = list(self.backdrops.values())
 
         with open(self.outpath + "/manifest.json", "w") as f:
             json.dump(self.manifest, f, indent=2)

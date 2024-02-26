@@ -1,4 +1,5 @@
-from typing import List, Sequence
+import os
+from typing import Dict, List, Sequence
 from aicsimageio import AICSImage
 import argparse
 import json
@@ -20,12 +21,14 @@ from colorizer_data.writer import (
 from colorizer_data.utils import (
     INITIAL_INDEX_COLUMN,
     configureLogging,
+    extract_units_from_feature_name,
     generate_frame_paths,
     get_total_objects,
     sanitize_path_by_platform,
     scale_image,
     remap_segmented_image,
     update_bounding_box_data,
+    update_collection,
 )
 
 # DATASET SPEC: See DATA_FORMAT.md for more details on the dataset format!
@@ -45,73 +48,146 @@ TRACK_ID_COLUMN = "R0Nuclei_Number_Object_Number"
 """Column of track ID for each object."""
 TIMES_COLUMN = "Image_Metadata_Timepoint"
 """Column of frame number that the object ID appears in."""
-SEGMENTED_IMAGE_COLUMN = "OutputMask ((labelfreeCAAX))"
+SEGMENTED_IMAGE_COLUMN = "OutputMask (H2B)"
 """Column of path to the segmented image data or z stack for the frame."""
-CENTROIDS_X_COLUMN = "R0Nuclei_AreaShape_Center_X"
+CENTROIDS_X_COLUMN = "Avg(Collagen4_AreaShape_Center_X)"
 """Column of X centroid coordinates, in pixels of original image data."""
-CENTROIDS_Y_COLUMN = "R0Nuclei_AreaShape_Center_Y"
+CENTROIDS_Y_COLUMN = "Avg(Collagen4_AreaShape_Center_Y)"
 """Column of Y centroid coordinates, in pixels of original image data."""
+
+IMAGE_COLUMNS = ["PNG overlay (NucObjNum)", "PNG overlay (no obj num label)"]
+
 FEATURE_COLUMNS = [
+    "R0Nuclei DNA mean pixel intensity",
+    "R0Nuclei_AreaShape_Eccentricity",
+    "Radial distance from Col4Colony (um)",
+    "Radial distance from BF colony centroid (um)",
+    "BF MigratoryClass",
+    "Col4 MigratoryClass",
+    "Col4ColonyCell",
+    "Col4EdgeCell",
+    "Col4MigratoryCell",
+    "Collagen4 area (um)",
+    "Colony area (um)",
+    "Min(Intranuclear distance to neighbors (um))",
+    "Avg(Intranuclear distance to neighbors (um))",
+    "Median(Intranuclear distance to neighbors (um))",
+    "Max(Intranuclear distance to neighbors (um))",
+    "Avg(Collagen4_AreaShape_Center_X)",
+    "Avg(Collagen4_AreaShape_Center_Y)",
+    "Avg(Colony_AreaShape_Center_X)",
+    "Avg(Colony_AreaShape_Center_Y)",
+    "R0Nuclei_AreaShape_FormFactor",
+    "R0Nuclei_AreaShape_Compactness",
+    "R0Nuclei_AreaShape_MajorAxisLength",
+    "R0Nuclei_AreaShape_MinorAxisLength",
+    "R0Nuclei_AreaShape_Orientation",
+    "R0Nuclei_AreaShape_Perimeter",
+    "R0Nuclei_AreaShape_EulerNumber",
+    "R0Nuclei_Intensity_MeanIntensity_Collagen4BinaryMaskImage",
+    "R0Nuclei_Intensity_MeanIntensity_ColonyBinaryMaskImage",
+    "R0Nuclei_Intensity_MeanIntensity_FOVEdge1PxBoundary",
+    "R0Cell_Neighbors_AngleBetweenNeighbors_Adjacent",
     "R0Cell_Neighbors_NumberOfNeighbors_Adjacent",
-    "R0Nuclei_AreaShape_Area",
-    "R0Cell_AreaShape_Area",
-    "Migratory Cell (colony mask)",
-    "Edge cell (colony mask)",
-    "Colony cell (colony mask)",
-    "Radial distance from colony centroid (um)",
-    "Avg(Distance to Neighbor Nuclei)",
+    "R0Cell_Neighbors_PercentTouching_Adjacent",
+    "R0Cell_AreaShape_Compactness",
+    "R0Cell_AreaShape_ConvexArea",
+    "R0Cell_AreaShape_Eccentricity",
+    "R0Cell_AreaShape_EquivalentDiameter",
+    "R0Cell_AreaShape_EulerNumber",
+    "R0Cell_AreaShape_Extent",
+    "R0Cell_AreaShape_FormFactor",
+    "R0Cell_AreaShape_MajorAxisLength",
+    "R0Cell_AreaShape_MaxFeretDiameter",
+    "R0Cell_AreaShape_MaximumRadius",
+    "R0Cell_AreaShape_MeanRadius",
+    "R0Cell_AreaShape_MedianRadius",
+    "R0Cell_AreaShape_MinFeretDiameter",
+    "R0Cell_AreaShape_MinorAxisLength",
+    "R0Cell_AreaShape_Orientation",
+    "R0Cell_AreaShape_Perimeter",
+    "R0Cell_AreaShape_Solidity",
+    "R0Nuclei_AreaShape_Zernike_0_0",
+    "R0Nuclei_AreaShape_Zernike_1_1",
+    "R0Nuclei_AreaShape_Zernike_2_0",
+    "R0Nuclei_AreaShape_Zernike_2_2",
+    "R0Nuclei_AreaShape_Zernike_3_1",
+    "R0Nuclei_AreaShape_Zernike_3_3",
+    "R0Nuclei_AreaShape_Zernike_4_0",
+    "R0Nuclei_AreaShape_Zernike_4_2",
+    "R0Nuclei_AreaShape_Zernike_4_4",
+    "R0Nuclei_AreaShape_Zernike_5_1",
+    "R0Nuclei_AreaShape_Zernike_5_3",
+    "R0Nuclei_AreaShape_Zernike_5_5",
+    "R0Nuclei_AreaShape_Zernike_6_0",
+    "R0Nuclei_AreaShape_Zernike_6_2",
+    "R0Nuclei_AreaShape_Zernike_6_4",
+    "R0Nuclei_AreaShape_Zernike_6_6",
+    "R0Nuclei_AreaShape_Zernike_7_1",
+    "R0Nuclei_AreaShape_Zernike_7_3",
+    "R0Nuclei_AreaShape_Zernike_7_5",
+    "R0Nuclei_AreaShape_Zernike_7_7",
+    "R0Nuclei_AreaShape_Zernike_8_0",
+    "R0Nuclei_AreaShape_Zernike_8_2",
+    "R0Nuclei_AreaShape_Zernike_8_4",
+    "R0Nuclei_AreaShape_Zernike_8_6",
+    "R0Nuclei_AreaShape_Zernike_8_8",
+    "R0Nuclei_AreaShape_Zernike_9_1",
+    "R0Nuclei_AreaShape_Zernike_9_3",
+    "R0Nuclei_AreaShape_Zernike_9_5",
+    "R0Nuclei_AreaShape_Zernike_9_7",
+    "R0Nuclei_AreaShape_Zernike_9_9",
+    "UniqueConcatenate(object_number2)",
+    "UniqueConcatenate(Intranuclear distance to neighbors (um))",
 ]
 """Columns of feature data to include in the dataset. Each column will be its own feature file."""
-FEATURE_INFO: List[FeatureInfo] = [
-    FeatureInfo(
-        label="Adjacent neighbors",
-        column_name="R0Cell_Neighbors_NumberOfNeighbors_Adjacent",
-        unit="",
-        type=FeatureType.DISCRETE,
+FEATURE_INFO_OVERRIDES: Dict[str, FeatureInfo] = {
+    "Col4ColonyCell": FeatureInfo(
+        label="Col4ColonyCell",
+        type=FeatureType.CATEGORICAL,
+        categories=["False", "True"],
     ),
-    FeatureInfo(
-        label="Nuclei area",
-        column_name="R0Nuclei_AreaShape_Area",
-        unit="",
-        type=FeatureType.CONTINUOUS,
+    "Col4EdgeCell": FeatureInfo(
+        label="Col4EdgeCell",
+        type=FeatureType.CATEGORICAL,
+        categories=["False", "True"],
     ),
-    FeatureInfo(
-        label="Cell area",
-        column_name="R0Cell_AreaShape_Area",
-        unit="",
-        type=FeatureType.CONTINUOUS,
+    "Col4MigratoryCell": FeatureInfo(
+        label="Col4MigratoryCell",
+        type=FeatureType.CATEGORICAL,
+        categories=["False", "True"],
     ),
-    FeatureInfo(
-        label="Radial distance from colony center",
-        column_name="Radial distance from colony centroid (um)",
-        unit="",
-        type=FeatureType.CONTINUOUS,
+    # Parentheses will be auto-parsed as units
+    "Min(Intranuclear distance to neighbors (um))": FeatureInfo(
+        label="Min intranuclear distance to neighbors",
+        unit="µm",
     ),
-    FeatureInfo(
-        label="Avg. distance to neighbor nuclei",
-        column_name="Avg(Distance to Neighbor Nuclei)",
-        unit="",
-        type=FeatureType.CONTINUOUS,
+    "Avg(Intranuclear distance to neighbors (um))": FeatureInfo(
+        label="Avg intranuclear distance to neighbors",
+        unit="µm",
     ),
-    FeatureInfo(
-        label="Migratory cell mask",
-        column_name="Migratory Cell (colony mask)",
-        unit="",
-        type=FeatureType.DISCRETE,
+    "Median(Intranuclear distance to neighbors (um))": FeatureInfo(
+        label="Median intranuclear distance to neighbors",
+        unit="µm",
     ),
-    FeatureInfo(
-        label="Edge cell mask",
-        column_name="Edge cell (colony mask)",
-        unit="",
-        type=FeatureType.DISCRETE,
+    "Max(Intranuclear distance to neighbors (um))": FeatureInfo(
+        label="Max intranuclear distance to neighbors",
+        unit="µm",
     ),
-    FeatureInfo(
-        label="Colony cell mask",
-        column_name="Colony cell (colony mask)",
-        unit="",
-        type=FeatureType.DISCRETE,
+    "Avg(Collagen4_AreaShape_Center_X)": FeatureInfo(
+        label="Avg Collagen4 AreaShape Center X",
     ),
-]
+    "Avg(Collagen4_AreaShape_Center_Y)": FeatureInfo(
+        label="Avg Collagen4 AreaShape Center Y",
+    ),
+    "Avg(Colony_AreaShape_Center_X)": FeatureInfo(
+        label="Avg Colony AreaShape Center X",
+    ),
+    "Avg(Colony_AreaShape_Center_Y)": FeatureInfo(
+        label="Avg Colony AreaShape Center Y",
+    ),
+}
+
 
 PHYSICAL_PIXEL_SIZE_XY = 0.271
 PHYSICAL_PIXEL_UNIT_XY = "µm"
@@ -222,6 +298,16 @@ def make_frames_parallel(
             )
         writer.write_data(bounds=np.array(bounds_arr, dtype=np.uint32))
 
+    for backdrop_column in IMAGE_COLUMNS:
+        logging.info(
+            "Writing background images from column '{}'".format(backdrop_column)
+        )
+        frame_paths = []
+        for group_name, frame in grouped_frames:
+            row = frame.iloc[0]
+            frame_paths.append(row[backdrop_column])
+        writer.copy_and_add_backdrops(backdrop_column, frame_paths)
+
 
 def make_frames(
     grouped_frames: DataFrameGroupBy,
@@ -283,10 +369,8 @@ def make_features(
     centroids_x = dataset[CENTROIDS_X_COLUMN].to_numpy()
     centroids_y = dataset[CENTROIDS_Y_COLUMN].to_numpy()
 
-    # This dataset does not have tracks, so we just generate a list of indices, one for each
-    # object. This will be a very simple numpy table, where tracks[i] = i.
-    shape = dataset.shape
-    tracks = np.array([*range(shape[0])])
+    # Save object ID as track
+    tracks = dataset[TRACK_ID_COLUMN].to_numpy()
 
     writer.write_data(
         tracks=tracks,
@@ -296,31 +380,37 @@ def make_features(
         outliers=outliers,
     )
 
-    for info in FEATURE_INFO:
-        data = dataset[info.column_name].to_numpy()
-        writer.write_feature(data, info)
+    for feature_column in FEATURE_COLUMNS:
+        info = None
+        data = dataset[feature_column].to_numpy()
 
-    # Custom: Write a categorical feature based on cell type by aggregating the masks
-    # 0 = colony cell, 1 = edge cell, 2 = migratory cell
-    migratory_mask = dataset["Migratory Cell (colony mask)"].to_numpy()
-    edge_mask = dataset["Edge cell (colony mask)"].to_numpy()
-    cell_types = np.zeros(shape=edge_mask.shape)
-    cell_types += edge_mask
-    cell_types += migratory_mask * 2
-    writer.write_feature(
-        cell_types,
-        FeatureInfo(
-            label="Cell type",
-            type=FeatureType.CATEGORICAL,
-            categories=["Colony Cell", "Edge Cell", "Migratory Cell"],
-        ),
-    )
+        if feature_column in FEATURE_INFO_OVERRIDES:
+            info = FEATURE_INFO_OVERRIDES[feature_column]
+            info.column_name = feature_column
+            writer.write_feature(data, info)
+        else:
+            # Get default feature info
+            (label, units) = extract_units_from_feature_name(feature_column)
+            if units == "um":
+                units = "µm"
+            info = FeatureInfo(
+                label=label,
+                unit=units,
+                column_name=feature_column,
+                type=FeatureType.CONTINUOUS,
+            )
+            # Auto-detect categorical features
+            if data.dtype.kind in {"U", "S", "O"}:  # unicode, string, or object
+                writer.write_categorical_feature(data, info)
+            else:
+                writer.write_feature(data, info)
 
 
 def get_dataset_dimensions(grouped_frames: DataFrameGroupBy) -> (float, float, str):
     """Get the dimensions of the dataset from the first frame, in units.
     Returns (width, height, unit)."""
-    row = grouped_frames.get_group(0).iloc[0]
+    first_group = grouped_frames.get_group((list(grouped_frames.groups)[0]))
+    row = first_group.iloc[0]
     aics_image = get_image_from_row(row)
     dims = aics_image.dims
     # return (
@@ -358,6 +448,7 @@ def make_dataset(
         SEGMENTED_IMAGE_COLUMN,
         OBJECT_ID_COLUMN,
     ]
+    columns.extend(IMAGE_COLUMNS)
     reduced_dataset = full_dataset[columns]
     reduced_dataset = reduced_dataset.reset_index(drop=True)
     reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
@@ -385,7 +476,7 @@ def make_collection(output_dir="./data/", do_frames=True, scale=1, dataset=""):
     # example dataset name : 3500005820_3
     # use pandas to load data
     # a is the full collection!
-    file_path = "//allen/aics/microscopy/ClusterOutput/H2B_LabelFree_Deliverable_MIP_Zrange/H2BLabelFree_Deliverable/EMT_Deliverable_ColorizerVisualizationTable_AddedMeanNeighborDistanceAndCentroids.csv"
+    file_path = "//allen/aics/microscopy/ClusterOutput/H2B_Deliverable_AnalysisPipelineOutput/H2B_Deliverable_InputImages_123Timelapses_Composite_Output/H2B_2DMIP_Colorizer_InputTable_104col.csv"
 
     encoding = detect_encoding(file_path)
     a = pd.read_csv(file_path, encoding=encoding)
@@ -408,7 +499,12 @@ def make_collection(output_dir="./data/", do_frames=True, scale=1, dataset=""):
             c = a.loc[a["Image_Metadata_Plate"] == name[0]]
             c = c.loc[c["Image_Metadata_Position"] == name[1]]
             make_dataset(c, output_dir, dataset, do_frames, scale)
-        # write the collection.json file
+            # Incrementally write completed datasets to the collection file
+            update_collection(
+                os.path.join(output_dir, "collection.json"), dataset, dataset
+            )
+
+        # Overwrite the whole collection.json file with the saved data once completed
         with open(output_dir + "/collection.json", "w") as f:
             json.dump(collection, f)
 
