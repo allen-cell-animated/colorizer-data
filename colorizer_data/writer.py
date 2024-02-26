@@ -20,9 +20,11 @@ from colorizer_data.types import (
 from colorizer_data.utils import (
     DEFAULT_FRAME_PREFIX,
     DEFAULT_FRAME_SUFFIX,
+    cast_feature_to_info_type,
     copy_remote_or_local_file,
     generate_frame_paths,
     make_relative_image_paths,
+    replace_out_of_bounds_values_with_nan,
     sanitize_key_name,
     MAX_CATEGORIES,
     NumpyValuesEncoder,
@@ -98,7 +100,7 @@ class ColorizerDatasetWriter:
         if len(categories) > MAX_CATEGORIES:
             logging.warning(
                 "write_feature_categorical: Too many unique categories in provided data for feature column '{}' ({} > max {}).".format(
-                    info.column_name, len(categories), MAX_CATEGORIES
+                    info.get_name(), len(categories), MAX_CATEGORIES
                 )
             )
             logging.warning("\tFEATURE WILL BE SKIPPED.")
@@ -113,18 +115,60 @@ class ColorizerDatasetWriter:
         Writes a feature data array and stores feature metadata to be written to the manifest.
 
         Args:
-            data (`np.ndarray[int | float]`): The numeric numpy array for the feature, to be written to a JSON file.
+            data (`np.ndarray[int | float]`): The numpy array for the feature, to be written to a JSON file.
             info (`FeatureInfo`): Metadata for the feature.
 
         Feature JSON files are suffixed by index, starting at 0, which increments
         for each call to `write_feature()`. The first feature will have `feature_0.json`,
         the second `feature_1.json`, and so on.
 
+        Feature data will be parsed and cast to data types using `info.type`. If the type is
+        `FeatureType.INDETERMINATE`, will attempt to infer the feature type from `data`. See
+        `utils.cast_feature_to_info_type` for casting behavior. If types are mismatched or cannot
+        be interpreted, skips writing the feature.
+
         If the feature type is `FeatureType.CATEGORICAL`, values will be interpreted as integer indices into a list of
-        string `categories`, defined in `info`.
+        string `categories`, defined in `info`. Values that don't match indices in the list
+        (e.g., `x < 0` or `x >= len(info.categories)`) will be replaced with `np.NaN`.
 
         See the [documentation on features](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#6-features) for more details.
         """
+        # TODO: Write feature files using the keys of the features instead
+
+        try:
+            data, info = cast_feature_to_info_type(data, info)
+        except RuntimeError as error:
+            logging.error("RuntimeError: {}".format(error))
+            logging.warning(
+                "Could not parse feature '{}'. FEATURE WILL BE SKIPPED.".format(
+                    info.get_name()
+                )
+            )
+
+        # Do additional validation on categorical data.
+        if info.type == FeatureType.CATEGORICAL:
+            if len(info.categories) > MAX_CATEGORIES:
+                logging.warning(
+                    "Feature '{}' has too many categories ({} > max {}).".format(
+                        info.get_name(), len(info.categories), MAX_CATEGORIES
+                    )
+                )
+                logging.warning("\tFEATURE WILL BE SKIPPED.")
+                logging.warning(
+                    "\tCategories provided (up to first 25): {}".format(
+                        info.categories[:25]
+                    )
+                )
+                return
+            if np.min(data) < 0 or np.max(data) >= len(info.categories):
+                logging.warning(
+                    "Feature '{}' has values out of range of the defined categories.".format(
+                        info.get_name()
+                    )
+                )
+                logging.warning("\tBad values will be replaced with NaN.")
+                replace_out_of_bounds_values_with_nan(data, 0, len(info.categories) - 1)
+
         # Fetch feature data
         num_features = len(self.manifest["features"])
         fmin = np.nanmin(data)
@@ -151,7 +195,7 @@ class ColorizerDatasetWriter:
             if info.categories is None:
                 raise RuntimeError(
                     "write_feature: Feature '{}' has type CATEGORICAL but no categories were provided.".format(
-                        info.label
+                        info.get_name()
                     )
                 )
             if len(info.categories) > MAX_CATEGORIES:
@@ -174,7 +218,9 @@ class ColorizerDatasetWriter:
         label = info.label or info.column_name
         if not label:
             raise RuntimeError(
-                "write_feature: Provided FeatureInfo has no label or column name."
+                "write_feature: Provided FeatureInfo '{}' has no label or column name.".format(
+                    info.get_name()
+                )
             )
 
         self.manifest["features"].append(metadata)

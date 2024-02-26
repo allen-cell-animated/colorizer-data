@@ -5,12 +5,14 @@ import pathlib
 import platform
 import re
 import shutil
-from typing import Dict, List, Sequence, Union
+from typing import Dict, List, Sequence, Union, Tuple
 
 import numpy as np
 import pandas as pd
 import requests
 import skimage
+
+from colorizer_data.types import FeatureInfo, FeatureType
 
 MAX_CATEGORIES = 12
 INITIAL_INDEX_COLUMN = "initialIndex"
@@ -74,7 +76,7 @@ def scale_image(seg2d: np.ndarray, scale: float) -> np.ndarray:
     return seg2d
 
 
-def extract_units_from_feature_name(feature_name: str) -> (str, Union[str, None]):
+def extract_units_from_feature_name(feature_name: str) -> Tuple[str, Union[str, None]]:
     """
     Extracts units from the parentheses at the end of a feature name string, returning
     the feature name (without units) and units as a tuple. Returns None for the units
@@ -99,7 +101,7 @@ def remap_segmented_image(
     frame: pd.DataFrame,
     object_id_column: str,
     absolute_id_column: str = INITIAL_INDEX_COLUMN,
-) -> (np.ndarray, np.ndarray):
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Remap the values in the segmented image 2d array so that each object has a
     unique ID across the whole dataset, accounting for reserved indices.
@@ -302,3 +304,221 @@ def copy_remote_or_local_file(src_path: str, dst_path: str) -> None:
         if not os.path.exists(src_path):
             raise FileNotFoundError(f"Backdrop image '{src_path}' does not exist.")
         shutil.copyfile(src_path, dst_path)
+
+
+def get_categories_from_feature_array(data: np.ndarray) -> Tuple[np.ndarray, List[str]]:
+    """
+    Gets the list of unique category strings in order of initial appearance from the data,
+    which can be used with `info.categories`.
+
+    Args:
+        data: A numpy array that can be parsed as a string.
+
+    Returns:
+        The list of string categories, excluding `None` and `np.NaN`.
+
+    """
+
+    # Remove np.nan and/or None when getting unique values
+    mask = pd.isnull(data)
+    categories = np.unique(data[~mask].astype(str))
+    return categories.tolist()
+
+
+def get_unused_categories(data: np.ndarray, categories: List[str]) -> List[str]:
+    """Returns any unique values of `data` that are not represented in `categories` as a list of strings."""
+    inferred_categories = np.unique(data.astype(str))
+    return np.setdiff1d(inferred_categories, categories, assume_unique=True)
+
+
+def replace_out_of_bounds_values_with_nan(
+    data: np.ndarray, min: float, max: float
+) -> np.ndarray:
+    """
+    Replaces values in an array outside the min and max range (inclusive) with `np.nan`.
+    """
+    mask = (data < min) | (data > max)
+    data[mask] = np.nan
+
+
+def remap_categorical_feature_array(
+    data: np.ndarray, categories: List[str]
+) -> np.ndarray:
+    """
+    Turns an array of strings (or object data) into an array of (floating point) integers indexing
+    into the provided `categories` array. Values in `data` that are not present in `categories`
+    are replaced with `np.nan`.
+
+    If you don't have a predetermined category array, use `get_categories_from_feature_array()` to find
+    these values automatically.
+
+    Example:
+    ```
+    categories = ["a", "b", "c"]
+    data = np.array(["d", "b", "a", "a", "b", "c", "d", None])
+    remapped_data = remap_categorical_feature_array(data, categories)
+    # remapped_data: [np.nan, 1, 0, 0, 1, 2, np.nan, np.nan]
+    ```
+    """
+    # Adapted from https://stackoverflow.com/a/8251757 "Numpy: For every element in one array, find the index in another array"
+    data = data.astype(str)
+
+    # index_to_sorted_index is a transform from the original category indices to their sorted order.
+    # We use np.searchsorted to map the values in data to their indices in the `sorted_categories` array,
+    # then invert the sorting transform to get the indexes relative to the original `categories` array.
+    index_to_sorted_index = np.argsort(categories)
+    sorted_categories = np.array(categories)[index_to_sorted_index]
+    data_index_into_sorted_categories = np.searchsorted(sorted_categories, data)
+
+    # Invert the sorting
+    data_index_into_categories = np.take(
+        index_to_sorted_index, data_index_into_sorted_categories, mode="clip"
+    )
+
+    # Mask out values that are not present in the categories array
+    mask = np.array(categories)[data_index_into_categories] != data
+    data_index_into_categories = data_index_into_categories.astype(float)
+    data_index_into_categories[mask] = np.nan
+
+    return data_index_into_categories
+
+
+def infer_feature_type(data: np.ndarray, info: FeatureInfo) -> FeatureType:
+    """
+    Infer a concrete feature type from possibly unknown feature data and info types.
+
+    Args:
+        data (np.ndarray): The feature's data array.
+        info (FeatureInfo): The feature's metadata.
+
+    Returns:
+        - If `info.type` is concrete (not `FeatureType.INDETERMINATE`), returns the type.
+        - Otherwise, returns either `CATEGORICAL`, `DISCRETE`, or `CONTINUOUS` based on the type of the data array
+        and other `info` metadata.
+    """
+    if info.type != FeatureType.INDETERMINATE:
+        return info.type
+
+    # See https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html
+    kind = data.dtype.kind
+    if info.categories is not None and len(info.categories) > 0:
+        # Category array is defined; assume categorical
+        return FeatureType.CATEGORICAL
+    elif kind in {"i", "u"}:
+        # TODO: Check for floats that only have integer values
+        return FeatureType.DISCRETE
+    elif kind in {"f"}:
+        return FeatureType.CONTINUOUS
+    else:
+        logging.warning(
+            "Feature '{}' has non-numeric data, and will be assumed to be type CATEGORICAL.".format(
+                info.get_name()
+            )
+        )
+        return FeatureType.CATEGORICAL
+
+
+def safely_cast_array_to_int(data: np.ndarray) -> np.ndarray:
+    """
+    Transforms an array of numeric values into integer values, truncating float values if present.
+
+    (If the array contains NaN, the returned array will have dtype float, as NaN is not representable
+    with integers.)
+    """
+    if np.isnan(data).any():
+        # NaN values can't be represented as an integer (defaults to MIN_INT).
+        # Keep data as truncated float values.
+        return np.trunc(data).astype(float)
+    return data.astype(int)
+
+
+def cast_feature_to_info_type(
+    data: np.ndarray, info: FeatureInfo
+) -> Tuple[np.ndarray, FeatureInfo]:
+    """
+    Validates the type of a feature, casting the data values if needed.
+    If the feature info has no type (`FeatureType.INDETERMINATE`), attempts to infer the feature's type
+    and updates the feature info and data array.
+
+    - For `FeatureType.DISCRETE` features, float values will be truncated and cast to int (if possible).
+    - For `FeatureType.CONTINUOUS` features, values will be cast to float.
+    - For `FeatureType.CATEGORICAL` features, data values converted to integer indexes into the
+    `info.categories` array.
+        - If `info.categories` is missing, categories will be automatically inferred.
+        - If `info.categories` is present but data is non-numeric, maps data to the provided categories array.
+        Values not in `info.categories` are replaced with `np.nan`.
+
+    Args:
+        data (np.ndarray): The feature's data array.
+        info (FeatureInfo): The feature's metadata.
+
+    Raises:
+        RuntimeError if the feature type is CONTINUOUS or DISCRETE, but data is non-numeric.
+
+    Returns:
+        A tuple, containing an `np.ndarray` and a (possibly updated) copy of `info`.
+    """
+    info = info.clone()
+
+    if info.type == FeatureType.INDETERMINATE:
+        logging.warning(
+            "Info type for feature '{}' is INDETERMINATE. Will attempt to infer feature type.".format(
+                info.get_name()
+            )
+        )
+        info.type = infer_feature_type(data, info)
+
+    kind = data.dtype.kind
+    if info.type == FeatureType.CONTINUOUS:
+        if kind not in {"f", "u", "i"}:
+            raise RuntimeError(
+                "Feature '{}' has type set to CONTINUOUS, but has non-numeric data.".format(
+                    info.get_name()
+                )
+            )
+        return (data.astype(float), info)
+    if info.type == FeatureType.DISCRETE:
+        if kind not in {"f", "u", "i"}:
+            raise RuntimeError(
+                "Feature '{}' has type set to DISCRETE, but has non-numeric data.".format(
+                    info.get_name()
+                )
+            )
+        return (safely_cast_array_to_int(data), info)
+    if info.type == FeatureType.CATEGORICAL:
+        if info.categories is not None and kind in {"i", "u", "f"}:
+            # Formatted correctly, return directly
+            return (safely_cast_array_to_int(data), info)
+        # Attempt to parse the data
+        if info.categories == None:
+            logging.warning(
+                "Feature '{}' has type set to CATEGORICAL, but is missing a categories array.".format(
+                    info.get_name()
+                )
+            )
+            logging.warning(
+                "Categories will be automatically inferred from the data. Set `FeatureInfo.categories` to override this behavior."
+            )
+            info.categories = get_categories_from_feature_array(data)
+        else:
+            # Feature has predefined categories, warn that we are mapping to preexisting categories.
+            logging.warning(
+                "CATEGORICAL feature '{}' has a categories array defined, but data type is not an int or float. Feature values will be mapped as integer indexes to categories.".format(
+                    info.get_name()
+                )
+            )
+        indexed_data = remap_categorical_feature_array(data, info.categories)
+        dropped_categories = get_unused_categories(data, info.categories)
+        if len(dropped_categories) > 0:
+            logging.warning(
+                "\tThe following values were not in the categories array and will be replaced with NaN (up to first 25): {}".format(
+                    dropped_categories
+                )
+            )
+        return (safely_cast_array_to_int(indexed_data), info)
+
+    raise RuntimeError(
+        "Unrecognized feature type '{}' on feature '{}'".format(
+            info.type, info.get_name()
+        )
+    )
