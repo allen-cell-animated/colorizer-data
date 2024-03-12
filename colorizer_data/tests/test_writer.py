@@ -80,15 +80,6 @@ def test_writer_keeps_manifest_metadata(existing_manifest):
         metadata = manifest["metadata"]
         oldMetadata = EXISTING_MANIFEST_CONTENT["metadata"]
 
-        # Updates fields that were provided
-        assert metadata["startTimeSeconds"] == 5
-        assert metadata["startingFrameNumber"] == 6
-
-        # Updates other expected fields
-        assert metadata["lastModified"] != oldMetadata["lastModified"]
-        assert metadata["revision"] == oldMetadata["revision"] + 1
-        assert metadata["dataVersion"] == CURRENT_VERSION
-
         # Leaves other fields untouched
         assert metadata["name"] == oldMetadata["name"]
         assert metadata["description"] == oldMetadata["description"]
@@ -96,8 +87,35 @@ def test_writer_keeps_manifest_metadata(existing_manifest):
         assert metadata["dateCreated"] == oldMetadata["dateCreated"]
 
 
-def test_writer_overrides_metadata_fields():
-    pass
+def test_writer_overrides_metadata_fields(existing_manifest):
+    # Should override author, name, description, date of creation,
+    # time of last modification, dataVersion, and revision number if provided.
+
+    writer, tmp_path, manifest_path = existing_manifest
+    writer.write_manifest(
+        metadata=ColorizerMetadata(
+            name="new name",
+            description="new description",
+            author="geoff",
+            date_created="some-date",
+            last_modified="some-other-date",
+            revision=250,
+            data_version="abcdef",
+        )
+    )
+
+    with open(manifest_path, "r") as f:
+        manifest: DatasetManifest = json.load(f)
+        metadata = manifest["metadata"]
+
+        # Leaves other fields untouched
+        assert metadata["name"] == "new name"
+        assert metadata["description"] == "new description"
+        assert metadata["author"] == "geoff"
+        assert metadata["dateCreated"] == "some-date"
+        assert metadata["lastModified"] == "some-other-date"
+        assert metadata["revision"] == 250
+        assert metadata["dataVersion"] == "abcdef"
 
 
 def test_writer_updates_revision_and_time_when_none():
