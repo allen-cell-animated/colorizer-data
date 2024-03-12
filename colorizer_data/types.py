@@ -1,5 +1,5 @@
 import dataclasses
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, TypedDict, Union
 
@@ -116,12 +116,12 @@ class BaseMetadataJson(TypedDict):
 class BaseMetadata:
     """Shared metadata between datasets and collection files."""
 
-    name: str = ""
-    description: str = ""
-    date_created: str = ""
-    last_modified: str = ""
-    author: str = ""
-    revision: str = ""
+    name: str = None
+    description: str = None
+    date_created: str = None
+    last_modified: str = None
+    author: str = None
+    revision: int = None
     data_version: str = CURRENT_VERSION
 
     def to_json(self) -> BaseMetadataJson:
@@ -158,7 +158,7 @@ class ColorizerMetadata(BaseMetadata):
     start_frame_num: int = 0
 
     def to_json(self) -> DatasetMetadata:
-        base_json = super(self)
+        base_json = BaseMetadata.to_json(self)
         base_json["frameDims"] = {
             "width": self.frame_width,
             "height": self.frame_height,
@@ -192,7 +192,7 @@ class CollectionMetadataJson(BaseMetadataJson):
 
 @dataclass
 class CollectionMetadata(BaseMetadata):
-    datasets: List[CollectionDatasetEntry]
+    datasets: List[CollectionDatasetEntry] = None
 
     def to_json(self) -> BaseMetadataJson:
         base_json = BaseMetadata.to_json(self)

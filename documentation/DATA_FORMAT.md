@@ -163,7 +163,7 @@ Besides the details shown above, these are additional parameters that the manife
         "dateCreated": <datestring>,
         "lastModified": <datestring>,
         "author": <string author name>,
-        "revision": <string dataset revision number>,
+        "revision": <number of times the datset has been modified>,
         "dataVersion": <version number of the data scripts used to write this dataset>
         "frameDims": {
             "units": <unit label for frame dimensions>,
@@ -180,6 +180,8 @@ Besides the details shown above, these are additional parameters that the manife
 These metadata parameters are used to configure additional features of the Timelapse Colorizer UI, such as showing scale bars or timestamps on the main display. Additional metadata will likely be added as the project progresses.
 
 Note that the interface will directly show the unit labels and does not scale or convert units from one type to another (for example, it will not convert 1000 µm to 1 mm). If you need to present your data with different units, create a (scaled) duplicate of the feature with a different unit label.
+
+If using the provided writer utility scripts, the `revision`, `dataVersion`, `dateCreated`, and `lastModified` fields will be automatically written and updated.
 
 <details>
 <summary><b>[Show me an example!]</b></summary>
@@ -671,7 +673,7 @@ A collection file can also include optional metadata fields, saved under the `me
         "dateCreated": <datestring>,
         "lastModified": <datestring>,
         "author": <string author name>,
-        "revision": <optional>,
+        "revision": <number of times the collection has been modified>,
         "dataVersion": <version of the data scripts used to write this collection>
     }
 }
