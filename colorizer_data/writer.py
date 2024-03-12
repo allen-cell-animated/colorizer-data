@@ -406,15 +406,18 @@ class ColorizerDatasetWriter:
             self.set_frame_paths(generate_frame_paths(num_frames))
 
         # Automatically update metadata fields. These can be overridden using the `metadata` argument.
-        revision = self.manifest["metadata"]["revision"]  # Update revision number
+        # Update creation date
+        if self.manifest["metadata"]["dateCreated"] == None:
+            self.manifest["metadata"]["dateCreated"] = datetime.now(
+                pytz.timezone(DEFAULT_TIMEZONE)
+            ).strftime(DATETIME_FORMAT)
+        # Update revision number
+        revision = self.manifest["metadata"]["revision"]
         if revision == None:
             self.manifest["metadata"]["revision"] = 0
         else:
             self.manifest["metadata"]["revision"] = revision + 1
-        if self.manifest["metadata"]["dateCreated"] == None:  # Update creation date
-            self.manifest["metadata"]["dateCreated"] = datetime.now(
-                pytz.timezone(DEFAULT_TIMEZONE)
-            ).strftime(DATETIME_FORMAT)
+        # Update data version + modified timestamp
         self.manifest["metadata"]["lastModified"] = datetime.now(
             pytz.timezone(DEFAULT_TIMEZONE)
         ).strftime(DATETIME_FORMAT)
