@@ -400,7 +400,7 @@ class ColorizerDatasetWriter:
         """
 
         if num_frames is not None and self.manifest["frames"] is None:
-            logging.warn(
+            logging.warning(
                 "ColorizerDatasetWriter: The argument `num_frames` on `write_manifest` is deprecated and will be removed in the future! Please call `set_frame_paths(generate_frame_paths(num_frames))` instead."
             )
             self.set_frame_paths(generate_frame_paths(num_frames))
@@ -421,9 +421,10 @@ class ColorizerDatasetWriter:
         self.manifest["metadata"]["dataVersion"] = CURRENT_VERSION
 
         # Merge metadata
-        self.manifest["metadata"] = merge_dictionaries(
-            self.manifest["metadata"], metadata.to_json()
-        )
+        if metadata != None:
+            self.manifest["metadata"] = merge_dictionaries(
+                self.manifest["metadata"], metadata.to_json()
+            )
 
         self.validate_dataset()
 
@@ -480,9 +481,9 @@ class ColorizerDatasetWriter:
         Logs warnings to the console if any expected files are missing.
         """
         if self.manifest["times"] is None:
-            logging.warn("No times JSON information provided!")
+            logging.warning("No times JSON information provided!")
         if not os.path.isfile(self.outpath + "/" + self.manifest["times"]):
-            logging.warn(
+            logging.warning(
                 "Times JSON file does not exist at expected path '{}'".format(
                     self.manifest["times"]
                 )
@@ -491,7 +492,7 @@ class ColorizerDatasetWriter:
         # TODO: Add validation for other required data files
 
         if self.manifest["frames"] is None:
-            logging.warn(
+            logging.warning(
                 "No frames are provided! Did you forget to call `set_frame_paths` on the writer?"
             )
         else:
@@ -502,15 +503,15 @@ class ColorizerDatasetWriter:
                 if not os.path.isfile(self.outpath + "/" + path):
                     missing_frames.append([i, path])
             if len(missing_frames) > 0:
-                logging.warn(
+                logging.warning(
                     "{} image frame(s) missing from the dataset! The following files could not be found:".format(
                         len(missing_frames)
                     )
                 )
                 for i in range(len(missing_frames)):
                     index, path = missing_frames[i]
-                    logging.warn("  {}: '{}'".format(index, path))
-                logging.warn(
+                    logging.warning("  {}: '{}'".format(index, path))
+                logging.warning(
                     "For auto-generated frame numbers, check that no frames are missing data in the original dataset,"
                     + " or add an offset if your frame numbers do not start at 0."
                     + " You may also need to generate the list of frames yourself if your dataset is skipping frames."
