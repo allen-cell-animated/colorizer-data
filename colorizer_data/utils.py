@@ -5,7 +5,7 @@ import pathlib
 import platform
 import re
 import shutil
-from typing import Dict, List, Sequence, Union, Tuple
+from typing import Dict, List, Sequence, TypeVar, Union, Tuple
 
 import numpy as np
 import pandas as pd
@@ -522,3 +522,22 @@ def cast_feature_to_info_type(
             info.type, info.get_name()
         )
     )
+
+
+T = TypeVar("T", bound=Dict)
+
+
+def merge_dictionaries(a: T, b: T) -> T:
+    """Recursively merges key-value pairs of `b` into `a`, ignoring keys with `None` values."""
+    # Make shallow copy of a
+    a = {**a}
+
+    if b == None:
+        return a
+
+    for key, value in b.items():
+        if isinstance(value, dict):
+            a[key] = merge_dictionaries(a[key], value)
+        elif value != None:
+            a[key] = value
+    return a
