@@ -129,10 +129,7 @@ class BaseMetadata:
     is rewritten. Starts at 0.
     """
     data_version: str = CURRENT_VERSION
-    """
-    Version of the data writer utility scripts.
-    Uses semantic versioning (e.g. v1.0.0)
-    """
+    """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.0.0)"""
 
     def to_json(self) -> BaseMetadataJson:
         return {
@@ -200,7 +197,10 @@ class CollectionMetadataJson(BaseMetadataJson):
 
 @dataclass
 class CollectionMetadata(BaseMetadata):
-    """Metadata dataclass for collections."""
+    """
+    Data class representation of metadata for a Colorizer collection file.
+    Can be converted to JSON-compatible format using `to_json()`.
+    """
 
     # Placeholder unless collection-specific metadata is added
     pass
