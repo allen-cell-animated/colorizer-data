@@ -160,9 +160,9 @@ Besides the details shown above, these are additional parameters that the manife
     "metadata": {
         "name": <name of dataset>,
         "description": <description text>,
+        "author": <string author name>,
         "dateCreated": <datestring>,
         "lastModified": <datestring>,
-        "author": <string author name>,
         "revision": <number of times the datset has been modified>,
         "dataVersion": <version number of the data scripts used to write this dataset>
         "frameDims": {
@@ -670,9 +670,9 @@ A collection file can also include optional metadata fields, saved under the `me
     "metadata": {
         "name": <name of collection>,
         "description": <description text>,
+        "author": <string author name>,
         "dateCreated": <datestring>,
         "lastModified": <datestring>,
-        "author": <string author name>,
         "revision": <number of times the collection has been modified>,
         "dataVersion": <version of the data scripts used to write this collection>
     }

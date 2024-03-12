@@ -4,6 +4,7 @@ from enum import Enum
 from typing import List, TypedDict, Union
 
 CURRENT_VERSION = "v1.0.0"
+DATETIME_FORMAT = "%m/%d/%Y, %H:%M:%S %Z%z"
 
 
 class FeatureType(str, Enum):
@@ -100,14 +101,13 @@ class FrameDimensions(TypedDict):
 
 
 class BaseMetadataJson(TypedDict):
-    """Shared metadata, in JSON form."""
+    """JSON dictionary format for `BaseMetadata`."""
 
     name: str
     description: str
-    dateCreated: str
-    """Datetime, formatted as `%m/%d/%Y, %H:%M:%S`"""
-    lastModified: str
     author: str
+    dateCreated: str
+    lastModified: str
     revision: str
     dataVersion: str
 
@@ -118,11 +118,21 @@ class BaseMetadata:
 
     name: str = None
     description: str = None
-    date_created: str = None
-    last_modified: str = None
     author: str = None
+    date_created: str = None
+    """Formatted datetime string. See `DATETIME_FORMAT`. """
+    last_modified: str = None
+    """Formatted datetime string. See `DATETIME_FORMAT`. """
     revision: int = None
+    """
+    Revision number. Will be updated each time the dataset or collection
+    is rewritten. Starts at 0.
+    """
     data_version: str = CURRENT_VERSION
+    """
+    Version of the data writer utility scripts.
+    Uses semantic versioning (e.g. v1.0.0)
+    """
 
     def to_json(self) -> BaseMetadataJson:
         return {
@@ -136,7 +146,7 @@ class BaseMetadata:
         }
 
 
-# TODO: Rename this and ColorizerMetadata.
+# TODO: Rename this to DatasetMetadataJson and ColorizerMetadata -> DatasetMetadata. (breaking change)
 class DatasetMetadata(BaseMetadataJson):
     """JSON-exported metadata for the dataset"""
 
@@ -147,8 +157,10 @@ class DatasetMetadata(BaseMetadataJson):
 
 @dataclass
 class ColorizerMetadata(BaseMetadata):
-    """Data class representation of metadata for a Colorizer dataset. Can be
-    converted to JSON-compatible format using `to_json()`."""
+    """
+    Data class representation of metadata for a Colorizer dataset. Can be
+    converted to JSON-compatible format using `to_json()`.
+    """
 
     frame_width: float = 0
     frame_height: float = 0
@@ -181,27 +193,28 @@ class DatasetManifest(TypedDict):
     frames: List[str]
 
 
-class CollectionDatasetEntry(TypedDict):
-    name: str
-    path: str
-
-
 class CollectionMetadataJson(BaseMetadataJson):
-    datasets: List[CollectionDatasetEntry]
+    # Placeholder unless collection-specific metadata is added
+    pass
 
 
 @dataclass
 class CollectionMetadata(BaseMetadata):
-    datasets: List[CollectionDatasetEntry] = None
+    """Metadata dataclass for collections."""
 
-    def to_json(self) -> BaseMetadataJson:
-        base_json = BaseMetadata.to_json(self)
-        base_json["datasets"] = self.datasets
-        return base_json
+    # Placeholder unless collection-specific metadata is added
+    pass
+
+
+class CollectionDatasetEntry(TypedDict):
+    """Represents a single dataset in the collection file."""
+
+    name: str
+    path: str
 
 
 class CollectionManifest(TypedDict):
-    """Collection manifest JSON file format."""
+    """Collection manifest file format."""
 
     datasets: List[CollectionDatasetEntry]
     metadata: CollectionMetadata
