@@ -110,16 +110,17 @@ class BaseMetadataJson(TypedDict):
     dataVersion: str
 
 
-class BaseMetadata(TypedDict):
+@dataclass
+class BaseMetadata:
     """Shared metadata between datasets and collection files."""
 
-    name: str
-    description: str
-    date_created: str
-    last_modified: str
-    author: str
-    revision: str
-    data_version: str
+    name: str = ""
+    description: str = ""
+    date_created: str = ""
+    last_modified: str = ""
+    author: str = ""
+    revision: str = ""
+    data_version: str = "v1.0.0"
 
     def to_json(self) -> BaseMetadataJson:
         return {
