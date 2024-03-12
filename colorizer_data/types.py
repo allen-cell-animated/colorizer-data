@@ -97,15 +97,55 @@ class FrameDimensions(TypedDict):
     """Height of a frame in physical units (not pixels)."""
 
 
-class DatasetMetadata(TypedDict):
+class BaseMetadataJson(TypedDict):
+    """Shared metadata, in JSON form."""
+
+    name: str
+    description: str
+    dateCreated: str
+    """Datetime, formatted as `%m/%d/%Y, %H:%M:%S`"""
+    lastModified: str
+    author: str
+    revision: str
+    dataVersion: str
+
+
+class BaseMetadata(TypedDict):
+    """Shared metadata between datasets and collection files."""
+
+    name: str
+    description: str
+    date_created: str
+    last_modified: str
+    author: str
+    revision: str
+    data_version: str
+
+    def to_json(self) -> BaseMetadataJson:
+        return {
+            "name": self.name,
+            "description": self.description,
+            "dateCreated": self.date_created,
+            "lastModified": self.last_modified,
+            "author": self.author,
+            "revision": self.revision,
+            "dataVersion": self.data_version,
+        }
+
+
+# TODO: Rename this and ColorizerMetadata.
+class DatasetMetadata(BaseMetadataJson):
+    """JSON-exported metadata for the dataset"""
+
     frameDims: FrameDimensions
     frameDurationSeconds: float
     startTimeSeconds: float
 
 
 @dataclass
-class ColorizerMetadata:
-    """Data class representation of metadata for a Colorizer dataset."""
+class ColorizerMetadata(BaseMetadata):
+    """Data class representation of metadata for a Colorizer dataset. Can be
+    converted to JSON-compatible format using `to_json()`."""
 
     frame_width: float = 0
     frame_height: float = 0
@@ -115,16 +155,16 @@ class ColorizerMetadata:
     start_frame_num: int = 0
 
     def to_json(self) -> DatasetMetadata:
-        return {
-            "frameDims": {
-                "width": self.frame_width,
-                "height": self.frame_height,
-                "units": self.frame_units,
-            },
-            "startTimeSeconds": self.start_time_sec,
-            "frameDurationSeconds": self.frame_duration_sec,
-            "startingFrameNumber": self.start_frame_num,
+        base_json = super(self)
+        base_json["frameDims"] = {
+            "width": self.frame_width,
+            "height": self.frame_height,
+            "units": self.frame_units,
         }
+        base_json["startTimeSeconds"] = self.start_time_sec
+        base_json["frameDurationSeconds"] = self.frame_duration_sec
+        base_json["startingFrameNumber"] = self.start_frame_num
+        return base_json
 
 
 class DatasetManifest(TypedDict):
@@ -136,3 +176,29 @@ class DatasetManifest(TypedDict):
     bounds: str
     metadata: DatasetMetadata
     frames: List[str]
+
+
+class CollectionDatasetEntry(TypedDict):
+    name: str
+    path: str
+
+
+class CollectionMetadataJson(BaseMetadataJson):
+    datasets: List[CollectionDatasetEntry]
+
+
+@dataclass
+class CollectionMetadata(BaseMetadata):
+    datasets: List[CollectionDatasetEntry]
+
+    def to_json(self) -> BaseMetadataJson:
+        base_json = BaseMetadata.to_json(self)
+        base_json["datasets"] = self.datasets
+        return base_json
+
+
+class CollectionManifest(TypedDict):
+    """Collection manifest JSON file format."""
+
+    datasets: List[CollectionDatasetEntry]
+    metadata: CollectionMetadata

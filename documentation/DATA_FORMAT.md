@@ -158,12 +158,12 @@ Besides the details shown above, these are additional parameters that the manife
 {
     ...
     "metadata": {
-        "name": <name of collection>,
+        "name": <name of dataset>,
         "description": <description text>,
         "dateCreated": <datestring>,
         "lastModified": <datestring>,
         "author": <string author name>,
-        "datasetVersion": <string dataset revision number>,
+        "revision": <string dataset revision number>,
         "dataVersion": <version number of the data scripts used to write this dataset>
         "frameDims": {
             "units": <unit label for frame dimensions>,
@@ -671,7 +671,7 @@ A collection file can also include optional metadata fields, saved under the `me
         "dateCreated": <datestring>,
         "lastModified": <datestring>,
         "author": <string author name>,
-        "version": <optional>,
+        "revision": <optional>,
         "dataVersion": <version of the data scripts used to write this collection>
     }
 }
