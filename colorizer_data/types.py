@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import List, TypedDict, Union
 
+CURRENT_VERSION = "v1.0.0"
+
 
 class FeatureType(str, Enum):
     CONTINUOUS = "continuous"
@@ -120,7 +122,7 @@ class BaseMetadata:
     last_modified: str = ""
     author: str = ""
     revision: str = ""
-    data_version: str = "v1.0.0"
+    data_version: str = CURRENT_VERSION
 
     def to_json(self) -> BaseMetadataJson:
         return {
