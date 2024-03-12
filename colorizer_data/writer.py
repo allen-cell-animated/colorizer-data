@@ -1,14 +1,18 @@
+from datetime import datetime
 import json
 import logging
 import multiprocessing
 import os
 import pathlib
+import pytz
 import shutil
 from typing import Dict, List, Union
 
 import numpy as np
 from PIL import Image
 from colorizer_data.types import (
+    CURRENT_VERSION,
+    DATETIME_FORMAT,
     BackdropMetadata,
     ColorizerMetadata,
     DatasetManifest,
@@ -24,11 +28,14 @@ from colorizer_data.utils import (
     copy_remote_or_local_file,
     generate_frame_paths,
     make_relative_image_paths,
+    merge_dictionaries,
     replace_out_of_bounds_values_with_nan,
     sanitize_key_name,
     MAX_CATEGORIES,
     NumpyValuesEncoder,
 )
+
+DEFAULT_TIMEZONE = "America/Los_Angeles"
 
 
 class ColorizerDatasetWriter:
@@ -83,6 +90,10 @@ class ColorizerDatasetWriter:
         if "backdrops" in self.manifest:
             for backdrop_metadata in self.manifest["backdrops"]:
                 self.backdrops[backdrop_metadata["key"]] = backdrop_metadata
+
+        if "metadata" not in self.manifest:
+            # New default metadata
+            self.manifest["metadata"] = ColorizerMetadata().to_json()
 
     def write_categorical_feature(self, data: np.ndarray, info: FeatureInfo) -> None:
         """
@@ -381,6 +392,10 @@ class ColorizerDatasetWriter:
 
         Must be called **AFTER** all other data is written.
 
+        Args:
+            num_frames (int): DEPRECATED. Automatically generates expected paths for frame images.
+            metadata (ColorizerMetadata): Metadata to be written with the dataset. Leave fields blank to use existing default values.
+
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#Dataset)
         """
 
@@ -390,9 +405,25 @@ class ColorizerDatasetWriter:
             )
             self.set_frame_paths(generate_frame_paths(num_frames))
 
-        # Add the metadata
-        if metadata:
-            self.manifest["metadata"] = metadata.to_json()
+        # Automatically update metadata fields. These can be overridden using the `metadata` argument.
+        revision = self.manifest["metadata"]["revision"]  # Update revision number
+        if revision == None:
+            self.manifest["metadata"]["revision"] = 0
+        else:
+            self.manifest["metadata"]["revision"] = revision + 1
+        if self.manifest["metadata"]["dateCreated"] == None:  # Update creation date
+            self.manifest["metadata"]["dateCreated"] = datetime.now(
+                pytz.timezone(DEFAULT_TIMEZONE)
+            ).strftime(DATETIME_FORMAT)
+        self.manifest["metadata"]["lastModified"] = datetime.now(
+            pytz.timezone(DEFAULT_TIMEZONE)
+        ).strftime(DATETIME_FORMAT)
+        self.manifest["metadata"]["dataVersion"] = CURRENT_VERSION
+
+        # Merge metadata
+        self.manifest["metadata"] = merge_dictionaries(
+            self.manifest["metadata"], metadata.to_json()
+        )
 
         self.validate_dataset()
 
