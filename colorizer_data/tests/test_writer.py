@@ -160,8 +160,8 @@ def test_writer_overrides_metadata_fields(existing_manifest):
         assert metadata["writerVersion"] == "abcdef"
 
 
-def test_writer_updates_revision_and_time_when_none(blank_manifest):
-    # Update revision number, creation time, updated time, and data version if
+def test_writer_updates_fields_when_metadata_is_missing(blank_manifest):
+    # Update name, revision number, creation time, updated time, and data version if
     # base manifest does not include this information
     writer, tmp_path, manifest_path = blank_manifest
     writer.write_manifest()
@@ -171,6 +171,7 @@ def test_writer_updates_revision_and_time_when_none(blank_manifest):
         metadata: ColorizerMetadata = ColorizerMetadata.from_dict(manifest["metadata"])
 
         # Leaves other fields untouched
+        assert metadata.name == DEFAULT_DATASET_NAME
         assert metadata.date_created != None
         assert metadata.date_created == metadata.last_modified
         assert metadata.writer_version == CURRENT_VERSION

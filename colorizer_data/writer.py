@@ -34,8 +34,6 @@ from colorizer_data.utils import (
     NumpyValuesEncoder,
 )
 
-DEFAULT_TIMEZONE = "America/Los_Angeles"
-
 
 class ColorizerDatasetWriter:
     """
@@ -48,6 +46,7 @@ class ColorizerDatasetWriter:
     """
 
     outpath: Union[str, pathlib.Path]
+    default_dataset_name: str
     manifest: DatasetManifest
     metadata: ColorizerMetadata
     backdrops: Dict[str, BackdropMetadata]
@@ -91,6 +90,7 @@ class ColorizerDatasetWriter:
             for backdrop_metadata in self.manifest["backdrops"]:
                 self.backdrops[backdrop_metadata["key"]] = backdrop_metadata
 
+        self.default_dataset_name = dataset
         if "metadata" not in self.manifest:
             # New default metadata
             self.metadata = ColorizerMetadata()
@@ -421,8 +421,12 @@ class ColorizerDatasetWriter:
         # Update data version + modified timestamp
         self.metadata.last_modified = current_time
         self.metadata.writer_version = CURRENT_VERSION
+        # Use default dataset name from writer constructor if no name was loaded
+        # (will be overridden by `metadata.name` argument if provided)
+        if self.metadata.name == None:
+            self.metadata.name = self.default_dataset_name
 
-        # Merge metadata
+        # Optionally merge new metadata
         if metadata != None:
             self.manifest["metadata"] = merge_dictionaries(
                 self.metadata.to_dict(), metadata.to_dict()
