@@ -1,5 +1,6 @@
 # TODO: Write tests for the writer class. See https://docs.pytest.org/en/7.1.x/how-to/tmp_path.html.
 import json
+import os
 from pathlib import Path
 from typing import Tuple
 import numpy as np
@@ -61,6 +62,35 @@ def blank_manifest(tmp_path) -> Tuple[ColorizerDatasetWriter, Path, Path]:
     writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
     setup_dummy_writer_data(writer)
     return writer, tmp_path, manifest_path
+
+
+def test_write_and_read_new_metadata(tmp_path):
+    # Test writing new manifest w/ metadata and validate that manifest structure is as expected
+
+    writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
+    setup_dummy_writer_data(writer)
+    writer.write_manifest(
+        metadata=ColorizerMetadata(
+            name="my dataset",
+            author="me",
+            frame_width=80.0,
+            frame_height=60.0,
+            frame_units="picometers",
+        )
+    )
+
+    expected_manifest = tmp_path / DEFAULT_DATASET_NAME / "manifest.json"
+    assert os.path.exists(expected_manifest)
+    manifest: DatasetManifest = {}
+    with open(expected_manifest, "r") as f:
+        manifest = json.load(f)
+    manifest["metadata"] = ColorizerMetadata.from_dict(manifest["metadata"])
+
+    assert manifest["metadata"].name == "my dataset"
+    assert manifest["metadata"].author == "me"
+    assert manifest["metadata"].frame_width == 80.0
+    assert manifest["metadata"].frame_height == 60.0
+    assert manifest["metadata"].frame_units == "picometers"
 
 
 def test_writer_updates_revision_and_time(existing_manifest):
