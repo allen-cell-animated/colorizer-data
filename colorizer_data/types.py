@@ -5,8 +5,8 @@ from enum import Enum
 from typing import List, TypedDict, Union
 
 CURRENT_VERSION = "v1.0.0"
-# TODO: Add colon to z
-DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
+DEFAULT_COLLECTION_VERSION = "v1.0"
+DEFAULT_DATASET_VERSION = "v1.0"
 
 
 class FeatureType(str, Enum):
@@ -125,10 +125,12 @@ class ColorizerMetadata:
     name: str = None
     description: str = None
     author: str = None
+    dataset_version: str = None
+    """User-defined dataset version. By default, set to `DEFAULT_DATASET_VERSION`."""
     date_created: str = None
-    """Formatted datetime string. See `DATETIME_FORMAT`. """
+    """ISO-formatted datetime string."""
     last_modified: str = None
-    """Formatted datetime string. See `DATETIME_FORMAT`. """
+    """ISO-formatted datetime string."""
     revision: int = None
     """
     Revision number. Will be updated each time the dataset or collection
@@ -168,14 +170,18 @@ class CollectionMetadata:
     name: str = None
     description: str = None
     author: str = None
+    collection_version: str = None
+    """User-defined collection version. By default, set to `DEFAULT_COLLECTION_VERSION`."""
     date_created: str = None
-    """Formatted datetime string. See `DATETIME_FORMAT`. """
+    """ISO-formatted datetime string."""
     last_modified: str = None
-    """Formatted datetime string. See `DATETIME_FORMAT`. """
-    revision: int = None
+    """ISO-formatted datetime string."""
+    data_version: str = None
+    """Collection version"""
+    revision: int = 0
     """
-    Revision number. Will be updated each time the dataset or collection
-    is rewritten. Starts at 0.
+    Revision number. Will be incremented each time the dataset or collection
+    is rewritten, starting at 0.
     """
     writer_version: str = CURRENT_VERSION
     """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.0.0)"""
