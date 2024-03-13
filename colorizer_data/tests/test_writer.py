@@ -17,10 +17,10 @@ EXISTING_MANIFEST_CONTENT: DatasetManifest = {
         "name": "my example dataset",
         "description": "description of my example dataset",
         "author": "john",
-        "dateCreated": "01/01/2000, 01:00:00 PDT-0700",
-        "lastModified": "01/01/2000, 02:00:00 PDT-0700",
+        "dateCreated": "2000-01-01T01:00:00.000Z",
+        "lastModified": "2000-01-01T02:00:00.000Z",
         "revision": 4,
-        "dataVersion": "v0.4.0",
+        "writerVersion": "v0.4.0",
         "frameDims": {"width": 500, "height": 340, "units": "um"},
         "startTimeSeconds": 120,
         "frameDurationSeconds": 0.5,
@@ -40,12 +40,24 @@ def setup_dummy_writer_data(writer: ColorizerDatasetWriter):
 
 
 @pytest.fixture
-def existing_manifest(tmp_path) -> Tuple[Path, Path]:
+def existing_manifest(tmp_path) -> Tuple[ColorizerDatasetWriter, Path, Path]:
     directory = tmp_path / DEFAULT_DATASET_NAME
     directory.mkdir()
     manifest_path = tmp_path / DEFAULT_DATASET_NAME / "manifest.json"
     with open(manifest_path, "w") as f:
         json.dump(EXISTING_MANIFEST_CONTENT, f, indent=2)
+    writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
+    setup_dummy_writer_data(writer)
+    return writer, tmp_path, manifest_path
+
+
+@pytest.fixture
+def blank_manifest(tmp_path) -> Tuple[ColorizerDatasetWriter, Path, Path]:
+    directory = tmp_path / DEFAULT_DATASET_NAME
+    directory.mkdir()
+    manifest_path = tmp_path / DEFAULT_DATASET_NAME / "manifest.json"
+    with open(manifest_path, "w") as f:
+        json.dump(BLANK_MANIFEST_CONTENT, f, indent=2)
     writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
     setup_dummy_writer_data(writer)
     return writer, tmp_path, manifest_path
@@ -65,7 +77,7 @@ def test_writer_updates_revision_and_time(existing_manifest):
         # Updates expected fields
         assert metadata["lastModified"] != oldMetadata["lastModified"]
         assert metadata["revision"] == oldMetadata["revision"] + 1
-        assert metadata["dataVersion"] == CURRENT_VERSION
+        assert metadata["writerVersion"] == CURRENT_VERSION
 
 
 def test_writer_keeps_manifest_metadata(existing_manifest):
@@ -100,7 +112,7 @@ def test_writer_overrides_metadata_fields(existing_manifest):
             date_created="some-date",
             last_modified="some-other-date",
             revision=250,
-            data_version="abcdef",
+            writer_version="abcdef",
         )
     )
 
@@ -115,10 +127,21 @@ def test_writer_overrides_metadata_fields(existing_manifest):
         assert metadata["dateCreated"] == "some-date"
         assert metadata["lastModified"] == "some-other-date"
         assert metadata["revision"] == 250
-        assert metadata["dataVersion"] == "abcdef"
+        assert metadata["writerVersion"] == "abcdef"
 
 
-def test_writer_updates_revision_and_time_when_none():
+def test_writer_updates_revision_and_time_when_none(blank_manifest):
     # Update revision number, creation time, updated time, and data version if
     # base manifest does not include this information
-    pass
+    writer, tmp_path, manifest_path = blank_manifest
+    writer.write_manifest()
+
+    with open(manifest_path, "r") as f:
+        manifest: DatasetManifest = json.load(f)
+        metadata: ColorizerMetadata = ColorizerMetadata.from_dict(manifest["metadata"])
+
+        # Leaves other fields untouched
+        assert metadata.date_created != None
+        assert metadata.date_created == metadata.last_modified
+        assert metadata.writer_version == CURRENT_VERSION
+        assert metadata.revision == 0

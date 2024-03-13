@@ -1,10 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import logging
 import multiprocessing
 import os
 import pathlib
-import pytz
 import shutil
 from typing import Dict, List, Union
 
@@ -50,6 +49,7 @@ class ColorizerDatasetWriter:
 
     outpath: Union[str, pathlib.Path]
     manifest: DatasetManifest
+    metadata: ColorizerMetadata
     backdrops: Dict[str, BackdropMetadata]
     scale: float
 
@@ -93,7 +93,9 @@ class ColorizerDatasetWriter:
 
         if "metadata" not in self.manifest:
             # New default metadata
-            self.manifest["metadata"] = ColorizerMetadata().to_json()
+            self.metadata = ColorizerMetadata()
+        else:
+            self.metadata = ColorizerMetadata.from_dict(self.manifest["metadata"])
 
     def write_categorical_feature(self, data: np.ndarray, info: FeatureInfo) -> None:
         """
@@ -407,27 +409,26 @@ class ColorizerDatasetWriter:
 
         # Automatically update metadata fields. These can be overridden using the `metadata` argument.
         # Update creation date
-        if self.manifest["metadata"]["dateCreated"] == None:
-            self.manifest["metadata"]["dateCreated"] = datetime.now(
-                pytz.timezone(DEFAULT_TIMEZONE)
-            ).strftime(DATETIME_FORMAT)
+        current_time = datetime.now(timezone.utc).strftime(DATETIME_FORMAT)
+        if self.metadata.date_created == None:
+            self.metadata.date_created = current_time
         # Update revision number
-        revision = self.manifest["metadata"]["revision"]
+        revision = self.metadata.revision
         if revision == None:
-            self.manifest["metadata"]["revision"] = 0
+            self.metadata.revision = 0
         else:
-            self.manifest["metadata"]["revision"] = revision + 1
+            self.metadata.revision = revision + 1
         # Update data version + modified timestamp
-        self.manifest["metadata"]["lastModified"] = datetime.now(
-            pytz.timezone(DEFAULT_TIMEZONE)
-        ).strftime(DATETIME_FORMAT)
-        self.manifest["metadata"]["dataVersion"] = CURRENT_VERSION
+        self.metadata.last_modified = current_time
+        self.metadata.writer_version = CURRENT_VERSION
 
         # Merge metadata
         if metadata != None:
             self.manifest["metadata"] = merge_dictionaries(
-                self.manifest["metadata"], metadata.to_json()
+                self.metadata.to_dict(), metadata.to_dict()
             )
+        else:
+            self.manifest["metadata"] = self.metadata.to_dict()
 
         self.validate_dataset()
 

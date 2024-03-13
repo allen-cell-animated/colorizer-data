@@ -10,7 +10,7 @@ DEFAULT_DATASET_VERSION = "v1.0"
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 """
 Note: time MUST be in UTC!
-Use `datetime.datetime.utcnow().strftime(DATETIME_FORMAT)`.
+Use `datetime.now(timezone.utc).strftime(DATETIME_FORMAT)`.
 """
 
 
@@ -127,21 +127,21 @@ class ColorizerMetadata:
     Can be converted to and from camelCase JSON format; see https://pypi.org/project/dataclasses-json/.
     """
 
-    name: str = None
-    description: str = None
-    author: str = None
-    dataset_version: str = None
+    name: Union[None, str] = None
+    description: Union[None, str] = None
+    author: Union[None, str] = None
+    dataset_version: Union[None, str] = None
     """User-defined dataset version. By default, set to `DEFAULT_DATASET_VERSION`."""
-    date_created: str = None
+    date_created: Union[None, str] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    last_modified: str = None
+    last_modified: Union[None, str] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    revision: int = None
+    revision: Union[None, int] = None
     """
     Revision number. Will be updated each time the dataset or collection
     is rewritten. Starts at 0.
     """
-    writer_version: str = CURRENT_VERSION
+    writer_version: Union[None, str] = CURRENT_VERSION
     """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.0.0)"""
 
     frame_width: float = 0
@@ -172,23 +172,23 @@ class CollectionMetadata:
     Can be converted to and from camelCase JSON format; see https://pypi.org/project/dataclasses-json/.
     """
 
-    name: str = None
-    description: str = None
-    author: str = None
-    collection_version: str = None
+    name: Union[None, str] = None
+    description: Union[None, str] = None
+    author: Union[None, str] = None
+    collection_version: Union[None, str] = None
     """User-defined collection version. By default, set to `DEFAULT_COLLECTION_VERSION`."""
-    date_created: str = None
+    date_created: Union[None, str] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    last_modified: str = None
+    last_modified: Union[None, str] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    data_version: str = None
+    data_version: Union[None, str] = None
     """Collection version"""
-    revision: int = 0
+    revision: Union[None, int] = 0
     """
     Revision number. Will be incremented each time the dataset or collection
     is rewritten, starting at 0.
     """
-    writer_version: str = CURRENT_VERSION
+    writer_version: Union[None, str] = CURRENT_VERSION
     """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.0.0)"""
 
 
