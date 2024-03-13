@@ -130,21 +130,21 @@ class ColorizerMetadata(DataClassJsonMixin):
         "dataclasses_json"
     ]
 
-    name: Union[None, str] = None
-    description: Union[None, str] = None
-    author: Union[None, str] = None
-    dataset_version: Union[None, str] = None
-    """User-defined dataset version. By default, set to `DEFAULT_DATASET_VERSION`."""
-    date_created: Union[None, str] = None
+    name: Union[str, None] = None
+    description: Union[str, None] = None
+    author: Union[str, None] = None
+    dataset_version: Union[str, None] = None
+    """User-defined dataset version."""
+    date_created: Union[str, None] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    last_modified: Union[None, str] = None
+    last_modified: Union[str, None] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    revision: Union[None, int] = None
+    revision: Union[int, None] = None
     """
     Revision number. Will be updated each time the dataset or collection
     is rewritten. Starts at 0.
     """
-    writer_version: Union[None, str] = CURRENT_VERSION
+    writer_version: Union[str, None] = CURRENT_VERSION
     """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.0.0)"""
 
     frame_width: float = 0
@@ -178,23 +178,23 @@ class CollectionMetadata(DataClassJsonMixin):
         "dataclasses_json"
     ]
 
-    name: Union[None, str] = None
-    description: Union[None, str] = None
-    author: Union[None, str] = None
-    collection_version: Union[None, str] = None
-    """User-defined collection version. By default, set to `DEFAULT_COLLECTION_VERSION`."""
-    date_created: Union[None, str] = None
+    name: Union[str, None] = None
+    description: Union[str, None] = None
+    author: Union[str, None] = None
+    collection_version: Union[str, None] = None
+    """User-defined collection version."""
+    date_created: Union[str, None] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    last_modified: Union[None, str] = None
+    last_modified: Union[str, None] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    data_version: Union[None, str] = None
+    data_version: Union[str, None] = None
     """Collection version"""
-    revision: Union[None, int] = None
+    revision: Union[int, None] = None
     """
     Revision number. Will be incremented each time the dataset or collection
     is rewritten, starting at 0.
     """
-    writer_version: Union[None, str] = CURRENT_VERSION
+    writer_version: Union[str, None] = CURRENT_VERSION
     """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.0.0)"""
 
 
