@@ -7,6 +7,11 @@ from typing import List, TypedDict, Union
 CURRENT_VERSION = "v1.0.0"
 DEFAULT_COLLECTION_VERSION = "v1.0"
 DEFAULT_DATASET_VERSION = "v1.0"
+DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
+"""
+Note: time MUST be in UTC!
+Use `datetime.datetime.utcnow().strftime(DATETIME_FORMAT)`.
+"""
 
 
 class FeatureType(str, Enum):
@@ -128,9 +133,9 @@ class ColorizerMetadata:
     dataset_version: str = None
     """User-defined dataset version. By default, set to `DEFAULT_DATASET_VERSION`."""
     date_created: str = None
-    """ISO-formatted datetime string."""
+    """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
     last_modified: str = None
-    """ISO-formatted datetime string."""
+    """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
     revision: int = None
     """
     Revision number. Will be updated each time the dataset or collection
@@ -173,9 +178,9 @@ class CollectionMetadata:
     collection_version: str = None
     """User-defined collection version. By default, set to `DEFAULT_COLLECTION_VERSION`."""
     date_created: str = None
-    """ISO-formatted datetime string."""
+    """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
     last_modified: str = None
-    """ISO-formatted datetime string."""
+    """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
     data_version: str = None
     """Collection version"""
     revision: int = 0
