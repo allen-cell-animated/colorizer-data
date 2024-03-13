@@ -1,6 +1,6 @@
 import dataclasses
 from dataclasses import dataclass
-from dataclasses_json import dataclass_json, LetterCase
+from dataclasses_json import LetterCase, DataClassJsonMixin, config
 from enum import Enum
 from typing import List, TypedDict, Union
 
@@ -119,13 +119,16 @@ class BaseMetadataJson(TypedDict):
     dataVersion: str
 
 
-@dataclass_json(letter_case=LetterCase.CAMEL)
 @dataclass
-class ColorizerMetadata:
+class ColorizerMetadata(DataClassJsonMixin):
     """
     Data class representation of metadata for a Colorizer dataset.
     Can be converted to and from camelCase JSON format; see https://pypi.org/project/dataclasses-json/.
     """
+
+    dataclass_json_config = config(letter_case=LetterCase.CAMEL, undefined=None)[
+        "dataclasses_json"
+    ]
 
     name: Union[None, str] = None
     description: Union[None, str] = None
@@ -164,13 +167,16 @@ class DatasetManifest(TypedDict):
     backdrops: List[BackdropMetadata]
 
 
-@dataclass_json(letter_case=LetterCase.CAMEL)
 @dataclass
-class CollectionMetadata:
+class CollectionMetadata(DataClassJsonMixin):
     """
     Data class representation of metadata for a Colorizer collection file.
     Can be converted to and from camelCase JSON format; see https://pypi.org/project/dataclasses-json/.
     """
+
+    dataclass_json_config = config(letter_case=LetterCase.CAMEL, undefined=None)[
+        "dataclasses_json"
+    ]
 
     name: Union[None, str] = None
     description: Union[None, str] = None
@@ -183,7 +189,7 @@ class CollectionMetadata:
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
     data_version: Union[None, str] = None
     """Collection version"""
-    revision: Union[None, int] = 0
+    revision: Union[None, int] = None
     """
     Revision number. Will be incremented each time the dataset or collection
     is rewritten, starting at 0.
