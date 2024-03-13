@@ -1,10 +1,12 @@
 import dataclasses
 from dataclasses import dataclass
+from dataclasses_json import dataclass_json, LetterCase
 from enum import Enum
 from typing import List, TypedDict, Union
 
 CURRENT_VERSION = "v1.0.0"
-DATETIME_FORMAT = "%m/%d/%Y, %H:%M:%S %Z%z"
+# TODO: Add colon to z
+DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
 
 
 class FeatureType(str, Enum):
@@ -112,9 +114,13 @@ class BaseMetadataJson(TypedDict):
     dataVersion: str
 
 
+@dataclass_json(letter_case=LetterCase.CAMEL)
 @dataclass
-class BaseMetadata:
-    """Shared metadata between datasets and collection files."""
+class ColorizerMetadata:
+    """
+    Data class representation of metadata for a Colorizer dataset.
+    Can be converted to and from camelCase JSON format; see https://pypi.org/project/dataclasses-json/.
+    """
 
     name: str = None
     description: str = None
@@ -128,36 +134,8 @@ class BaseMetadata:
     Revision number. Will be updated each time the dataset or collection
     is rewritten. Starts at 0.
     """
-    data_version: str = CURRENT_VERSION
+    writer_version: str = CURRENT_VERSION
     """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.0.0)"""
-
-    def to_json(self) -> BaseMetadataJson:
-        return {
-            "name": self.name,
-            "description": self.description,
-            "dateCreated": self.date_created,
-            "lastModified": self.last_modified,
-            "author": self.author,
-            "revision": self.revision,
-            "dataVersion": self.data_version,
-        }
-
-
-# TODO: Rename this to DatasetMetadataJson and ColorizerMetadata -> DatasetMetadata. (breaking change)
-class DatasetMetadata(BaseMetadataJson):
-    """JSON-exported metadata for the dataset"""
-
-    frameDims: FrameDimensions
-    frameDurationSeconds: float
-    startTimeSeconds: float
-
-
-@dataclass
-class ColorizerMetadata(BaseMetadata):
-    """
-    Data class representation of metadata for a Colorizer dataset. Can be
-    converted to JSON-compatible format using `to_json()`.
-    """
 
     frame_width: float = 0
     frame_height: float = 0
@@ -165,18 +143,6 @@ class ColorizerMetadata(BaseMetadata):
     frame_duration_sec: float = 0
     start_time_sec: float = 0
     start_frame_num: int = 0
-
-    def to_json(self) -> DatasetMetadata:
-        base_json = BaseMetadata.to_json(self)
-        base_json["frameDims"] = {
-            "width": self.frame_width,
-            "height": self.frame_height,
-            "units": self.frame_units,
-        }
-        base_json["startTimeSeconds"] = self.start_time_sec
-        base_json["frameDurationSeconds"] = self.frame_duration_sec
-        base_json["startingFrameNumber"] = self.start_frame_num
-        return base_json
 
 
 class DatasetManifest(TypedDict):
@@ -186,24 +152,33 @@ class DatasetManifest(TypedDict):
     centroids: str
     times: str
     bounds: str
-    metadata: DatasetMetadata
+    metadata: ColorizerMetadata
     frames: List[str]
+    backdrops: List[BackdropMetadata]
 
 
-class CollectionMetadataJson(BaseMetadataJson):
-    # Placeholder unless collection-specific metadata is added
-    pass
-
-
+@dataclass_json(letter_case=LetterCase.CAMEL)
 @dataclass
-class CollectionMetadata(BaseMetadata):
+class CollectionMetadata:
     """
     Data class representation of metadata for a Colorizer collection file.
-    Can be converted to JSON-compatible format using `to_json()`.
+    Can be converted to and from camelCase JSON format; see https://pypi.org/project/dataclasses-json/.
     """
 
-    # Placeholder unless collection-specific metadata is added
-    pass
+    name: str = None
+    description: str = None
+    author: str = None
+    date_created: str = None
+    """Formatted datetime string. See `DATETIME_FORMAT`. """
+    last_modified: str = None
+    """Formatted datetime string. See `DATETIME_FORMAT`. """
+    revision: int = None
+    """
+    Revision number. Will be updated each time the dataset or collection
+    is rewritten. Starts at 0.
+    """
+    writer_version: str = CURRENT_VERSION
+    """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.0.0)"""
 
 
 class CollectionDatasetEntry(TypedDict):
