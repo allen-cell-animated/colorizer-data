@@ -134,7 +134,7 @@ class ColorizerMetadata(DataClassJsonMixin):
     description: Union[str, None] = None
     author: Union[str, None] = None
     dataset_version: Union[str, None] = None
-    """User-defined dataset version. By default, set to `DEFAULT_DATASET_VERSION`."""
+    """User-defined dataset version."""
     date_created: Union[str, None] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
     last_modified: Union[str, None] = None
@@ -182,7 +182,7 @@ class CollectionMetadata(DataClassJsonMixin):
     description: Union[str, None] = None
     author: Union[str, None] = None
     collection_version: Union[str, None] = None
-    """User-defined collection version. By default, set to `DEFAULT_COLLECTION_VERSION`."""
+    """User-defined collection version."""
     date_created: Union[str, None] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
     last_modified: Union[str, None] = None
