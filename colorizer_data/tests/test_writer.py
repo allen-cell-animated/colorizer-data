@@ -22,17 +22,29 @@ EXISTING_MANIFEST_CONTENT: DatasetManifest = {
         "lastModified": "2000-01-01T02:00:00.000Z",
         "revision": 4,
         "writerVersion": "v0.4.0",
-        "frameDims": {"width": 500, "height": 340, "units": "um"},
+        "frameWidth": 500,
+        "frameHeight": 340,
+        "frameUnits": "um",
         "startTimeSeconds": 120,
         "frameDurationSeconds": 0.5,
         "startingFrameNumber": 12,
     },
 }
 
+DEPRECATED_MANIFEST_FEATURES: DatasetManifest = {
+    "metadata": {
+        "frameDims": {"width": 500, "height": 340, "units": "um"},
+    }
+}
+
 BLANK_MANIFEST_CONTENT: DatasetManifest = {
     "features": [],
     "frames": [],
 }
+
+# TODO: Test deprecated manifest feature (should be ignored
+# TODO: Test somewhere frame width, height, units, start time, frame duration, frame number, etc.
+# in case of breaking API changes.
 
 
 def setup_dummy_writer_data(writer: ColorizerDatasetWriter):
