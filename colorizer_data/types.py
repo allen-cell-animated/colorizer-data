@@ -139,20 +139,22 @@ class ColorizerMetadata(DataClassJsonMixin):
     author: Optional[str] = None
     dataset_version: Optional[str] = None
     """User-defined dataset version."""
-    date_created: Optional[str] = None
+
+    # Internal use
+    _date_created: Optional[str] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    last_modified: Optional[str] = None
+    _last_modified: Optional[str] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    revision: Optional[int] = None
+    _revision: Optional[int] = None
     """
     Revision number. Will be updated each time the dataset or collection
     is rewritten. Starts at 0.
     """
-    writer_version: Optional[str] = CURRENT_VERSION
+    _writer_version: Optional[str] = CURRENT_VERSION
     """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.0.0)"""
 
     # Exclude these three fields from auto-encode/decode, because they need to be structured
-    # under frameDims
+    # together under the frameDims subfield and not as their own root-level fields.
     frame_width: Optional[float] = field(
         default=None, metadata=config(exclude=lambda x: True)
     )
@@ -188,7 +190,7 @@ class ColorizerMetadata(DataClassJsonMixin):
         *,
         infer_missing=True,
     ) -> A:
-        # Hacky. This is what DataClassJsonMixin.from_dict() calls internally, passing in the 
+        # Hacky. This is what DataClassJsonMixin.from_dict() calls internally, passing in the
         # inferred class. In this case, we want to explicitly pass in this class (ColorizerMetadata)
         # and use the parent behavior, but we can't call DataClassJsonMixin.from_dict() directly
         # because it is unaware of ColorizerMetadata's dataclass fields.
@@ -235,18 +237,18 @@ class CollectionMetadata(DataClassJsonMixin):
     author: Optional[str] = None
     collection_version: Optional[str] = None
     """User-defined collection version."""
-    date_created: Optional[str] = None
+
+    # Internal use
+    _date_created: Optional[str] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    last_modified: Optional[str] = None
+    _last_modified: Optional[str] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    data_version: Optional[str] = None
-    """Collection version"""
-    revision: Optional[int] = None
+    _revision: Optional[int] = None
     """
     Revision number. Will be incremented each time the dataset or collection
     is rewritten, starting at 0.
     """
-    writer_version: Optional[str] = CURRENT_VERSION
+    _writer_version: Optional[str] = CURRENT_VERSION
     """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.0.0)"""
 
 
