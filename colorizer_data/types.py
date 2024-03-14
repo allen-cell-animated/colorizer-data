@@ -14,7 +14,7 @@ DEFAULT_DATASET_VERSION = "v1.0"
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 """
 Note: time MUST be in UTC!
-Use `datetime.datetime.utcnow().strftime(DATETIME_FORMAT)`.
+Use `datetime.now(timezone.utc).strftime(DATETIME_FORMAT)`.
 """
 
 
