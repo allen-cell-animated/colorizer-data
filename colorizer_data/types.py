@@ -2,7 +2,10 @@ import dataclasses
 from dataclasses import dataclass
 from dataclasses_json import LetterCase, DataClassJsonMixin, config
 from enum import Enum
-from typing import List, TypedDict, Union
+from typing import List, Optional, TypedDict, Union
+
+Json = Union[dict, str, int, float, bool, None]
+
 
 CURRENT_VERSION = "v1.0.0"
 DEFAULT_COLLECTION_VERSION = "v1.0"
@@ -53,7 +56,7 @@ class FeatureInfo:
     column_name: str = ""
     unit: str = ""
     type: FeatureType = FeatureType.INDETERMINATE
-    categories: Union[List[str], None] = None
+    categories: Optional[List[str]] = None
 
     def get_name(self) -> Union[str, None]:
         """
@@ -130,21 +133,21 @@ class ColorizerMetadata(DataClassJsonMixin):
         "dataclasses_json"
     ]
 
-    name: Union[str, None] = None
-    description: Union[str, None] = None
-    author: Union[str, None] = None
-    dataset_version: Union[str, None] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    author: Optional[str] = None
+    dataset_version: Optional[str] = None
     """User-defined dataset version."""
-    date_created: Union[str, None] = None
+    date_created: Optional[str] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    last_modified: Union[str, None] = None
+    last_modified: Optional[str] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    revision: Union[int, None] = None
+    revision: Optional[int] = None
     """
     Revision number. Will be updated each time the dataset or collection
     is rewritten. Starts at 0.
     """
-    writer_version: Union[str, None] = CURRENT_VERSION
+    writer_version: Optional[str] = CURRENT_VERSION
     """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.0.0)"""
 
     frame_width: float = 0
@@ -178,23 +181,23 @@ class CollectionMetadata(DataClassJsonMixin):
         "dataclasses_json"
     ]
 
-    name: Union[str, None] = None
-    description: Union[str, None] = None
-    author: Union[str, None] = None
-    collection_version: Union[str, None] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    author: Optional[str] = None
+    collection_version: Optional[str] = None
     """User-defined collection version."""
-    date_created: Union[str, None] = None
+    date_created: Optional[str] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    last_modified: Union[str, None] = None
+    last_modified: Optional[str] = None
     """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    data_version: Union[str, None] = None
+    data_version: Optional[str] = None
     """Collection version"""
-    revision: Union[int, None] = None
+    revision: Optional[int] = None
     """
     Revision number. Will be incremented each time the dataset or collection
     is rewritten, starting at 0.
     """
-    writer_version: Union[str, None] = CURRENT_VERSION
+    writer_version: Optional[str] = CURRENT_VERSION
     """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.0.0)"""
 
 
