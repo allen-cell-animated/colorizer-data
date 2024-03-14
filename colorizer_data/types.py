@@ -165,9 +165,12 @@ class ColorizerMetadata(DataClassJsonMixin):
         default=None, metadata=config(exclude=lambda x: True)
     )
 
-    frame_duration_sec: float = 0
-    start_time_sec: float = 0
-    start_frame_num: int = 0
+    # Exclude in order to rename when saving
+    frame_duration_sec: float = field(
+        default=0, metadata=config(exclude=lambda x: True)
+    )
+    start_time_sec: float = field(default=0, metadata=config(exclude=lambda x: True))
+    start_frame_num: int = field(default=0, metadata=config(exclude=lambda x: True))
 
     # Override to and from dict behaviors to allow nesting of frame-related variables in their own
     # dictionary object.
@@ -179,6 +182,9 @@ class ColorizerMetadata(DataClassJsonMixin):
             "height": self.frame_height,
             "units": self.frame_units,
         }
+        base_json["startingTimeSeconds"] = self.start_time_sec
+        base_json["startingFrameNumber"] = self.start_frame_num
+        base_json["frameDurationSeconds"] = self.frame_duration_sec
         return base_json
 
     A = TypeVar("A", bound="DataClassJsonMixin")
@@ -205,6 +211,14 @@ class ColorizerMetadata(DataClassJsonMixin):
                 metadata.frame_height = kvs["frameDims"]["height"]
             if "units" in kvs["frameDims"].keys():
                 metadata.frame_units = kvs["frameDims"]["units"]
+
+        # Handle rename
+        if "startingTimeSeconds" in kvs.keys():
+            metadata.start_time_sec = kvs["startingTimeSeconds"]
+        if "startingFrameNumber" in kvs.keys():
+            metadata.start_frame_num = kvs["startingFrameNumber"]
+        if "frameDurationSeconds" in kvs.keys():
+            metadata.frame_duration_sec = kvs["frameDurationSeconds"]
 
         return metadata
 
