@@ -398,7 +398,7 @@ class ColorizerDatasetWriter:
             num_frames (int): DEPRECATED. Define to generate the expected paths for frame images.
             metadata (ColorizerMetadata): Metadata to be written with the dataset. Leave fields blank to use existing default values.
 
-        Note that some metadata fields (like `_last_modified`, `_writer_version`, `_revision`, and `_date_created`) will
+        Note that some metadata fields (like `last_modified`, `_writer_version`, `_revision`, and `date_created`) will
         be automatically updated. Add definitions for these fields in the `metadata` argument to override this behavior.
 
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#Dataset)
@@ -414,8 +414,8 @@ class ColorizerDatasetWriter:
         # by defining the relevant fields in the the `metadata` argument.
         current_time = datetime.now(timezone.utc).strftime(DATETIME_FORMAT)
         # Update creation date if missing
-        if self.metadata._date_created == None:
-            self.metadata._date_created = current_time
+        if self.metadata.date_created == None:
+            self.metadata.date_created = current_time
         # Update revision number
         revision = self.metadata._revision
         if revision == None:
@@ -423,7 +423,7 @@ class ColorizerDatasetWriter:
         else:
             self.metadata._revision = revision + 1
         # Update data version + modified timestamp
-        self.metadata._last_modified = current_time
+        self.metadata.last_modified = current_time
         self.metadata._writer_version = CURRENT_VERSION
 
         # Use default dataset name from writer constructor if no name was loaded
