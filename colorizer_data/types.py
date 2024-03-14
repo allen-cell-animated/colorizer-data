@@ -188,10 +188,10 @@ class ColorizerMetadata(DataClassJsonMixin):
         *,
         infer_missing=True,
     ) -> A:
-        # Hacky. This is what DataClassJsonMixin.from_dict() calls internally, passing in the inferred class.
-        # In this case, we want to explicitly pass in this class (ColorizerMetadata) and use the
-        # parent behavior, but we can't call DataClassJsonMixin.from_dict() directly because it is
-        # unaware of ColorizerMetadata's dataclass fields.
+        # Hacky. This is what DataClassJsonMixin.from_dict() calls internally, passing in the 
+        # inferred class. In this case, we want to explicitly pass in this class (ColorizerMetadata)
+        # and use the parent behavior, but we can't call DataClassJsonMixin.from_dict() directly
+        # because it is unaware of ColorizerMetadata's dataclass fields.
         metadata: ColorizerMetadata = _decode_dataclass(
             ColorizerMetadata, kvs, infer_missing
         )
