@@ -17,6 +17,7 @@ EXISTING_MANIFEST_CONTENT: DatasetManifest = {
         "name": "my example dataset",
         "description": "description of my example dataset",
         "author": "john",
+        "datasetVersion": "old version",
         "dateCreated": "2000-01-01T01:00:00.000Z",
         "lastModified": "2000-01-01T02:00:00.000Z",
         "revision": 4,
@@ -130,6 +131,30 @@ def test_writer_updates_revision_and_time(existing_manifest):
         assert metadata["writerVersion"] == CURRENT_VERSION
 
 
+def test_writer_handles_renamed_fields(existing_manifest):
+    writer, tmp_path, manifest_path = existing_manifest
+    writer.write_manifest(
+        metadata=ColorizerMetadata(
+            start_time_sec=1.0, start_frame_num=2.0, frame_duration_sec=3.0
+        )
+    )
+
+    with open(manifest_path, "r") as f:
+        manifest: DatasetManifest = json.load(f)
+        metadata_dict = manifest["metadata"]
+        metadata = ColorizerMetadata.from_dict(metadata_dict)
+
+        # Expect fields to be written out in the dictionary
+        assert metadata_dict["startingTimeSeconds"] == 1.0
+        assert metadata_dict["startingFrameNumber"] == 2.0
+        assert metadata_dict["frameDurationSeconds"] == 3.0
+
+        # Expect fields to be loaded correctly by `from_dict`
+        assert metadata.start_time_sec == 1.0
+        assert metadata.start_frame_num == 2.0
+        assert metadata.frame_duration_sec == 3.0
+
+
 def test_writer_keeps_manifest_metadata(existing_manifest):
     # Should keep name, author, time of creation, description
     writer, tmp_path, manifest_path = existing_manifest
@@ -141,6 +166,10 @@ def test_writer_keeps_manifest_metadata(existing_manifest):
         manifest: DatasetManifest = json.load(f)
         metadata = manifest["metadata"]
         oldMetadata = EXISTING_MANIFEST_CONTENT["metadata"]
+
+        # Check that changes were made
+        assert metadata["startingTimeSeconds"] == 5
+        assert metadata["startingFrameNumber"] == 6
 
         # Leaves other fields untouched
         assert metadata["name"] == oldMetadata["name"]

@@ -190,9 +190,9 @@ def test_replace_out_of_bounds_values_with_nan():
     assert np.array_equal(data, expected, True)
 
 
-def test_merge_dictionaries_ignores_none():
+def test_merge_dictionaries_ignores_none_and_missing():
     a = {"a": 1, "b": 10, "c": "some-value"}
-    b = {"a": None, "b": 0, "c": None}
+    b = {"a": None, "b": 0}
     result = merge_dictionaries(a, b)
     assert result["a"] == 1
     assert result["b"] == 0
