@@ -1,8 +1,7 @@
-# TODO: Write tests for the writer class. See https://docs.pytest.org/en/7.1.x/how-to/tmp_path.html.
 import json
 import os
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 import numpy as np
 import pytest
 
@@ -22,29 +21,17 @@ EXISTING_MANIFEST_CONTENT: DatasetManifest = {
         "lastModified": "2000-01-01T02:00:00.000Z",
         "revision": 4,
         "writerVersion": "v0.4.0",
-        "frameWidth": 500,
-        "frameHeight": 340,
-        "frameUnits": "um",
+        "frameDims": {"width": 500, "height": 340, "units": "um"},
         "startTimeSeconds": 120,
         "frameDurationSeconds": 0.5,
         "startingFrameNumber": 12,
     },
 }
 
-DEPRECATED_MANIFEST_FEATURES: DatasetManifest = {
-    "metadata": {
-        "frameDims": {"width": 500, "height": 340, "units": "um"},
-    }
-}
-
 BLANK_MANIFEST_CONTENT: DatasetManifest = {
     "features": [],
     "frames": [],
 }
-
-# TODO: Test deprecated manifest feature (should be ignored
-# TODO: Test somewhere frame width, height, units, start time, frame duration, frame number, etc.
-# in case of breaking API changes.
 
 
 def setup_dummy_writer_data(writer: ColorizerDatasetWriter):
@@ -76,33 +63,54 @@ def blank_manifest(tmp_path) -> Tuple[ColorizerDatasetWriter, Path, Path]:
     return writer, tmp_path, manifest_path
 
 
-def test_write_and_read_new_metadata(tmp_path):
-    # Test writing new manifest w/ metadata and validate that manifest structure is as expected
+def test_metadata_uses_frame_dims_subfield(tmp_path):
+    # Test writing manifest saves frame dimensions as `frameDims` field within
+    # the metadata to match data API
 
-    writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
-    setup_dummy_writer_data(writer)
-    writer.write_manifest(
-        metadata=ColorizerMetadata(
-            name="my dataset",
-            author="me",
-            frame_width=80.0,
-            frame_height=60.0,
-            frame_units="picometers",
+    frame_dimensions: Tuple[Optional[float], Optional[float], Optional[str]] = [
+        (80.0, 60.0, "picometers"),
+        (None, 44.0, None),
+        (None, None, None),
+    ]
+
+    for i in range(len(frame_dimensions)):
+        width, height, units = frame_dimensions[i]
+        writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
+        setup_dummy_writer_data(writer)
+        writer.write_manifest(
+            metadata=ColorizerMetadata(
+                frame_width=width,
+                frame_height=height,
+                frame_units=units,
+            )
         )
-    )
 
-    expected_manifest = tmp_path / DEFAULT_DATASET_NAME / "manifest.json"
-    assert os.path.exists(expected_manifest)
-    manifest: DatasetManifest = {}
-    with open(expected_manifest, "r") as f:
-        manifest = json.load(f)
-    manifest["metadata"] = ColorizerMetadata.from_dict(manifest["metadata"])
+        expected_manifest = tmp_path / DEFAULT_DATASET_NAME / "manifest.json"
+        assert os.path.exists(expected_manifest)
+        manifest: DatasetManifest = {}
+        with open(expected_manifest, "r") as f:
+            manifest = json.load(f)
 
-    assert manifest["metadata"].name == "my dataset"
-    assert manifest["metadata"].author == "me"
-    assert manifest["metadata"].frame_width == 80.0
-    assert manifest["metadata"].frame_height == 60.0
-    assert manifest["metadata"].frame_units == "picometers"
+        # Expect manifest structure to use `frameDims`
+        assert manifest["metadata"]["frameDims"]["width"] == width
+        assert manifest["metadata"]["frameDims"]["height"] == height
+        assert manifest["metadata"]["frameDims"]["units"] == units
+
+        # Expect ColorizerMetadata fields to not be written directly
+        assert "frame_width" not in manifest["metadata"].keys()
+        assert "frame_height" not in manifest["metadata"].keys()
+        assert "frame_units" not in manifest["metadata"].keys()
+
+        # Expect manifest structure can be parsed to ColorizerMetadata
+        # with correct fields
+        metadata = ColorizerMetadata.from_dict(manifest["metadata"])
+
+        assert metadata.frame_width == width
+        assert metadata.frame_height == height
+        assert metadata.frame_units == units
+
+        # Cleanup
+        os.remove(expected_manifest)
 
 
 def test_writer_updates_revision_and_time(existing_manifest):
