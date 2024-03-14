@@ -165,9 +165,11 @@ Besides the details shown above, these are additional parameters that the manife
         "lastModified": <datestring>,
         "revision": <number of times the datset has been modified>,
         "dataVersion": <version number of the data scripts used to write this dataset>
-        "frameUnits": <unit label for frame dimensions>,
-        "frameWidth": <width of frame in units>,
-        "frameHeight": <height of frame in units>,
+        "frameDims": {
+            "units": <unit label for frame dimensions>,
+            "width": <width of frame in units>,
+            "height": <height of frame in units>
+        },
         "frameDurationSeconds": <duration of a frame in seconds>,
         "startTimeSeconds": <start time of timestamp in seconds>  // 0 by default
     }
