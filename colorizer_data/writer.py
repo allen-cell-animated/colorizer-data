@@ -395,8 +395,11 @@ class ColorizerDatasetWriter:
         Must be called **AFTER** all other data is written.
 
         Args:
-            num_frames (int): DEPRECATED. Automatically generates expected paths for frame images.
+            num_frames (int): DEPRECATED. Define to generate the expected paths for frame images.
             metadata (ColorizerMetadata): Metadata to be written with the dataset. Leave fields blank to use existing default values.
+
+        Note that some metadata fields (like `_last_modified`, `_writer_version`, `_revision`, and `_date_created`) will
+        be automatically updated. Add definitions for these fields in the `metadata` argument to override this behavior.
 
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#Dataset)
         """
@@ -407,9 +410,10 @@ class ColorizerDatasetWriter:
             )
             self.set_frame_paths(generate_frame_paths(num_frames))
 
-        # Automatically update metadata fields. These can be overridden using the `metadata` argument.
-        # Update creation date
+        # Automatically update metadata fields. This behavior can be overwritten using
+        # by defining the relevant fields in the the `metadata` argument.
         current_time = datetime.now(timezone.utc).strftime(DATETIME_FORMAT)
+        # Update creation date if missing
         if self.metadata._date_created == None:
             self.metadata._date_created = current_time
         # Update revision number
@@ -421,12 +425,13 @@ class ColorizerDatasetWriter:
         # Update data version + modified timestamp
         self.metadata._last_modified = current_time
         self.metadata._writer_version = CURRENT_VERSION
+
         # Use default dataset name from writer constructor if no name was loaded
         # (will be overridden by `metadata.name` argument if provided)
         if self.metadata.name == None:
             self.metadata.name = self.default_dataset_name
 
-        # Optionally merge new metadata
+        # Optionally merge new metadata with old
         if metadata != None:
             self.manifest["metadata"] = merge_dictionaries(
                 self.metadata.to_dict(), metadata.to_dict()

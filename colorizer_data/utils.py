@@ -530,9 +530,9 @@ T = TypeVar("T", bound=Dict)
 def merge_dictionaries(a: T, b: T) -> T:
     """Recursively merges key-value pairs of `b` into `a`, ignoring keys with `None` values."""
     # This is basically a replacement for `{...a, ...b}` in JavaScript
-    # Make shallow copy of a
     if b == None or a == None:
         return a
+    # Make shallow copy of a
     a = {**a}
 
     for key, value in b.items():
