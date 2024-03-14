@@ -40,28 +40,25 @@ def setup_dummy_writer_data(writer: ColorizerDatasetWriter):
     writer.set_frame_paths([""])
 
 
+def setup_manifest_and_writer(path, content):
+    directory = path / DEFAULT_DATASET_NAME
+    directory.mkdir()
+    manifest_path = path / DEFAULT_DATASET_NAME / "manifest.json"
+    with open(manifest_path, "w") as f:
+        json.dump(content, f, indent=2)
+    writer = ColorizerDatasetWriter(path, DEFAULT_DATASET_NAME)
+    setup_dummy_writer_data(writer)
+    return writer, path, manifest_path
+
+
 @pytest.fixture
 def existing_manifest(tmp_path) -> Tuple[ColorizerDatasetWriter, Path, Path]:
-    directory = tmp_path / DEFAULT_DATASET_NAME
-    directory.mkdir()
-    manifest_path = tmp_path / DEFAULT_DATASET_NAME / "manifest.json"
-    with open(manifest_path, "w") as f:
-        json.dump(EXISTING_MANIFEST_CONTENT, f, indent=2)
-    writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
-    setup_dummy_writer_data(writer)
-    return writer, tmp_path, manifest_path
+    return setup_manifest_and_writer(tmp_path, EXISTING_MANIFEST_CONTENT)
 
 
 @pytest.fixture
 def blank_manifest(tmp_path) -> Tuple[ColorizerDatasetWriter, Path, Path]:
-    directory = tmp_path / DEFAULT_DATASET_NAME
-    directory.mkdir()
-    manifest_path = tmp_path / DEFAULT_DATASET_NAME / "manifest.json"
-    with open(manifest_path, "w") as f:
-        json.dump(BLANK_MANIFEST_CONTENT, f, indent=2)
-    writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
-    setup_dummy_writer_data(writer)
-    return writer, tmp_path, manifest_path
+    return setup_manifest_and_writer(tmp_path, BLANK_MANIFEST_CONTENT)
 
 
 def test_metadata_uses_frame_dims_subfield(tmp_path):
@@ -126,12 +123,17 @@ def test_writer_updates_revision_and_time(existing_manifest):
         oldMetadata = EXISTING_MANIFEST_CONTENT["metadata"]
 
         # Updates expected fields
+        assert metadata["lastModified"] != None
         assert metadata["lastModified"] != oldMetadata["lastModified"]
         assert metadata["revision"] == oldMetadata["revision"] + 1
         assert metadata["writerVersion"] == CURRENT_VERSION
 
 
 def test_writer_handles_renamed_fields(existing_manifest):
+    # startingTimeSeconds => metadata.start_time_sec
+    # startingFrameNumber => metadata.start_frame_num
+    # frameDurationSeconds => metadata.frame_duration_sec
+
     writer, tmp_path, manifest_path = existing_manifest
     writer.write_manifest(
         metadata=ColorizerMetadata(
@@ -199,11 +201,13 @@ def test_writer_overrides_metadata_fields(existing_manifest):
         manifest: DatasetManifest = json.load(f)
         metadata = manifest["metadata"]
 
-        # Leaves other fields untouched
+        # Overrides fields using new metadata
         assert metadata["name"] == "new name"
         assert metadata["description"] == "new description"
         assert metadata["author"] == "geoff"
         assert metadata["dateCreated"] == "some-date"
+
+        # Overwrites default updaters
         assert metadata["lastModified"] == "some-other-date"
         assert metadata["revision"] == 250
         assert metadata["writerVersion"] == "abcdef"
@@ -219,7 +223,6 @@ def test_writer_updates_fields_when_metadata_is_missing(blank_manifest):
         manifest: DatasetManifest = json.load(f)
         metadata: ColorizerMetadata = ColorizerMetadata.from_dict(manifest["metadata"])
 
-        # Leaves other fields untouched
         assert metadata.name == DEFAULT_DATASET_NAME
         assert metadata.date_created != None
         assert metadata.date_created == metadata.last_modified
