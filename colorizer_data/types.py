@@ -139,12 +139,12 @@ class ColorizerMetadata(DataClassJsonMixin):
     author: Optional[str] = None
     dataset_version: Optional[str] = None
     """User-defined dataset version."""
+    date_created: Optional[str] = None
+    """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
+    last_modified: Optional[str] = None
+    """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
 
     # Internal use
-    _date_created: Optional[str] = None
-    """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    _last_modified: Optional[str] = None
-    """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
     _revision: Optional[int] = None
     """
     Revision number. Will be updated each time the dataset or collection
@@ -251,12 +251,12 @@ class CollectionMetadata(DataClassJsonMixin):
     author: Optional[str] = None
     collection_version: Optional[str] = None
     """User-defined collection version."""
+    date_created: Optional[str] = None
+    """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
+    last_modified: Optional[str] = None
+    """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
 
     # Internal use
-    _date_created: Optional[str] = None
-    """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
-    _last_modified: Optional[str] = None
-    """ISO-formatted datetime string in UTC. See `DATETIME_FORMAT`."""
     _revision: Optional[int] = None
     """
     Revision number. Will be incremented each time the dataset or collection
