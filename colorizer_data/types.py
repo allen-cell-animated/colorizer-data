@@ -1,8 +1,9 @@
 import dataclasses
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from dataclasses_json import LetterCase, DataClassJsonMixin, config
+from dataclasses_json.core import _decode_dataclass
 from enum import Enum
-from typing import List, Optional, TypedDict, Union
+from typing import Dict, List, Optional, Type, TypeVar, TypedDict, Union
 
 Json = Union[dict, str, int, float, bool, None]
 
@@ -150,12 +151,60 @@ class ColorizerMetadata(DataClassJsonMixin):
     writer_version: Optional[str] = CURRENT_VERSION
     """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.0.0)"""
 
-    frame_width: float = 0
-    frame_height: float = 0
-    frame_units: str = ""
+    # Exclude these three fields from auto-encode/decode, because they need to be structured
+    # under frameDims
+    frame_width: Optional[float] = field(
+        default=None, metadata=config(exclude=lambda x: True)
+    )
+    frame_height: Optional[float] = field(
+        default=None, metadata=config(exclude=lambda x: True)
+    )
+    frame_units: Optional[str] = field(
+        default=None, metadata=config(exclude=lambda x: True)
+    )
+
     frame_duration_sec: float = 0
     start_time_sec: float = 0
     start_frame_num: int = 0
+
+    # Override to and from dict behaviors to allow nesting of frame-related variables in their own
+    # dictionary object.
+
+    def to_dict(self, encode_json=False) -> Dict[str, Json]:
+        base_json = DataClassJsonMixin.to_dict(self)
+        base_json["frameDims"] = {
+            "width": self.frame_width,
+            "height": self.frame_height,
+            "units": self.frame_units,
+        }
+        return base_json
+
+    A = TypeVar("A", bound="DataClassJsonMixin")
+
+    @classmethod
+    def from_dict(
+        cls: Type[A],
+        kvs: Union[dict, list, str, int, float, bool, None],
+        *,
+        infer_missing=True,
+    ) -> A:
+        # Hacky. This is what DataClassJsonMixin.from_dict() calls internally, passing in the inferred class.
+        # In this case, we want to explicitly pass in this class (ColorizerMetadata) and use the
+        # parent behavior, but we can't call DataClassJsonMixin.from_dict() directly because it is
+        # unaware of ColorizerMetadata's dataclass fields.
+        metadata: ColorizerMetadata = _decode_dataclass(
+            ColorizerMetadata, kvs, infer_missing
+        )
+
+        if "frameDims" in kvs.keys() and isinstance(kvs["frameDims"], dict):
+            if "width" in kvs["frameDims"].keys():
+                metadata.frame_width = kvs["frameDims"]["width"]
+            if "height" in kvs["frameDims"].keys():
+                metadata.frame_height = kvs["frameDims"]["height"]
+            if "units" in kvs["frameDims"].keys():
+                metadata.frame_units = kvs["frameDims"]["units"]
+
+        return metadata
 
 
 class DatasetManifest(TypedDict):
