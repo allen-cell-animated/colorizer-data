@@ -410,17 +410,17 @@ class ColorizerDatasetWriter:
         # Automatically update metadata fields. These can be overridden using the `metadata` argument.
         # Update creation date
         current_time = datetime.now(timezone.utc).strftime(DATETIME_FORMAT)
-        if self.metadata.date_created == None:
-            self.metadata.date_created = current_time
+        if self.metadata._date_created == None:
+            self.metadata._date_created = current_time
         # Update revision number
-        revision = self.metadata.revision
+        revision = self.metadata._revision
         if revision == None:
-            self.metadata.revision = 0
+            self.metadata._revision = 0
         else:
-            self.metadata.revision = revision + 1
+            self.metadata._revision = revision + 1
         # Update data version + modified timestamp
-        self.metadata.last_modified = current_time
-        self.metadata.writer_version = CURRENT_VERSION
+        self.metadata._last_modified = current_time
+        self.metadata._writer_version = CURRENT_VERSION
         # Use default dataset name from writer constructor if no name was loaded
         # (will be overridden by `metadata.name` argument if provided)
         if self.metadata.name == None:

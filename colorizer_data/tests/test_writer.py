@@ -159,10 +159,10 @@ def test_writer_overrides_metadata_fields(existing_manifest):
             name="new name",
             description="new description",
             author="geoff",
-            date_created="some-date",
-            last_modified="some-other-date",
-            revision=250,
-            writer_version="abcdef",
+            _date_created="some-date",
+            _last_modified="some-other-date",
+            _revision=250,
+            _writer_version="abcdef",
         )
     )
 
@@ -192,7 +192,7 @@ def test_writer_updates_fields_when_metadata_is_missing(blank_manifest):
 
         # Leaves other fields untouched
         assert metadata.name == DEFAULT_DATASET_NAME
-        assert metadata.date_created != None
-        assert metadata.date_created == metadata.last_modified
-        assert metadata.writer_version == CURRENT_VERSION
-        assert metadata.revision == 0
+        assert metadata._date_created != None
+        assert metadata._date_created == metadata._last_modified
+        assert metadata._writer_version == CURRENT_VERSION
+        assert metadata._revision == 0
