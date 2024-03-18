@@ -414,11 +414,11 @@ class ColorizerDatasetWriter:
         # by defining the relevant fields in the the `metadata` argument.
         current_time = datetime.now(timezone.utc).strftime(DATETIME_FORMAT)
         # Update creation date if missing
-        if self.metadata.date_created == None:
+        if self.metadata.date_created is None:
             self.metadata.date_created = current_time
         # Update revision number
         revision = self.metadata._revision
-        if revision == None:
+        if revision is None:
             self.metadata._revision = 0
         else:
             self.metadata._revision = revision + 1
@@ -428,11 +428,11 @@ class ColorizerDatasetWriter:
 
         # Use default dataset name from writer constructor if no name was loaded
         # (will be overridden by `metadata.name` argument if provided)
-        if self.metadata.name == None:
+        if self.metadata.name is None:
             self.metadata.name = self.default_dataset_name
 
         # Optionally merge new metadata with old
-        if metadata != None:
+        if metadata is not None:
             self.manifest["metadata"] = merge_dictionaries(
                 self.metadata.to_dict(), metadata.to_dict()
             )
