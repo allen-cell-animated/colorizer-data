@@ -179,7 +179,7 @@ def update_metadata(
         metadata.name = default_name
 
 
-# TODO: Collections should have their own writer?
+# TODO: Should collections have their own writer?
 def update_collection(
     collection_filepath,
     dataset_name,
@@ -190,6 +190,14 @@ def update_collection(
     """
     Adds a dataset to a collection file, creating the collection file if it doesn't already exist.
     If the dataset is already in the collection, the existing dataset path will be updated.
+
+    Args:
+        collection_filepath: The path of the collection file to create or update. Must be a .json file.
+        dataset_name: The name of the dataset to add to the collection.
+        dataset_path: The relative path to the dataset, from the root directory of the `collection_filepath`.
+        metadata: Optional metadata to update the collection with. If not provided, the existing metadata will
+        be used, and fields will be automatically updated. Define fields in the `metadata` argument to override
+        this behavior.
     """
     collection: Optional[CollectionManifest] = None
 
