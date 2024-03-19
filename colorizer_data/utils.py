@@ -138,13 +138,11 @@ def remap_segmented_image(
     return (seg_remapped, lut)
 
 
-M = TypeVar("M", bound=Union[CollectionMetadata, ColorizerMetadata])
-
-
 def update_metadata(
-    metadata: Optional[M],
+    metadata: Optional[Union[CollectionMetadata, ColorizerMetadata]],
+    *,
     default_name: Optional[str] = None,
-) -> M:
+):
     """
     Updates the following fields in a dataset or collection metadata object:
     - date_created: Sets to current time if none exists.
@@ -155,8 +153,7 @@ def update_metadata(
 
     Args:
         metadata (CollectionMetadata | ColorizerMetadata): The metadata object to update.
-        default_name (str): The name of the collection or dataset to use if the metadata doesn't
-        already have one
+        default_name (str): The name of the collection or dataset to use if the metadata has none.
     """
     current_time = datetime.now(timezone.utc).strftime(DATETIME_FORMAT)
 
@@ -175,7 +172,7 @@ def update_metadata(
 
     # Use default dataset name from writer constructor if no name was loaded
     # (will be overridden by `metadata.name` argument if provided)
-    if metadata.name is None:
+    if metadata.name is None and default_name is not None:
         metadata.name = default_name
 
 
