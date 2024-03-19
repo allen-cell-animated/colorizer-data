@@ -17,9 +17,7 @@ def test_manifest_from_dict_handles_partial_frame_dims():
         {},
     ]
 
-    for i in range(len(frame_dimensions)):
-        frame_dims = frame_dimensions[i]
-
+    for frame_dims in frame_dimensions:
         manifest_dict = {"frameDims": frame_dims}
         metadata = ColorizerMetadata.from_dict(manifest_dict)
 
