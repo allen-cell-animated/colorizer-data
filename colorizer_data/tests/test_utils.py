@@ -79,7 +79,6 @@ def test_update_collection_creates_file_if_none(tmp_path):
     with open(collection_path, "r") as f:
         collection: CollectionManifest = json.load(f)
 
-        # Check existing data was kept
         assert len(collection["datasets"]) == 1
         assert collection["datasets"][0]["name"] == "dataset"
         assert collection["datasets"][0]["path"] == "dataset_path"
