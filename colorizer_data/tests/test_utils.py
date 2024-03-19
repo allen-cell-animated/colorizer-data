@@ -1,12 +1,174 @@
+import json
+from pathlib import Path
+from typing import List
 import numpy as np
-from colorizer_data.types import FeatureInfo, FeatureType
+from colorizer_data.types import (
+    CURRENT_VERSION,
+    CollectionDatasetEntry,
+    CollectionManifest,
+    CollectionMetadata,
+    FeatureInfo,
+    FeatureType,
+)
 from colorizer_data.utils import (
     cast_feature_to_info_type,
     infer_feature_type,
     merge_dictionaries,
     replace_out_of_bounds_values_with_nan,
+    update_collection,
 )
 import pytest
+
+DEFAULT_DATASETS: List[CollectionDatasetEntry] = [
+    {"name": "dataset1", "path": "dataset1_path"},
+    {"name": "dataset2", "path": "dataset2_path"},
+    {"name": "dataset3", "path": "dataset3_path"},
+]
+DEFAULT_COLLECTION_JSON: CollectionManifest = {
+    "datasets": DEFAULT_DATASETS,
+    "metadata": {
+        "name": "c_name",
+        "description": "c_description",
+        "author": "c_author",
+        "collectionVersion": "c_collection_version",
+        "dateCreated": "2024-01-01T00:00Z",
+        "lastModified": "2024-01-01T00:00Z",
+        "revision": 3,
+        "writerVersion": "v0.0.0",
+    },
+}
+
+
+@pytest.fixture
+def default_collection_json(tmp_path) -> Path:
+    collection_path = tmp_path / "collection.json"
+    with open(collection_path, "w") as f:
+        json.dump(DEFAULT_COLLECTION_JSON, f)
+    return collection_path
+
+
+def test_update_collection_handles_deprecated_format(tmp_path):
+    collection_path = tmp_path / "collection.json"
+    # Make an collection array JSON file
+    with open(collection_path, "w") as f:
+        json.dump(DEFAULT_DATASETS, f)
+
+    update_collection(collection_path, "dataset4", "dataset4_path")
+
+    # File should be converted to collection object
+    with open(collection_path, "r") as f:
+        collection: CollectionManifest = json.load(f)
+
+        # Check existing data was kept
+        assert len(collection["datasets"]) == 4
+        assert collection["datasets"][0]["name"] == "dataset1"
+        assert collection["datasets"][1]["name"] == "dataset2"
+        assert collection["datasets"][2]["name"] == "dataset3"
+        assert collection["datasets"][3]["name"] == "dataset4"
+
+        metadata = CollectionMetadata.from_dict(collection["metadata"])
+        assert metadata._revision == 0
+        assert metadata.date_created is not None
+        assert metadata.last_modified == metadata.date_created
+
+
+def test_update_collection_creates_file_if_none(tmp_path):
+    collection_path = tmp_path / "collection.json"
+    update_collection(collection_path, "dataset", "dataset_path")
+
+    with open(collection_path, "r") as f:
+        collection: CollectionManifest = json.load(f)
+
+        # Check existing data was kept
+        assert len(collection["datasets"]) == 1
+        assert collection["datasets"][0]["name"] == "dataset"
+        assert collection["datasets"][0]["path"] == "dataset_path"
+
+        metadata = CollectionMetadata.from_dict(collection["metadata"])
+        assert metadata._revision == 0
+        assert metadata.date_created is not None
+        assert metadata.last_modified == metadata.date_created
+
+
+def test_update_collection_overwrites_existing_entry(default_collection_json):
+    update_collection(default_collection_json, "dataset2", "custom_dataset2_path")
+
+    with open(default_collection_json, "r") as f:
+        collection: CollectionManifest = json.load(f)
+        assert len(collection["datasets"]) == 3
+        assert collection["datasets"][0]["name"] == "dataset1"
+        assert collection["datasets"][0]["path"] == "dataset1_path"
+        assert collection["datasets"][1]["name"] == "dataset2"
+        assert collection["datasets"][1]["path"] == "custom_dataset2_path"
+        assert collection["datasets"][2]["name"] == "dataset3"
+        assert collection["datasets"][2]["path"] == "dataset3_path"
+
+        # Check that user-defined metadata values are not overridden
+        metadata = CollectionMetadata.from_dict(collection["metadata"])
+        assert metadata.name == "c_name"
+        assert metadata.description == "c_description"
+        assert metadata.author == "c_author"
+        assert metadata.collection_version == "c_collection_version"
+        assert metadata.date_created == "2024-01-01T00:00Z"
+
+        # Check that auto-updated fields are updated as expected
+        assert metadata.last_modified != "2024-01-01T00:00Z"
+        assert metadata._writer_version == CURRENT_VERSION
+        assert metadata._revision == 4
+
+
+def test_update_collection_adds_dataset_entry(default_collection_json):
+    update_collection(default_collection_json, "dataset4", "dataset4_path")
+
+    with open(default_collection_json, "r") as f:
+        collection: CollectionManifest = json.load(f)
+        assert len(collection["datasets"]) == 4
+        assert collection["datasets"][3]["name"] == "dataset4"
+        assert collection["datasets"][3]["path"] == "dataset4_path"
+
+    update_collection(default_collection_json, "dataset5", "dataset5_path")
+    update_collection(default_collection_json, "dataset6", "dataset6_path")
+
+    with open(default_collection_json, "r") as f:
+        collection: CollectionManifest = json.load(f)
+        assert len(collection["datasets"]) == 6
+        assert collection["datasets"][4]["name"] == "dataset5"
+        assert collection["datasets"][4]["path"] == "dataset5_path"
+        assert collection["datasets"][5]["name"] == "dataset6"
+        assert collection["datasets"][5]["path"] == "dataset6_path"
+
+
+def test_update_collection_writes_metadata(default_collection_json):
+    update_collection(
+        default_collection_json,
+        "dataset4",
+        "dataset4_path",
+        metadata=CollectionMetadata(
+            name="new_name",
+            description="new_description",
+            author="new_author",
+            collection_version="new_collection_version",
+            date_created="2020-01-01T00:00Z",
+            last_modified="2020-01-01T00:00Z",
+            _revision=50,
+            _writer_version="v0.0.0",
+        ),
+    )
+
+    with open(default_collection_json, "r") as f:
+        collection: CollectionManifest = json.load(f)
+
+        metadata = CollectionMetadata.from_dict(collection["metadata"])
+        assert metadata.name == "new_name"
+        assert metadata.description == "new_description"
+        assert metadata.author == "new_author"
+        assert metadata.collection_version == "new_collection_version"
+        assert metadata.date_created == "2020-01-01T00:00Z"
+
+        # Overrides default updating behavior
+        assert metadata.last_modified == "2020-01-01T00:00Z"
+        assert metadata._revision == 50
+        assert metadata._writer_version == "v0.0.0"
 
 
 def test_infer_feature_type_detects_categories():
