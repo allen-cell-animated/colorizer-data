@@ -128,13 +128,16 @@ class DatasetManifest(TypedDict):
 
 
 class NumpyValuesEncoder(json.JSONEncoder):
-    """Handles float32 and int64 values."""
+    """Handles float32 and int64, and bool_ values."""
 
     def default(self, obj):
         if isinstance(obj, np.float32):
             return float(obj)
         elif isinstance(obj, np.int64):
             return int(obj)
+        elif isinstance(obj, np.bool_):
+            # pandas sometimes loads csv files this way
+            return bool(obj)
         return json.JSONEncoder.default(self, obj)
 
 
@@ -395,8 +398,7 @@ class ColorizerDatasetWriter:
                 )
             metadata["categories"] = info.categories
             # TODO cast to int, but handle NaN?
-
-        # Write the feature JSON file
+            
         logging.info("Writing {}...".format(filename))
         js = {"data": data.tolist(), "min": fmin, "max": fmax}
         with open(file_path, "w") as f:
@@ -477,6 +479,7 @@ class ColorizerDatasetWriter:
     def write_manifest(
         self,
         num_frames: int,
+        start_frame: int=0,
         metadata: ColorizerMetadata = None,
     ):
         """
@@ -508,6 +511,7 @@ class ColorizerDatasetWriter:
           bounds: "bounds.json"
         ```
         """
+        
         # Add the metadata
         if metadata:
             self.manifest["metadata"] = metadata.to_json()
@@ -516,7 +520,7 @@ class ColorizerDatasetWriter:
         # so we only write the files that are known? (This won't work safely across processes
         # during parallellism though :/)
         self.manifest["frames"] = [
-            "frame_" + str(i) + ".png" for i in range(num_frames)
+            "frame_" + str(i+int(start_frame)) + ".png" for i in range(num_frames)
         ]
 
         with open(self.outpath + "/manifest.json", "w") as f:

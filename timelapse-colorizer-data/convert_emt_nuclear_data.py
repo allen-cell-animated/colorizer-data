@@ -20,7 +20,7 @@ import pandas as pd
 from pandas.core.groupby.generic import DataFrameGroupBy
 import time
 from typing import List, Sequence
-
+import os
 from data_writer_utils import (
     INITIAL_INDEX_COLUMN,
     ColorizerDatasetWriter,
@@ -46,52 +46,140 @@ from data_writer_utils import (
 OBJECT_ID_COLUMN = "Label"
 """Column of object IDs (or unique row number)."""
 # Track ID column purposefully removed here, as it does not exist in this dataset.
-TIMES_COLUMN = "Frame"
+TIMES_COLUMN = "Timepoint"
 """Column of frame number that the object ID appears in."""
-SEGMENTED_IMAGE_COLUMN = "Filepath"
+SEGMENTED_IMAGE_COLUMN = "Segmentation_filepath"
 """Column of path to the segmented image data or z stack for the frame."""
-CENTROIDS_X_COLUMN = "x"
+CENTROIDS_X_COLUMN = "X_centroid"
 """Column of X centroid coordinates, in pixels of original image data."""
-CENTROIDS_Y_COLUMN = "y"
+CENTROIDS_Y_COLUMN = "Y_centroid"
 """Column of Y centroid coordinates, in pixels of original image data."""
 
 FEATURE_INFO: List[FeatureInfo] = [
     FeatureInfo(
-        label="Slice",
-        column_name="Slice",
+        label="Z_slice",
+        column_name="Z_slice",
         unit="",
         type=FeatureType.CONTINUOUS,
     ),
     FeatureInfo(
-        label="Area",
-        column_name="Area",
+        label="area",
+        column_name="area",
         unit="px²",
         type=FeatureType.CONTINUOUS,
     ),
     FeatureInfo(
-        label="Orientation",
-        column_name="Orientation",
+        label="orientation",
+        column_name="orientation",
         unit="",
         type=FeatureType.CONTINUOUS,
     ),
     FeatureInfo(
         label="Aspect Ratio",
-        column_name="Aspect_Ratio",
+        column_name="aspect_ratio",
         unit="",
         type=FeatureType.CONTINUOUS,
     ),
     FeatureInfo(
-        label="Circularity",
-        column_name="Circularity",
+        label="circularity",
+        column_name="circularity",
         unit="",
         type=FeatureType.CONTINUOUS,
     ),
     FeatureInfo(
         label="Mean Fluorescence",
-        column_name="Mean_Fluor",
+        column_name="mean_intensity",
         unit="AU",
         type=FeatureType.CONTINUOUS,
     ),
+    FeatureInfo(
+        label="Median Fluorescence",
+        column_name="median_intensity",
+        unit="AU",
+        type=FeatureType.CONTINUOUS,
+    ),
+    # FeatureInfo(
+    #     label="inside_lumen",
+    #     column_name="inside_lumen",
+    #     unit="AU",
+    #     categories=['False', 'True'],
+    #     type=FeatureType.CATEGORICAL,
+    # ),
+    FeatureInfo(
+        label="total_neighbors",
+        column_name="total_neighbors",
+        unit="AU",
+        type=FeatureType.CONTINUOUS,    
+        ),
+    FeatureInfo(
+        label="closest_neighbor_distance",
+        column_name="closest_neighbor_distance",
+        unit="micron",
+        type=FeatureType.CONTINUOUS,    
+        ),
+    FeatureInfo(
+        label="closest_neighbor_distance",
+        column_name="closest_neighbor_distance",
+        unit="micron",
+        type=FeatureType.CONTINUOUS,    
+        ),
+    FeatureInfo(
+        label="Normalized_Z",
+        column_name="Normalized_Z",
+        unit="AU",
+        type=FeatureType.CONTINUOUS,    
+        ),
+    FeatureInfo(
+        label="radial_alignment",
+        column_name="radial_alignment",
+        unit="AU",
+        type=FeatureType.CONTINUOUS,    
+        ),
+    FeatureInfo(
+        label="inverse_radial_alignment",
+        column_name="inverse_radial_alignment",
+        unit="AU",
+        type=FeatureType.CONTINUOUS,    
+        ),
+    FeatureInfo(
+        label="orientation_0_180_radians",
+        column_name="orientation_0_180_radians",
+        unit="radians",
+        type=FeatureType.CONTINUOUS,    
+        ),
+    FeatureInfo(
+        label="orientation_0_180_degrees",
+        column_name="orientation_0_180_degrees",
+        unit="degrees",
+        type=FeatureType.CONTINUOUS,    
+        ),
+    FeatureInfo(
+        label="orientation_0_90_degrees_normalized",
+        column_name="orientation_0_90_degrees_normalized",
+        unit="degrees",
+        type=FeatureType.CONTINUOUS,    
+        ),
+    FeatureInfo(
+        label="circumferential_alignment_raw",
+        column_name="cir_alignment_raw",
+        unit="AU",
+        type=FeatureType.CONTINUOUS,    
+        ),
+    FeatureInfo(
+        label="circumferential_alignment",
+        column_name="cir_alignment",
+        unit="AU",
+        type=FeatureType.CONTINUOUS,    
+        ),
+
+    FeatureInfo(
+        label="distance_from_center",
+        column_name="distance_center",
+        unit="AU",
+        type=FeatureType.CONTINUOUS,    
+        ),
+
+
 ]
 """List of features to save to the dataset, with additional information about the label, unit, and feature type."""
 
@@ -206,14 +294,23 @@ def make_features(
     )
 
     for info in FEATURE_INFO:
-        data = dataset[info.column_name].to_numpy()
-        writer.write_feature(data, info)
+        # play around with this
+        # show a warning 
+        try:
+            data = dataset[info.column_name].to_numpy()
+            writer.write_feature(data, info)
+        except:
+            continue
 
 
 def get_dataset_dimensions(grouped_frames: DataFrameGroupBy) -> (float, float, str):
     """Get the dimensions of the dataset from the first frame, in units.
     Returns (width, height, units)."""
-    row = grouped_frames.get_group(0).iloc[0]
+
+    #row = grouped_frames.get_group(0).iloc[0]
+    row = grouped_frames.get_group(list(grouped_frames.groups.keys())[0]).iloc[0]
+    #keys = grouped_frames.groups.keys()
+    
     aics_image = get_image_from_row(row)
     dims = aics_image.dims
     # TODO: This conversion is hardcoded for now but should be updated with a LUT.
@@ -249,26 +346,28 @@ def make_dataset(
     reduced_dataset = reduced_dataset.reset_index(drop=True)
     reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
     grouped_frames = reduced_dataset.groupby(TIMES_COLUMN)
-
+    start_frame = grouped_frames.get_group(list(grouped_frames.groups.keys())[0])['Timepoint'].iloc[0]
     dims = get_dataset_dimensions(grouped_frames)
     metadata = ColorizerMetadata(
-        frame_width=dims[0], frame_height=dims[1], frame_units=dims[2]
+        frame_width=dims[0], frame_height=dims[1], frame_units=dims[2], frame_duration_sec=1800, start_time_sec=int(start_frame*1800)
     )
 
     # Make the features, frame data, and manifest.
     nframes = len(grouped_frames)
+    
     make_features(full_dataset, writer)
     if do_frames:
         make_frames_parallel(grouped_frames, scale, writer)
-    writer.write_manifest(nframes, metadata=metadata)
+    writer.write_manifest(nframes, metadata=metadata, start_frame=start_frame) # first frame
 
 
 # This is stuff scientists are responsible for!!
-def make_collection(output_dir="./data/", do_frames=True, scale=1, dataset=""):
+def make_collection(output_dir="./data/", do_frames=True, scale=1, dataset="", parent_input_csvs_dir = "", only_3D=False):
+    assert dataset != "" or parent_input_csvs_dir != "", "Must specify either a dataset or a parent directory of csvs to convert"
     if dataset != "":
         # convert just the described dataset.
         readPath = f"/allen/aics/assay-dev/computational/data/EMT_deliverable_processing/LH_Analysis/Version2_ForPlotting/{dataset}.csv"
-        data = pd.read_csv(readPath)
+        #data = pd.read_csv(dataset)
         logging.info("Making dataset '" + dataset + "'.")
         make_dataset(data, output_dir, dataset, do_frames, scale)
 
@@ -276,40 +375,57 @@ def make_collection(output_dir="./data/", do_frames=True, scale=1, dataset=""):
         collection_filepath = output_dir + "/collection.json"
         update_collection(collection_filepath, dataset, dataset)
     else:
-        # For every condition, make a dataset.
-        conditions = [
-            "LOW_Matrigel_lumenoid",
-            "High_Matrigel_lumenoid",
-            "2D_Matrigel",
-            "2D_PLF",
-        ]
         collection = []
+        if only_3D==False:
+            movies = [f for f in os.listdir(parent_input_csvs_dir) if f.endswith(".csv") if ("3D" not in f) and not f.startswith(".")]
+        else:
+            movies = [f for f in os.listdir(parent_input_csvs_dir) if f.endswith(".csv") if ("3D" in f) and not f.startswith(".")]
 
-        for condition in conditions:
+        for movie in movies:
             # Read in each of the conditions as a dataset
-            collection.append({"name": condition, "path": condition})
-            readPath = f"/allen/aics/assay-dev/computational/data/EMT_deliverable_processing/LH_Analysis/Version2_ForPlotting/{condition}.csv"
+            collection.append({"name": movie, "path": movie})
+            readPath = os.path.join(parent_input_csvs_dir, movie)
+            print(readPath)
             data = pd.read_csv(readPath)
-            logging.info("Making dataset '" + condition + "'.")
-            make_dataset(data, output_dir + "/" + condition, dataset, do_frames, scale)
-        # write the collection.json file
-        with open(output_dir + "/collection.json", "w") as f:
-            json.dump(collection, f)
+            logging.info("Making dataset '" + movie + "'.")
+            make_dataset(data, output_dir + "/" + movie, dataset, do_frames, scale)
+
+
+
+
+
+
+
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--output_dir",
     type=str,
-    default="./data/",
+    default="/allen/aics/assay-dev/computational/data/EMT_deliverable_processing/Transcription_factor_cell_lines/Version_1/colorizer_output/EOMES",
     help="Parent directory to output to. Data will be written to a subdirectory named after the dataset parameter.",
 )
+
 parser.add_argument(
     "--dataset",
     type=str,
     default="",
     help="Compatible named FMS dataset or FMS id to load. Will be loaded from hardcoded csv.",
 )
+
+parser.add_argument(
+    "--parent_input_csvs_dir",
+    type=str,
+    required=False,
+    help="If you wanna specify a parent directory of csvs to convert, specify it here, otherwise leave blank"
+)
+
+parser.add_argument(
+    "--only_3D",
+    action="store_true",
+    help="If included, only converts the 3D datasets",
+)
+
 parser.add_argument(
     "--noframes",
     action="store_true",
@@ -331,5 +447,7 @@ if __name__ == "__main__":
         output_dir=args.output_dir,
         dataset=args.dataset,
         do_frames=not args.noframes,
+        parent_input_csvs_dir = args.parent_input_csvs_dir,
         scale=args.scale,
+        only_3D= args.only_3D
     )
