@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import json
 import logging
 import multiprocessing
@@ -9,6 +10,8 @@ from typing import Dict, List, Union
 import numpy as np
 from PIL import Image
 from colorizer_data.types import (
+    CURRENT_VERSION,
+    DATETIME_FORMAT,
     BackdropMetadata,
     ColorizerMetadata,
     DatasetManifest,
@@ -24,6 +27,7 @@ from colorizer_data.utils import (
     copy_remote_or_local_file,
     generate_frame_paths,
     make_relative_image_paths,
+    merge_dictionaries,
     replace_out_of_bounds_values_with_nan,
     sanitize_key_name,
     MAX_CATEGORIES,
@@ -42,7 +46,9 @@ class ColorizerDatasetWriter:
     """
 
     outpath: Union[str, pathlib.Path]
+    default_dataset_name: str
     manifest: DatasetManifest
+    metadata: ColorizerMetadata
     backdrops: Dict[str, BackdropMetadata]
     scale: float
 
@@ -83,6 +89,13 @@ class ColorizerDatasetWriter:
         if "backdrops" in self.manifest:
             for backdrop_metadata in self.manifest["backdrops"]:
                 self.backdrops[backdrop_metadata["key"]] = backdrop_metadata
+
+        self.default_dataset_name = dataset
+        if "metadata" not in self.manifest:
+            # New default metadata
+            self.metadata = ColorizerMetadata()
+        else:
+            self.metadata = ColorizerMetadata.from_dict(self.manifest["metadata"])
 
     def write_categorical_feature(self, data: np.ndarray, info: FeatureInfo) -> None:
         """
@@ -381,18 +394,50 @@ class ColorizerDatasetWriter:
 
         Must be called **AFTER** all other data is written.
 
+        Args:
+            num_frames (int): DEPRECATED. Define to generate the expected paths for frame images.
+            metadata (ColorizerMetadata): Metadata to be written with the dataset. Leave fields blank to use existing default values.
+
+        Note that some metadata fields (like `last_modified`, `_writer_version`, `_revision`, and `date_created`) will
+        be automatically updated. Add definitions for these fields in the `metadata` argument to override this behavior.
+
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#Dataset)
         """
 
         if num_frames is not None and self.manifest["frames"] is None:
-            logging.warn(
+            logging.warning(
                 "ColorizerDatasetWriter: The argument `num_frames` on `write_manifest` is deprecated and will be removed in the future! Please call `set_frame_paths(generate_frame_paths(num_frames))` instead."
             )
             self.set_frame_paths(generate_frame_paths(num_frames))
 
-        # Add the metadata
-        if metadata:
-            self.manifest["metadata"] = metadata.to_json()
+        # Automatically update metadata fields. This behavior can be overwritten using
+        # by defining the relevant fields in the the `metadata` argument.
+        current_time = datetime.now(timezone.utc).strftime(DATETIME_FORMAT)
+        # Update creation date if missing
+        if self.metadata.date_created is None:
+            self.metadata.date_created = current_time
+        # Update revision number
+        revision = self.metadata._revision
+        if revision is None:
+            self.metadata._revision = 0
+        else:
+            self.metadata._revision = revision + 1
+        # Update data version + modified timestamp
+        self.metadata.last_modified = current_time
+        self.metadata._writer_version = CURRENT_VERSION
+
+        # Use default dataset name from writer constructor if no name was loaded
+        # (will be overridden by `metadata.name` argument if provided)
+        if self.metadata.name is None:
+            self.metadata.name = self.default_dataset_name
+
+        # Optionally merge new metadata with old
+        if metadata is not None:
+            self.manifest["metadata"] = merge_dictionaries(
+                self.metadata.to_dict(), metadata.to_dict()
+            )
+        else:
+            self.manifest["metadata"] = self.metadata.to_dict()
 
         self.validate_dataset()
 
@@ -449,9 +494,9 @@ class ColorizerDatasetWriter:
         Logs warnings to the console if any expected files are missing.
         """
         if self.manifest["times"] is None:
-            logging.warn("No times JSON information provided!")
+            logging.warning("No times JSON information provided!")
         if not os.path.isfile(self.outpath + "/" + self.manifest["times"]):
-            logging.warn(
+            logging.warning(
                 "Times JSON file does not exist at expected path '{}'".format(
                     self.manifest["times"]
                 )
@@ -460,7 +505,7 @@ class ColorizerDatasetWriter:
         # TODO: Add validation for other required data files
 
         if self.manifest["frames"] is None:
-            logging.warn(
+            logging.warning(
                 "No frames are provided! Did you forget to call `set_frame_paths` on the writer?"
             )
         else:
@@ -471,15 +516,15 @@ class ColorizerDatasetWriter:
                 if not os.path.isfile(self.outpath + "/" + path):
                     missing_frames.append([i, path])
             if len(missing_frames) > 0:
-                logging.warn(
+                logging.warning(
                     "{} image frame(s) missing from the dataset! The following files could not be found:".format(
                         len(missing_frames)
                     )
                 )
                 for i in range(len(missing_frames)):
                     index, path = missing_frames[i]
-                    logging.warn("  {}: '{}'".format(index, path))
-                logging.warn(
+                    logging.warning("  {}: '{}'".format(index, path))
+                logging.warning(
                     "For auto-generated frame numbers, check that no frames are missing data in the original dataset,"
                     + " or add an offset if your frame numbers do not start at 0."
                     + " You may also need to generate the list of frames yourself if your dataset is skipping frames."

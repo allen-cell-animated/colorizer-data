@@ -3,6 +3,7 @@ from colorizer_data.types import FeatureInfo, FeatureType
 from colorizer_data.utils import (
     cast_feature_to_info_type,
     infer_feature_type,
+    merge_dictionaries,
     replace_out_of_bounds_values_with_nan,
 )
 import pytest
@@ -187,3 +188,49 @@ def test_replace_out_of_bounds_values_with_nan():
     expected = np.array([np.nan, 0, 2, 4, np.nan, np.nan, np.nan])
     replace_out_of_bounds_values_with_nan(data, 0, 4)
     assert np.array_equal(data, expected, True)
+
+
+def test_merge_dictionaries_ignores_none_and_missing():
+    a = {"a": 1, "b": 10, "c": "some-value"}
+    b = {"a": None, "b": 0}
+    result = merge_dictionaries(a, b)
+    assert result["a"] == 1
+    assert result["b"] == 0
+    assert result["c"] == "some-value"
+
+
+def test_merge_dictionaries():
+    a = {"a": 1, "b": 10, "c": "some-value"}
+    b = {"a": 2, "b": 0, "c": "some-other-value"}
+    result = merge_dictionaries(a, b)
+    assert result["a"] == 2
+    assert result["b"] == 0
+    assert result["c"] == "some-other-value"
+
+
+def test_merge_dictionaries_handles_nesting():
+    # Handles merging (including None values) for nested
+    # dictionary structures
+    a = {
+        "1": {"1": "a", "2": "a"},
+        "2": {
+            "1": {"1": "a", "2": "a"},
+            "2": "a",
+        },
+        "3": {"1": "a"},
+    }
+    b = {
+        "1": {"1": "b", "2": None},
+        "2": {
+            "1": {"1": "b", "2": None},
+            "2": "b",
+        },
+        "3": None,
+    }
+    result = merge_dictionaries(a, b)
+    assert result["1"]["1"] == "b"
+    assert result["1"]["2"] == "a"
+    assert result["2"]["1"]["1"] == "b"
+    assert result["2"]["1"]["2"] == "a"
+    assert result["2"]["2"] == "b"
+    assert result["3"]["1"] == "a"

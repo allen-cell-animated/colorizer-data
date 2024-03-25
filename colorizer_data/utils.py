@@ -5,7 +5,7 @@ import pathlib
 import platform
 import re
 import shutil
-from typing import Dict, List, Sequence, Union, Tuple
+from typing import Dict, List, Sequence, TypeVar, Union, Tuple
 
 import numpy as np
 import pandas as pd
@@ -490,7 +490,7 @@ def cast_feature_to_info_type(
             # Formatted correctly, return directly
             return (safely_cast_array_to_int(data), info)
         # Attempt to parse the data
-        if info.categories == None:
+        if info.categories is None:
             logging.warning(
                 "Feature '{}' has type set to CATEGORICAL, but is missing a categories array.".format(
                     info.get_name()
@@ -522,3 +522,22 @@ def cast_feature_to_info_type(
             info.type, info.get_name()
         )
     )
+
+
+T = TypeVar("T", bound=Dict)
+
+
+def merge_dictionaries(a: T, b: T) -> T:
+    """Recursively merges key-value pairs of `b` into `a`, ignoring keys with `None` values."""
+    # This is basically a replacement for `{...a, ...b}` in JavaScript
+    if b is None or a is None:
+        return a
+    # Make shallow copy of a
+    a = {**a}
+
+    for key, value in b.items():
+        if isinstance(value, dict):
+            a[key] = merge_dictionaries(a.get(key), value)
+        elif value is not None:
+            a[key] = value
+    return a
