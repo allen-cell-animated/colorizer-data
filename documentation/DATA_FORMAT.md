@@ -158,6 +158,13 @@ Besides the details shown above, these are additional parameters that the manife
 {
     ...
     "metadata": {
+        "name": <name of dataset>,
+        "description": <description text>,
+        "author": <string author name>,
+        "dateCreated": <datestring>,
+        "lastModified": <datestring>,
+        "revision": <number of times the datset has been modified>,
+        "dataVersion": <version number of the data scripts used to write this dataset>
         "frameDims": {
             "units": <unit label for frame dimensions>,
             "width": <width of frame in units>,
@@ -173,6 +180,8 @@ Besides the details shown above, these are additional parameters that the manife
 These metadata parameters are used to configure additional features of the Timelapse Colorizer UI, such as showing scale bars or timestamps on the main display. Additional metadata will likely be added as the project progresses.
 
 Note that the interface will directly show the unit labels and does not scale or convert units from one type to another (for example, it will not convert 1000 µm to 1 mm). If you need to present your data with different units, create a (scaled) duplicate of the feature with a different unit label.
+
+If using the provided writer utility scripts, the `revision`, `dataVersion`, `dateCreated`, and `lastModified` fields will be automatically written and updated.
 
 <details>
 <summary><b>[Show me an example!]</b></summary>
@@ -589,23 +598,32 @@ For example, if a dataset had the following tracks and outliers, the file might 
 
 ## Collections
 
-Collections are defined by an optional JSON file and group one or more datasets for easy access. Timelapse-Colorizer can parse collection files and present its datasets for easier comparison and analysis from the UI.
+Collections are defined by an optional JSON file and group one or more datasets together. Timelapse-Colorizer can parse collection files and present its datasets for easier comparison and analysis from the UI.
 
 By default, collection files should be named `collection.json`.
-
-Collections are an array of JSON objects, each of which define the `name` (an **alias**) and the `path` of a dataset. This can either be a relative path from the location of the collection file, or a complete URL.
-
-If the path does not define a `.json` file specifically, Timelapse-Colorizer will assume that the dataset's manifest is named `manifest.json` by default.
 
 `collection.json:`
 
 ```txt
-[
-    { "name": <some_name_1>, "path": <some_path_1>},
-    { "name": <some_name_2>, "path": <some_path_2>},
-    ...
-]
+{
+    "datasets": [
+        { "name": <some_name_1>, "path": <some_path_1>},
+        { "name": <some_name_2>, "path": <some_path_2>},
+        ...
+    ],
+    "metadata": {
+        ...
+    }
+}
 ```
+
+_Note: The legacy collection format was a JSON array instead of a JSON object. Backwards-compatibility is preserved in the viewer, but the JSON array format is considered deprecated._
+
+### 1. Defining datasets in collections
+
+Collections contain an array of dataset objects, each of which define the `name` (an **alias**) and the `path` of a dataset. This can either be a relative path from the location of the collection file, or a complete URL.
+
+If the path does not define a `.json` file specifically, Timelapse-Colorizer will assume that the dataset's manifest is named `manifest.json` by default.
 
 <details>
 <summary><b>[Show me an example!]</b></summary>
@@ -615,13 +633,15 @@ If the path does not define a `.json` file specifically, Timelapse-Colorizer wil
 For example, let's say a collection is located at `https://example.com/data/collection.json`, and the `collection.json` contains this:
 
 ```txt
-[
-  { "name": "Mama Bear", "path": "mama_bear" },
-  { "name": "Baby Bear", "path": "nested/baby_bear" },
-  { "name": "Babiest Bear", "path": "babiest_bear/dataset.json" },
-  { "name": "Goldilocks", "path": "https://example2.com/files/goldilocks" },
-  { "name": "Papa Bear", "path": "https://example3.com/files/papa_bear.json"}
-]
+{
+    "datasets": [
+        { "name": "Mama Bear", "path": "mama_bear" },
+        { "name": "Baby Bear", "path": "nested/baby_bear" },
+        { "name": "Babiest Bear", "path": "babiest_bear/dataset.json" },
+        { "name": "Goldilocks", "path": "https://example2.com/files/goldilocks" },
+        { "name": "Papa Bear", "path": "https://example3.com/files/papa_bear.json"}
+    ]
+}
 ```
 
 Here's a list of where Timelapse-Colorizer will check for the manifest files for all of the datasets:
@@ -637,6 +657,27 @@ Here's a list of where Timelapse-Colorizer will check for the manifest files for
 ---
 
 </details>
+
+### 2. Collection metadata
+
+A collection file can also include optional metadata fields, saved under the `metadata` key.
+
+`collection.json`
+
+```txt
+{
+    ...
+    "metadata": {
+        "name": <name of collection>,
+        "description": <description text>,
+        "author": <string author name>,
+        "dateCreated": <datestring>,
+        "lastModified": <datestring>,
+        "revision": <number of times the collection has been modified>,
+        "dataVersion": <version of the data scripts used to write this collection>
+    }
+}
+```
 
 ## FAQ
 

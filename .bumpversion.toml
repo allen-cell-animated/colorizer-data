@@ -7,3 +7,6 @@ current_version = "1.0.0"
 
 [[tool.bumpversion.files]]
 glob = "**/*.md"
+
+[[tool.bumpversion.files]]
+filename = "colorizer_data/types.py"

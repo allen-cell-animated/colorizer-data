@@ -29,6 +29,7 @@ dependencies = [
     "pillow",
     "scikit-image",
     "requests",
+    "dataclasses-json",
 ]
 dynamic = ["version"]
 

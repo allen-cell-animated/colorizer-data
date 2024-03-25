@@ -24,7 +24,7 @@ To install a different version, replace the end of the URL with a specific versi
 
 ## Example Usage
 
-This is a simplified example. See our example scripts(./colorizer_data/bin/example_scripts/) for complete working code!
+This is a simplified example. See our [example scripts](./colorizer_data/bin/example_scripts/) for complete working code!
 
 ```python
 import pandas as pd
