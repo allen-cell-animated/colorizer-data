@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import json
 import logging
 import os
@@ -5,14 +6,22 @@ import pathlib
 import platform
 import re
 import shutil
-from typing import Dict, List, Sequence, TypeVar, Union, Tuple
+from typing import Dict, List, Optional, Sequence, TypeVar, Union, Tuple
 
 import numpy as np
 import pandas as pd
 import requests
 import skimage
 
-from colorizer_data.types import FeatureInfo, FeatureType
+from colorizer_data.types import (
+    CURRENT_VERSION,
+    DATETIME_FORMAT,
+    CollectionManifest,
+    CollectionMetadata,
+    ColorizerMetadata,
+    FeatureInfo,
+    FeatureType,
+)
 
 MAX_CATEGORIES = 12
 INITIAL_INDEX_COLUMN = "initialIndex"
@@ -129,12 +138,65 @@ def remap_segmented_image(
     return (seg_remapped, lut)
 
 
-def update_collection(collection_filepath, dataset_name, dataset_path):
+def update_metadata(
+    metadata: Optional[Union[CollectionMetadata, ColorizerMetadata]],
+    *,
+    default_name: Optional[str] = None,
+):
+    """
+    Updates the following fields in a dataset or collection metadata object:
+    - date_created: Sets to current time if none exists.
+    - last_modified: Sets to current time.
+    - _revision: Sets to 0 if none exists; otherwise increments by 1.
+    - _writer_version: Sets to `types.CURRENT_VERSION`.
+    - name: Sets name if none exists and a `default_name` argument was provided.
+
+    Args:
+        metadata (CollectionMetadata | ColorizerMetadata): The metadata object to update.
+        default_name (str): The name of the collection or dataset to use if the metadata has none.
+    """
+    current_time = datetime.now(timezone.utc).strftime(DATETIME_FORMAT)
+
+    # Update creation date if missing
+    if metadata.date_created is None:
+        metadata.date_created = current_time
+    # Update revision number
+    revision = metadata._revision
+    if revision is None:
+        metadata._revision = 0
+    else:
+        metadata._revision = revision + 1
+    # Update data version + modified timestamp
+    metadata.last_modified = current_time
+    metadata._writer_version = CURRENT_VERSION
+
+    # Use default dataset name from writer constructor if no name was loaded
+    # (will be overridden by `metadata.name` argument if provided)
+    if metadata.name is None and default_name is not None:
+        metadata.name = default_name
+
+
+# TODO: Should collections have their own writer?
+def update_collection(
+    collection_filepath,
+    dataset_name,
+    dataset_path,
+    *,
+    metadata: Optional[CollectionMetadata] = None,
+):
     """
     Adds a dataset to a collection file, creating the collection file if it doesn't already exist.
     If the dataset is already in the collection, the existing dataset path will be updated.
+
+    Args:
+        collection_filepath: The path of the collection file to create or update. Must be a .json file.
+        dataset_name: The name of the dataset to add to the collection.
+        dataset_path: The relative path to the dataset, from the root directory of the `collection_filepath`.
+        metadata: Optional metadata to update the collection with. If not provided, the existing metadata will
+        be used, and fields will be automatically updated. Define fields in the `metadata` argument to override
+        this behavior.
     """
-    collection = []
+    collection: Optional[CollectionManifest] = None
 
     # Read in the existing collection, if it exists
     if os.path.exists(collection_filepath):
@@ -142,21 +204,43 @@ def update_collection(collection_filepath, dataset_name, dataset_path):
             with open(collection_filepath, "r") as f:
                 collection = json.load(f)
         except:
-            collection = []
+            collection = None
+
+    if collection is None:
+        collection: CollectionManifest = {
+            "datasets": [],
+            "metadata": CollectionMetadata(),
+        }
+    if isinstance(collection, list):
+        # Nest into collection structure
+        collection: CollectionManifest = {
+            "datasets": collection,
+            "metadata": CollectionMetadata(),
+        }
+
+    # Update the metadata fields
+    old_metadata = CollectionMetadata.from_dict(collection["metadata"])
+    update_metadata(old_metadata)
+
+    if metadata is not None:
+        collection["metadata"] = merge_dictionaries(
+            old_metadata.to_dict(), metadata.to_dict()
+        )
+    else:
+        collection["metadata"] = old_metadata.to_dict()
+
+    # Update the collection
+    in_collection = False
+    for i in range(len(collection["datasets"])):
+        dataset_item = collection["datasets"][i]
+        if dataset_item["name"] == dataset_name:
+            collection["datasets"][i]["path"] = dataset_path
+            in_collection = True
+    if not in_collection:
+        collection["datasets"].append({"name": dataset_name, "path": dataset_path})
 
     # Update the collection file and write it out
     with open(collection_filepath, "w") as f:
-        in_collection = False
-        # Check if the dataset already exists
-        for i in range(len(collection)):
-            dataset_item = collection[i]
-            if dataset_item["name"] == dataset_name:
-                # We found a matching dataset, so update the dataset path and exit
-                collection[i]["path"] = dataset_path
-                json.dump(collection, f)
-                return
-        # No matching dataset was found, so add it to the collection
-        collection.append({"name": dataset_name, "path": dataset_path})
         json.dump(collection, f)
 
 

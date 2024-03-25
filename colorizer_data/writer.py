@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 import json
 import logging
 import multiprocessing
@@ -10,8 +9,6 @@ from typing import Dict, List, Union
 import numpy as np
 from PIL import Image
 from colorizer_data.types import (
-    CURRENT_VERSION,
-    DATETIME_FORMAT,
     BackdropMetadata,
     ColorizerMetadata,
     DatasetManifest,
@@ -32,6 +29,7 @@ from colorizer_data.utils import (
     sanitize_key_name,
     MAX_CATEGORIES,
     NumpyValuesEncoder,
+    update_metadata,
 )
 
 
@@ -410,26 +408,7 @@ class ColorizerDatasetWriter:
             )
             self.set_frame_paths(generate_frame_paths(num_frames))
 
-        # Automatically update metadata fields. This behavior can be overwritten using
-        # by defining the relevant fields in the the `metadata` argument.
-        current_time = datetime.now(timezone.utc).strftime(DATETIME_FORMAT)
-        # Update creation date if missing
-        if self.metadata.date_created is None:
-            self.metadata.date_created = current_time
-        # Update revision number
-        revision = self.metadata._revision
-        if revision is None:
-            self.metadata._revision = 0
-        else:
-            self.metadata._revision = revision + 1
-        # Update data version + modified timestamp
-        self.metadata.last_modified = current_time
-        self.metadata._writer_version = CURRENT_VERSION
-
-        # Use default dataset name from writer constructor if no name was loaded
-        # (will be overridden by `metadata.name` argument if provided)
-        if self.metadata.name is None:
-            self.metadata.name = self.default_dataset_name
+        update_metadata(self.metadata, default_name=self.default_dataset_name)
 
         # Optionally merge new metadata with old
         if metadata is not None:
