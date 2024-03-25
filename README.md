@@ -14,10 +14,10 @@ If using these example scripts, you'll need to run these commands in an environm
 
 ```
 # pip
-pip install git+https://github.com/allen-cell-animated/colorizer-data.git@v1.0.0
+pip install git+https://github.com/allen-cell-animated/colorizer-data.git@v1.1.0
 
 # requirements.txt
-colorizer_data @ git+https://github.com/allen-cell-animated/colorizer-data.git@v1.0.0
+colorizer_data @ git+https://github.com/allen-cell-animated/colorizer-data.git@v1.1.0
 ```
 
 To install a different version, replace the end of the URL with a specific version or branch, like `@vX.X.X` or `@{branch-name}`.
@@ -124,7 +124,7 @@ The `type` should be either `major`, `minor`, or `patch`.
 
 #### Example
 
-Bumping major versions. The tag `v1.0.0` will be the newest tag created by `bump-my-version`.
+If the current version is `v0.0.0`, bumping major versions will create the tag tag `v1.0.0`.
 
 ```cmd
 bump-my-version bump --tag -v major
