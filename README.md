@@ -124,9 +124,9 @@ The `type` should be either `major`, `minor`, or `patch`.
 
 #### Example
 
-Bumping major versions. The tag `v1.1.0` will be the newest tag created by `bump-my-version`.
+If the current version is `v0.0.0`, bumping major versions will create the tag tag `v1.0.0`.
 
 ```cmd
 bump-my-version bump --tag -v major
-git push origin v1.1.0
+git push origin v1.0.0
 ```
