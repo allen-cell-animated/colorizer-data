@@ -1,3 +1,4 @@
+import collections
 import json
 import logging
 import multiprocessing
@@ -482,6 +483,22 @@ class ColorizerDatasetWriter:
             )
 
         # TODO: Add validation for other required data files
+
+        # Check that all features are unique.
+        feature_keys = [feature["key"] for feature in self.manifest["features"]]
+        if len(feature_keys) != len(set(feature_keys)):
+            # Copied from https://stackoverflow.com/questions/9835762/how-do-i-find-the-duplicates-in-a-list-and-create-another-list-with-them
+            duplicates = [
+                item
+                for item, count in collections.Counter(feature_keys).items()
+                if count > 1
+            ]
+            logging.error(
+                "All feature keys must be unique! The following duplicated feature keys were detected:"
+            )
+            logging.error("   [" + ", ".join(duplicates) + "]")
+            logging.error("Dataset writing will now halt.")
+            raise RuntimeError("Duplicate feature keys detected in dataset manifest.")
 
         if self.manifest["frames"] is None:
             logging.warning(
