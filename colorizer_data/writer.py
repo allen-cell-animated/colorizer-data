@@ -1,4 +1,3 @@
-import collections
 import json
 import logging
 import multiprocessing
@@ -24,6 +23,7 @@ from colorizer_data.utils import (
     cast_feature_to_info_type,
     copy_remote_or_local_file,
     generate_frame_paths,
+    get_duplicate_items,
     make_relative_image_paths,
     merge_dictionaries,
     replace_out_of_bounds_values_with_nan,
@@ -485,20 +485,27 @@ class ColorizerDatasetWriter:
         # TODO: Add validation for other required data files
 
         # Check that all features are unique.
+        # TODO: Use dictionary to store features during writing?
         feature_keys = [feature["key"] for feature in self.manifest["features"]]
-        if len(feature_keys) != len(set(feature_keys)):
-            # Copied from https://stackoverflow.com/questions/9835762/how-do-i-find-the-duplicates-in-a-list-and-create-another-list-with-them
-            duplicates = [
-                item
-                for item, count in collections.Counter(feature_keys).items()
-                if count > 1
-            ]
+        duplicate_feature_keys = get_duplicate_items(feature_keys)
+        if len(duplicate_feature_keys) > 0:
             logging.error(
                 "All feature keys must be unique! The following duplicated feature keys were detected:"
             )
-            logging.error("   [" + ", ".join(duplicates) + "]")
+            logging.error("   [" + ", ".join(duplicate_feature_keys) + "]")
             logging.error("Dataset writing will now halt.")
             raise RuntimeError("Duplicate feature keys detected in dataset manifest.")
+
+        # Should not happen because we are using a dictionary to store backdrops :)
+        backdrop_keys = [backdrop["key"] for backdrop in self.manifest["backdrops"]]
+        duplicate_backdrop_keys = get_duplicate_items(backdrop_keys)
+        if len(duplicate_backdrop_keys) > 0:
+            logging.error(
+                "All backdrop keys must be unique! The following duplicated backdrop keys were detected:"
+            )
+            logging.error("   [" + ", ".join(duplicate_backdrop_keys) + "]")
+            logging.error("Dataset writing will now halt.")
+            raise RuntimeError("Duplicate backdrop keys detected in dataset manifest.")
 
         if self.manifest["frames"] is None:
             logging.warning(

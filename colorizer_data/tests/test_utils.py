@@ -12,6 +12,7 @@ from colorizer_data.types import (
 )
 from colorizer_data.utils import (
     cast_feature_to_info_type,
+    get_duplicate_items,
     infer_feature_type,
     merge_dictionaries,
     replace_out_of_bounds_values_with_nan,
@@ -395,3 +396,15 @@ def test_merge_dictionaries_handles_nesting():
     assert result["2"]["1"]["2"] == "a"
     assert result["2"]["2"] == "b"
     assert result["3"]["1"] == "a"
+
+
+def test_get_duplicates():
+    assert get_duplicate_items([]) == []
+
+    assert get_duplicate_items(["a"]) == []
+    assert get_duplicate_items(["a", "b", "c"]) == []
+
+    assert get_duplicate_items(["a", "a"]) == ["a"]
+    assert get_duplicate_items(["a", "b", "c", "c", "d", "b", "c"]) == ["b", "c"]
+
+    assert get_duplicate_items(["c", "b", "a", "a", "c", "b"]) == ["c", "b", "a"]
