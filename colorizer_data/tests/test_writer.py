@@ -240,9 +240,9 @@ def test_writer_throws_error_on_duplicate_feature_keys(tmp_path):
     writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
     setup_dummy_writer_data(writer)
 
-    feature_1_info = FeatureInfo(key="feature_1", label="Feature 1")
+    feature_1_info = FeatureInfo(key="shared_feature_key", label="Feature 1")
     writer.write_feature(np.array([0, 1, 2, 3]), feature_1_info)
-    feature_2_info = FeatureInfo(key="feature_1", label="Feature 2")
+    feature_2_info = FeatureInfo(key="shared_feature_key", label="Feature 2")
     writer.write_feature(np.array([0, 1, 2, 3]), feature_2_info)
 
     with pytest.raises(RuntimeError):
@@ -255,7 +255,6 @@ def test_writer_overwrites_duplicate_backdrop_keys(tmp_path):
 
     writer.add_backdrops("Backdrop 1", [], "shared_backdrop_key")
     writer.add_backdrops("Backdrop 2", [], "shared_backdrop_key")
-
     writer.write_manifest()
 
     with open(tmp_path / DEFAULT_DATASET_NAME / "manifest.json", "r") as f:
