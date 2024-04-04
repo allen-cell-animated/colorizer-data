@@ -1,3 +1,4 @@
+import collections
 from datetime import datetime, timezone
 import json
 import logging
@@ -625,3 +626,12 @@ def merge_dictionaries(a: T, b: T) -> T:
         elif value is not None:
             a[key] = value
     return a
+
+
+def get_duplicate_items(input: List[str]) -> List[str]:
+    """
+    Returns a list of any items in the input array that appear more than once.
+    Duplicate items are returned in order of their first appearance.
+    """
+    # Copied from https://stackoverflow.com/questions/9835762/how-do-i-find-the-duplicates-in-a-list-and-create-another-list-with-them
+    return [item for item, count in collections.Counter(input).items() if count > 1]
