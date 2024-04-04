@@ -49,6 +49,7 @@ class ColorizerDatasetWriter:
     manifest: DatasetManifest
     metadata: ColorizerMetadata
     backdrops: Dict[str, BackdropMetadata]
+    features: Dict[str, FeatureMetadata]
     scale: float
 
     def __init__(
@@ -82,6 +83,7 @@ class ColorizerDatasetWriter:
 
         # Clear features
         self.manifest["features"] = []
+        self.features = {}
 
         # Load backdrops from existing manifest, if applicable
         self.backdrops = {}
@@ -182,7 +184,7 @@ class ColorizerDatasetWriter:
                 replace_out_of_bounds_values_with_nan(data, 0, len(info.categories) - 1)
 
         # Fetch feature data
-        num_features = len(self.manifest["features"])
+        num_features = len(self.features.keys())
         fmin = np.nanmin(data)
         fmax = np.nanmax(data)
         filename = "feature_" + str(num_features) + ".json"
@@ -234,8 +236,17 @@ class ColorizerDatasetWriter:
                     info.get_name()
                 )
             )
-
-        self.manifest["features"].append(metadata)
+        if key in self.features.keys():
+            # Throw a warning that we are overwriting data
+            old_feature_data = self.features[key]
+            logging.warning(
+                "Feature key '{}' already exists in manifest. Feature '{}' will overwrite existing feature '{}'. Overwriting...".format(
+                    key,
+                    label,
+                    old_feature_data["name"],
+                )
+            )
+        self.features[key] = metadata
 
     def write_data(
         self,
@@ -419,14 +430,28 @@ class ColorizerDatasetWriter:
         else:
             self.manifest["metadata"] = self.metadata.to_dict()
 
-        self.validate_dataset()
-
         self.manifest["backdrops"] = list(self.backdrops.values())
+        self.manifest["features"] = list(self.features.values())
+
+        self.validate_dataset()
 
         with open(self.outpath + "/manifest.json", "w") as f:
             json.dump(self.manifest, f, indent=2)
 
         logging.info("Finished writing dataset.")
+
+    def __check_for_duplicate_keys(self, keys: List[str], key_name: str):
+        """Throws an error if duplicates are detected in the list of keys, and prints an error message to the console."""
+        duplicate_keys = get_duplicate_items(keys)
+        if len(duplicate_keys) > 0:
+            logging.error(
+                f"All {key_name} keys must be unique! The following duplicated {key_name} keys were detected:"
+            )
+            logging.error("   [" + ", ".join(duplicate_keys) + "]")
+            logging.error("Dataset writing will now halt.")
+            raise RuntimeError(
+                f"Duplicate {key_name} keys detected in dataset manifest."
+            )
 
     def write_image(
         self,
@@ -484,28 +509,13 @@ class ColorizerDatasetWriter:
 
         # TODO: Add validation for other required data files
 
-        # Check that all features are unique.
-        # TODO: Use dictionary to store features during writing?
+        # Check that all features + backdrops have unique keys. This should be guaranteed because
+        # they are stored as dictionaries before writing.
         feature_keys = [feature["key"] for feature in self.manifest["features"]]
-        duplicate_feature_keys = get_duplicate_items(feature_keys)
-        if len(duplicate_feature_keys) > 0:
-            logging.error(
-                "All feature keys must be unique! The following duplicated feature keys were detected:"
-            )
-            logging.error("   [" + ", ".join(duplicate_feature_keys) + "]")
-            logging.error("Dataset writing will now halt.")
-            raise RuntimeError("Duplicate feature keys detected in dataset manifest.")
-
-        # Should not happen because we are using a dictionary to store backdrops :)
-        backdrop_keys = [backdrop["key"] for backdrop in self.manifest["backdrops"]]
-        duplicate_backdrop_keys = get_duplicate_items(backdrop_keys)
-        if len(duplicate_backdrop_keys) > 0:
-            logging.error(
-                "All backdrop keys must be unique! The following duplicated backdrop keys were detected:"
-            )
-            logging.error("   [" + ", ".join(duplicate_backdrop_keys) + "]")
-            logging.error("Dataset writing will now halt.")
-            raise RuntimeError("Duplicate backdrop keys detected in dataset manifest.")
+        self.__check_for_duplicate_keys(feature_keys, "feature")
+        if "backdrops" in self.manifest.keys():
+            backdrop_keys = [backdrop["key"] for backdrop in self.manifest["backdrops"]]
+            self.__check_for_duplicate_keys(backdrop_keys, "backdrop")
 
         if self.manifest["frames"] is None:
             logging.warning(

@@ -236,7 +236,7 @@ def test_writer_updates_fields_when_metadata_is_missing(blank_manifest):
         assert metadata._revision == 0
 
 
-def test_writer_throws_error_on_duplicate_feature_keys(tmp_path):
+def test_writer_overwrites_duplicate_feature_keys(tmp_path):
     writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
     setup_dummy_writer_data(writer)
 
@@ -244,9 +244,14 @@ def test_writer_throws_error_on_duplicate_feature_keys(tmp_path):
     writer.write_feature(np.array([0, 1, 2, 3]), feature_1_info)
     feature_2_info = FeatureInfo(key="shared_feature_key", label="Feature 2")
     writer.write_feature(np.array([0, 1, 2, 3]), feature_2_info)
+    writer.write_manifest()
 
-    with pytest.raises(RuntimeError):
-        writer.write_manifest()
+    with open(tmp_path / DEFAULT_DATASET_NAME / "manifest.json", "r") as f:
+        manifest: DatasetManifest = json.load(f)
+
+        assert len(manifest["features"]) == 1
+        assert manifest["features"][0]["key"] == "shared_feature_key"
+        assert manifest["features"][0]["name"] == "Feature 2"
 
 
 def test_writer_overwrites_duplicate_backdrop_keys(tmp_path):
