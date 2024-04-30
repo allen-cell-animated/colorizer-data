@@ -140,7 +140,7 @@ class ColorizerDatasetWriter:
             data (`np.ndarray[int | float]`): The numpy array for the feature, to be written to a JSON file.
             info (`FeatureInfo`): Metadata for the feature.
             outliers (`np.ndarray`): Optional boolean array, where an object `i` is an outlier if `outliers[i] == True`.
-                Outliers will not count towards min/max calulation. Ignored if not provided.
+                Outliers will not count towards min/max calculation. Ignored if not provided.
             min (int | float): Optional override for minimum feature value. If not provided, will be calculated from `data`.
             max (int | float): Optional override for maximum feature value. If not provided, will be calculated from `data`.
 
