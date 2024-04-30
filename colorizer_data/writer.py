@@ -124,13 +124,25 @@ class ColorizerDatasetWriter:
         info.type = FeatureType.CATEGORICAL
         return self.write_feature(indexed_data, info)
 
-    def write_feature(self, data: np.ndarray, info: FeatureInfo) -> None:
+    def write_feature(
+        self,
+        data: np.ndarray,
+        info: FeatureInfo,
+        *,
+        outliers: Union[np.ndarray, None] = None,
+        min: Union[int, float, None] = None,
+        max: Union[int, float, None] = None,
+    ) -> None:
         """
         Writes a feature data array and stores feature metadata to be written to the manifest.
 
         Args:
             data (`np.ndarray[int | float]`): The numpy array for the feature, to be written to a JSON file.
             info (`FeatureInfo`): Metadata for the feature.
+            outliers (`np.ndarray`): Optional boolean array, where an object `i` is an outlier if `outliers[i] == True`.
+                Outliers will not count towards min/max calulation. Ignored if not provided.
+            min (int | float): Optional override for minimum feature value. If not provided, will be calculated from `data`.
+            max (int | float): Optional override for maximum feature value. If not provided, will be calculated from `data`.
 
         Feature JSON files are suffixed by index, starting at 0, which increments
         for each call to `write_feature()`. The first feature will have `feature_0.json`,
@@ -183,12 +195,20 @@ class ColorizerDatasetWriter:
                 logging.warning("\tBad values will be replaced with NaN.")
                 replace_out_of_bounds_values_with_nan(data, 0, len(info.categories) - 1)
 
-        # Fetch feature data
         num_features = len(self.features.keys())
-        fmin = np.nanmin(data)
-        fmax = np.nanmax(data)
         filename = "feature_" + str(num_features) + ".json"
         file_path = self.outpath + "/" + filename
+
+        # Calculate min/max
+        filtered_data = data
+        if outliers is not None:
+            filtered_data = data[np.logical_not(outliers)]
+        fmin = min
+        fmax = max
+        if min is None:
+            fmin = np.nanmin(filtered_data)
+        if max is None:
+            fmax = np.nanmax(filtered_data)
 
         key = info.key
         if key == "":
