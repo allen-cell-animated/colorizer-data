@@ -268,3 +268,43 @@ def test_writer_overwrites_duplicate_backdrop_keys(tmp_path):
         assert len(manifest["backdrops"]) == 1
         assert manifest["backdrops"][0]["key"] == "shared_backdrop_key"
         assert manifest["backdrops"][0]["name"] == "Backdrop 2"
+
+
+def test_writer_ignores_outliers_when_calculating_feature_min_max(tmp_path):
+    writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
+    setup_dummy_writer_data(writer)
+
+    feature_info = FeatureInfo(key="feature", label="Feature")
+    writer.write_feature(
+        np.array([0, 1, 2, 3, 4]),
+        feature_info,
+        outliers=[True, False, False, True, True],
+    )
+    writer.write_manifest()
+
+    with open(tmp_path / DEFAULT_DATASET_NAME / "manifest.json", "r") as f:
+        manifest: DatasetManifest = json.load(f)
+        feature_file = manifest["features"][0]["data"]
+        with open(tmp_path / DEFAULT_DATASET_NAME / feature_file, "r") as f2:
+            feature_data = json.load(f2)
+            assert feature_data["min"] == 1
+            assert feature_data["max"] == 2
+            assert feature_data["data"] == [0, 1, 2, 3, 4]
+
+
+def test_writer_uses_overrides_when_calculating_feature_min_max(tmp_path):
+    writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
+    setup_dummy_writer_data(writer)
+
+    feature_info = FeatureInfo(key="feature", label="Feature")
+    writer.write_feature(np.array([0, 1, 2, 3, 4]), feature_info, min=-5, max=3)
+    writer.write_manifest()
+
+    with open(tmp_path / DEFAULT_DATASET_NAME / "manifest.json", "r") as f:
+        manifest: DatasetManifest = json.load(f)
+        feature_file = manifest["features"][0]["data"]
+        with open(tmp_path / DEFAULT_DATASET_NAME / feature_file, "r") as f2:
+            feature_data = json.load(f2)
+            assert feature_data["min"] == -5
+            assert feature_data["max"] == 3
+            assert feature_data["data"] == [0, 1, 2, 3, 4]
