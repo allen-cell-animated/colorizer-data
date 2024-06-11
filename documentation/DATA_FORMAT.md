@@ -1,12 +1,12 @@
-# Timelapse-Colorizer Data Format
+# Timelapse Feature Explorer - Data Format
 
 Last release: v1.2.0
 
-Timelapse-Colorizer can only load datasets that follow the defined data specification.
+Timelapse Feature Explorer can only load datasets that follow the defined data specification.
 
 The easiest way to get started is to modify one of our existing data processing scripts, like [`convert_nucmorph_data.py`](../colorizer_data/bin/example_scripts/convert_nucmorph_data.py)! See the [README](../README.md) for more details on how to install this package.
 
-(Check with your team or one of the developers on the Animated Cell team to see if there's already a data generation script for your project!)
+(Check with your team or one of the developers on the Simulation & Visualization team to see if there's already a data generation script for your project!)
 
 ## Terms
 
@@ -57,13 +57,13 @@ The most important file is the **manifest**, which is a JSON file that describes
 
 _Note: all paths are relative to the location of the manifest file._
 
-Note that the `outliers`, `centroids`, and `bounds` files are optional, but certain features of Timelapse-Colorizer won't work without them.
+Note that the `outliers`, `centroids`, and `bounds` files are optional, but certain features of Timelapse Feature Explorer won't work without them.
 
 **Features** can also define additional optional metadata, such as the units and type. Note that there are additional restrictions on some of these fields. **`type`** must have values `continuous` for floats or decimals, `discrete` for integers, or `categorical` for distinct labels.
 
 Features that have the `categorical` type must also define an array of string `categories`, up to a maximum of 12.
 
-A complete example dataset is also available in the [`documentation`](./example_dataset) directory of this project, and can be [viewed on Timelapse-Colorizer](https://dev-aics-dtp-001.int.allencell.org/nucmorph-colorizer/dist/?dataset=https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/example_dataset/manifest.json).
+A complete example dataset is also available in the [`documentation`](./example_dataset) directory of this project, and can be [viewed on Timelapse Feature Explorer](https://allen-cell-animated.github.io/timelapse-colorizer/viewer?dataset=https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/example_dataset/manifest.json).
 
 ### Note on keys
 
@@ -177,7 +177,7 @@ Besides the details shown above, these are additional parameters that the manife
 }
 ```
 
-These metadata parameters are used to configure additional features of the Timelapse Colorizer UI, such as showing scale bars or timestamps on the main display. Additional metadata will likely be added as the project progresses.
+These metadata parameters are used to configure additional features of the Timelapse Feature Explorer UI, such as showing scale bars or timestamps on the main display. Additional metadata will likely be added as the project progresses.
 
 Note that the interface will directly show the unit labels and does not scale or convert units from one type to another (for example, it will not convert 1000 µm to 1 mm). If you need to present your data with different units, create a (scaled) duplicate of the feature with a different unit label.
 
@@ -426,7 +426,7 @@ The resulting frame would look like this:
 
 ### 6. Features
 
-Datasets can contain any number of `features`, which are a numeric value assigned to each object ID in the dataset. Features are used by the Timelapse-Colorizer to colorize objects, and each feature file corresponds to a single column of data. Examples of relevant features might include the volume, depth, number of neighbors, age, etc. of each object.
+Datasets can contain any number of `features`, which are a numeric value assigned to each object ID in the dataset. Features are used by the Timelapse Feature Explorer to colorize objects, and each feature file corresponds to a single column of data. Examples of relevant features might include the volume, depth, number of neighbors, age, etc. of each object.
 
 Features include a `data` array, specifying the feature value for each object ID, and should also provide a `min` and `max` range property. How feature values
 should be interpreted can be defined in the `manifest.json` metadata.
@@ -550,7 +550,7 @@ Again, coordinates are defined in pixels in the image frame, where the upper lef
 
 ### 9. Outliers (optional)
 
-The outliers file stores whether a given object ID should be marked as an outlier using an array of booleans (`true`/`false`). Indices that are `true` indicate outlier values, and are given a unique color in Timelapse-Colorizer.
+The outliers file stores whether a given object ID should be marked as an outlier using an array of booleans (`true`/`false`). Indices that are `true` indicate outlier values, and are given a unique color in Timelapse Feature Explorer.
 
 `outliers.json:`
 
@@ -598,7 +598,7 @@ For example, if a dataset had the following tracks and outliers, the file might 
 
 ## Collections
 
-Collections are defined by an optional JSON file and group one or more datasets together. Timelapse-Colorizer can parse collection files and present its datasets for easier comparison and analysis from the UI.
+Collections are defined by an optional JSON file and group one or more datasets together. Timelapse Feature Explorer can parse collection files and present its datasets for easier comparison and analysis from the UI.
 
 By default, collection files should be named `collection.json`.
 
@@ -623,7 +623,7 @@ _Note: The legacy collection format was a JSON array instead of a JSON object. B
 
 Collections contain an array of dataset objects, each of which define the `name` (an **alias**) and the `path` of a dataset. This can either be a relative path from the location of the collection file, or a complete URL.
 
-If the path does not define a `.json` file specifically, Timelapse-Colorizer will assume that the dataset's manifest is named `manifest.json` by default.
+If the path does not define a `.json` file specifically, Timelapse Feature Explorer will assume that the dataset's manifest is named `manifest.json` by default.
 
 <details>
 <summary><b>[Show me an example!]</b></summary>
@@ -644,7 +644,7 @@ For example, let's say a collection is located at `https://example.com/data/coll
 }
 ```
 
-Here's a list of where Timelapse-Colorizer will check for the manifest files for all of the datasets:
+Here's a list of where Timelapse Feature Explorer will check for the manifest files for all of the datasets:
 
 | Dataset      | Expected URL Path                                         |
 | ------------ | --------------------------------------------------------- |

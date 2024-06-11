@@ -1,10 +1,10 @@
 # colorizer-data
 
-### Python utilities to prepare data for the [Timelapse Colorizer app](https://github.com/allen-cell-animated/nucmorph-colorizer)
+### Python utilities to prepare data for the [Timelapse Feature Explorer](https://github.com/allen-cell-animated/timelapse-colorizer)
 
-[Timelapse Colorizer](https://github.com/allen-cell-animated/nucmorph-colorizer) is a browser-based web app for viewing tracked segmented data.
+[Timelapse Feature Explorer](https://github.com/allen-cell-animated/timelapse-colorizer) is a browser-based web app for viewing tracked segmented data.
 
-Utilities are included in this repository to convert time-series data to the Timelapse Colorizer's format. You can read more about the data format specification here: [`DATA_FORMAT.md`](./documentation/DATA_FORMAT.md)
+Utilities are included in this repository to convert time-series data to the Timelapse Feature Explorer's format. You can read more about the data format specification here: [`DATA_FORMAT.md`](./documentation/DATA_FORMAT.md)
 
 Example scripts are also included in this repository, based on some of our internal projects. You can edit these scripts to work with your datasets as part of a processing pipeline.
 
@@ -106,7 +106,7 @@ pip install -e '.[dev]'
 
 ### Versioning
 
-Colorizer-data uses [semantic versioning](https://semver.org). All versions are tagged in this repository with `vX.Y.Z`, where `X`, `Y`, and `Z` correspond with major, minor, and patch version numbers. The API will be backwards-compatible within the same major version.
+This package uses [semantic versioning](https://semver.org). All versions are tagged in this repository with `vX.Y.Z`, where `X`, `Y`, and `Z` correspond with major, minor, and patch version numbers. The API will be backwards-compatible within the same major version.
 
 Contributing developers can update the version number using the [`bump-my-version`](https://github.com/callowayproject/bump-my-version) Python tool, which will automatically tag commits. You can learn more about [git tagging here.](https://git-scm.com/book/en/v2/Git-Basics-Tagging)
 
