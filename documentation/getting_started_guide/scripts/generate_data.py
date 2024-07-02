@@ -27,20 +27,21 @@ df = pd.DataFrame(
 )
 
 # Generate the images.
-frame_dimensions = (100, 100)
+frame_dimensions = (200, 200)
 images = []
 num_frames = 10
 num_circles = 5
-circle_base_radius = 8
+circle_base_radius = 15
+circle_min_radius = 3
 circle_radius_variance = 2
-circle_max_speed = 3
+circle_max_position_change = 10
 
-circle_last_y_position = np.full(num_circles, 50)
+circle_last_y_position = np.full(num_circles, frame_dimensions[0] / 2)
 circle_last_radius = np.full(num_circles, circle_base_radius)
 
 # TODO: Make a prettier pattern, like the circles spinning?
 for i in range(num_frames):
-    image = np.zeros((100, 100), dtype=np.uint8)
+    image = np.zeros(frame_dimensions, dtype=np.uint8)
     t = i / num_frames
 
     # Draw each of the circles on the image.
@@ -49,25 +50,27 @@ for i in range(num_frames):
         radius = circle_last_radius[j] + np.random.randint(
             -circle_radius_variance, circle_radius_variance
         )
+        radius = max(radius, circle_min_radius)
         circle_last_radius[j] = radius
 
         x = (j + 1) * (frame_dimensions[0] / (num_circles + 1))
-        print(circle_last_y_position)
         y = circle_last_y_position[j] + np.random.randint(
-            -circle_max_speed, circle_max_speed
+            -circle_max_position_change, circle_max_position_change
         )
         circle_last_y_position[j] = y
 
         # Draw the circle in the segmentation image,
         # filling it with the object ID. (0 is reserved for the background,
         # so we add 1 to the object ID to avoid conflicts.)
-        rr, cc = draw.disk((x, y), radius)
+        rr, cc = draw.disk((y, x), radius)
         object_id = i * num_circles + j
         image[rr, cc] = object_id + 1
 
         # Add the circle's data to the data frame.
+        # Calculate any additional features
         circle_area = np.pi * radius**2
         circle_height = y
+
         df = pd.concat(
             [
                 df,
