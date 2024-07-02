@@ -681,9 +681,9 @@ A collection file can also include optional metadata fields, saved under the `me
 
 ## FAQ
 
-### My data needs to start at a timepoint other than zero.
+### My data needs to start at a timepoint other than zero
 
-Once you get the first frame in your dataset, you'll need to save this data to your dataset's metadata and also include the information when generating the frame paths.
+Once you get the first frame in your dataset, you'll need to save the `starting_timepoint` to your dataset's metadata and include the information when generating the frame paths.
 
 ```python
 writer = ColorizerDatasetWriter(...)
