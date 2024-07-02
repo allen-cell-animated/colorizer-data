@@ -1,0 +1,52 @@
+{
+  "features": [
+    {
+      "name": "Area",
+      "data": "feature_0.json",
+      "unit": "px\u00b2",
+      "type": "continuous",
+      "key": "area"
+    },
+    {
+      "name": "Height",
+      "data": "feature_1.json",
+      "unit": "nm",
+      "type": "continuous",
+      "key": "height"
+    }
+  ],
+  "tracks": "tracks.json",
+  "times": "times.json",
+  "centroids": "centroids.json",
+  "frames": [
+    "frame_0.png",
+    "frame_1.png",
+    "frame_2.png",
+    "frame_3.png",
+    "frame_4.png",
+    "frame_5.png",
+    "frame_6.png",
+    "frame_7.png",
+    "frame_8.png",
+    "frame_9.png"
+  ],
+  "metadata": {
+    "name": "Example dataset",
+    "description": "An example dataset for the Timelapse Feature Explorer.",
+    "author": null,
+    "datasetVersion": null,
+    "dateCreated": "2024-07-02T22:37:26.789066Z",
+    "lastModified": "2024-07-02T22:37:26.789066Z",
+    "revision": 0,
+    "writerVersion": "v1.2.0",
+    "frameDims": {
+      "width": 200,
+      "height": 200,
+      "units": "nm"
+    },
+    "startingTimeSeconds": 0,
+    "startingFrameNumber": 0,
+    "frameDurationSeconds": 1
+  },
+  "backdrops": []
+}

@@ -1,10 +1,15 @@
 import numpy as np
 import pandas as pd
 from skimage import draw
-from bioio import BioImage
+from bioio.writers import OmeTiffWriter
 
 """
 Generate some sample data for the `GETTING_STARTED` tutorial.
+
+Run with
+```
+python generate_data.py
+```
 """
 
 # Create the data frame; this will be turned into a CSV file.
@@ -38,8 +43,9 @@ for i in range(num_frames):
     image = np.zeros((100, 100), dtype=np.uint8)
     t = i / num_frames
 
+    # Draw each of the circles on the image.
     for j in range(num_circles):
-        # Draw the circle on the image
+        # Randomize the radius and position of the circle.
         radius = circle_last_radius[j] + np.random.randint(
             -circle_radius_variance, circle_radius_variance
         )
@@ -52,13 +58,14 @@ for i in range(num_frames):
         )
         circle_last_y_position[j] = y
 
+        # Draw the circle in the segmentation image,
+        # filling it with the object ID. (0 is reserved for the background,
+        # so we add 1 to the object ID to avoid conflicts.)
         rr, cc = draw.disk((x, y), radius)
-        print(rr, cc)
-
         object_id = i * num_circles + j
-        image[rr, cc] = object_id
+        image[rr, cc] = object_id + 1
 
-        # Add the circle to the data frame
+        # Add the circle's data to the data frame.
         circle_area = np.pi * radius**2
         circle_height = y
         df = pd.concat(
@@ -69,11 +76,11 @@ for i in range(num_frames):
                         "object_id": object_id,
                         "track_id": j,
                         "time": i,
-                        "centroid_x": x,
+                        "centroid_x": round(x),
                         "centroid_y": y,
-                        "area": circle_area,
-                        "height": circle_height,
-                        "segmentation_path": f"frame_{i}.png",
+                        "area": round(circle_area, 1),
+                        "height": round(circle_height, 1),
+                        "segmentation_path": f"frame_{i}.tiff",
                     },
                     index=[0],
                 ),
@@ -81,11 +88,10 @@ for i in range(num_frames):
             ignore_index=True,
         )
 
-    # Write the image
     images.append(image)
 
 # Write the resulting data frame + images to disk.
-df.to_csv("data.csv", index=False)
+df.to_csv("raw_dataset/data.csv", index=False)
 for i, image in enumerate(images):
-    bioimage = BioImage(image)
-    bioimage.save(f"frame_{i}.png")
+    tiff_writer = OmeTiffWriter()
+    tiff_writer.save(image, f"raw_dataset/frame_{i}.tiff")
