@@ -70,7 +70,7 @@ A complete example dataset is also available in the [`documentation`](./example_
 Several fields in the manifest file have a `key` property. These keys must be unique and contain only lowercase **alphanumeric characters and underscores**. For example, `my_feature_1` is a valid key, but `My Feature 1` is not.
 
 <details>
-<summary><b>[Show me an example!]</b></summary>
+<summary><b>[🔍 Show me an example!]</b></summary>
 
 ---
 
@@ -184,7 +184,7 @@ Note that the interface will directly show the unit labels and does not scale or
 If using the provided writer utility scripts, the `revision`, `dataVersion`, `dateCreated`, and `lastModified` fields will be automatically written and updated.
 
 <details>
-<summary><b>[Show me an example!]</b></summary>
+<summary><b>[🔍 Show me an example!]</b></summary>
 
 ---
 
@@ -248,7 +248,7 @@ The `key` must be unique across all backdrop image sets, and must only contain l
 ```
 
 <details>
-<summary><b>[Show me an example!]</b></summary>
+<summary><b>[🔍 Show me an example!]</b></summary>
 
 ---
 
@@ -335,7 +335,7 @@ A **track JSON file** consists of a JSON object with a `data` array, where for e
 ```
 
 <details>
-<summary><b>[Show me an example!]</b></summary>
+<summary><b>[🔍 Show me an example!]</b></summary>
 
 ---
 
@@ -401,7 +401,7 @@ Additional notes:
 There should be one frame for every time step in the time series, and they must all be listed in order in the **manifest** file to be included in the dataset.
 
 <details>
-<summary><b>[Show me an example!]</b></summary>
+<summary><b>[🔍 Show me an example!]</b></summary>
 
 ---
 
@@ -450,7 +450,7 @@ the feature values will be parsed as integers (rounded) and used to index into t
 ```
 
 <details>
-<summary><b>[Show me an example!]</b></summary>
+<summary><b>[🔍 Show me an example!]</b></summary>
 
 ---
 
@@ -566,7 +566,7 @@ The outliers file stores whether a given object ID should be marked as an outlie
 ```
 
 <details>
-<summary><b>[Show me an example!]</b></summary>
+<summary><b>[🔍 Show me an example!]</b></summary>
 
 ---
 
@@ -626,7 +626,7 @@ Collections contain an array of dataset objects, each of which define the `name`
 If the path does not define a `.json` file specifically, Timelapse Feature Explorer will assume that the dataset's manifest is named `manifest.json` by default.
 
 <details>
-<summary><b>[Show me an example!]</b></summary>
+<summary><b>[🔍 Show me an example!]</b></summary>
 
 ---
 
@@ -681,9 +681,9 @@ A collection file can also include optional metadata fields, saved under the `me
 
 ## FAQ
 
-### My data needs to start at a timepoint other than zero.
+### My data needs to start at a timepoint other than zero
 
-Once you get the first frame in your dataset, you'll need to save this data to your dataset's metadata and also include the information when generating the frame paths.
+Once you get the first frame in your dataset, you'll need to save the `starting_timepoint` to your dataset's metadata and include the information when generating the frame paths.
 
 ```python
 writer = ColorizerDatasetWriter(...)

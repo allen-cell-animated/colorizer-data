@@ -1,10 +1,22 @@
 # Tutorial: How to process data for Timelapse Feature Explorer
 
-The Timelapse Feature Explorer is a web-based application designed for the interactive visualization and analysis of segmented time-series microscopy data! Data needs to be processed into a specific format to be loaded into the viewer. This tutorial will guide you through the process of preparing your data for the Timelapse Feature Explorer.
+The Timelapse Feature Explorer is a web-based application designed for the interactive visualization and analysis of segmented time-series microscopy data! Data needs to be processed into a specific format to be loaded into the viewer. 
+
+In this tutorial, you'll learn how to prepare your data for the Timelapse Feature Explorer.
+
+## Terms
+
+A few key terms:
+
+- **Dataset**: A dataset is a single time-series, and can have any number of tracked objects and features.
+- **Raw dataset**: The raw data that you have collected or generated, before processing into the TFE format.
+- **Collection**: An arbitrary grouping of datasets.
+- **Object ID**: An ID associated with a single segmentation at a single timepoint. In the TFE-accepted format, object IDs must be sequential, starting from 0, and be unique across the whole dataset.
+- **Track ID**: An identifier for a unique set of objects, linking their object IDs across timepoints.
 
 ## Prerequisites
 
-From a command terminal, clone this repository and install the dependencies for this tutorial. This will install the necessary dependencies for the example scripts and the latest release of `colorizer-data`.(You may want to do this from a virtual environment.)
+From a command terminal, clone this repository and install the dependencies for this tutorial. This will install the necessary dependencies for the example scripts and the latest release of `colorizer-data`. (You may want to do this from a virtual Python environment-- see [venv](https://docs.python.org/3/library/venv.html) or [conda](https://docs.conda.io/en/latest/) for more information.)
 
 ```bash
 git clone https://github.com/allen-cell-animated/colorizer-data.git
@@ -13,34 +25,36 @@ cd colorizer-data/documentation/getting_started_guide
 pip install -r ./requirements.txt
 ```
 
-## Processing your data
+## Working with raw data
 
-Timelapse Feature Explorer reads data in the format specified by the [`DATA_FORMAT`](./documentation/DATA_FORMAT.md) document. `colorizer-data` provides utilities for working with the data format.
+For this tutorial, we'll be working with sample data included in the [`getting_started_guide/raw_dataset`](./getting_started_guide/raw_dataset/) directory.
 
-### Raw data format
+This dataset is a simplified example of raw, pre-processed segmentation data. The data was generated using the [`generate_raw_data.py` script](./getting_started_guide/generate_raw_data.py), which generates a **CSV file** with columns for object IDs, track IDs, times, centroids, features (volume/height), and paths to segmentation files. The **segmentation files** are 2D images in OME-TIFF format.
 
-For this tutorial, there is a sample dataset included in the `getting_started_guide` directory. This dataset is a simplified example of raw, pre-processed segmentation data. The dataset is a CSV file with columns for track IDs, times, centroids, features (volume/height), and the paths of segmentation files.
+Your files may be in a different format or need to be transformed. Generally, we recommend:
 
-Your files may be in a different format, but the general best-practices are to:
+1. Saving your data as a CSV or other format that can be read into a pandas `DataFrame`.
+2. Make every segmented object its row in the table.
+3. Include a column for the object's track ID, time, centroid, and any features you want to visualize.
 
-1. Make every object a row in the table.
-2. Include a column for the object's track ID, time, centroid, and any features you want to visualize.
+### Example from the raw dataset
 
-**Example:**
-| object_id | track_id | time | centroid_x | centroid_y | volume | height | segmentation_path |
+| object_id | track_id | time | centroid_x | centroid_y | area | height | segmentation_path |
 | ----------- | ---------- | ------ | ------------ | ------------ | -------- | -------- | ------------------- |
-| 0 | 0 | 0 | 54 | 23 | 102.3 | 5 | ./raw_dataset/0.ome.tiff |
-| 1 | 0 | 1 | 57 | 25 | 104.8 | 6 | ./raw_dataset/1.ome.tiff |
-| 2 | 0 | 2 | 60 | 24 | 109.9 | 8 | ./raw_dataset/2.ome.tiff |
-| 3 | 1 | 1 | 10 | 34 | 34.23 | 3 | ./raw_dataset/1.ome.tiff |
-| 4 | 1 | 2 | 12 | 34 | 35.60 | 5 | ./raw_dataset/2.ome.tiff |
-| 5 | 2 | 0 | 78 | 79 | 78.65 | 5 | ./raw_dataset/0.ome.tiff |
+| 0 | 0 | 0 | 17 | 47 | 113.1 | 47 | frame_0.tiff |
+| 1 | 1 | 0 | 33 | 48 | 113.1 | 48 | frame_0.tiff |
+| 2 | 2 | 0 | 50 | 52 | 201.1 | 52 | frame_0.tiff |
+| ... | ... | ... | ... | ... | ... | ... | ... |
+| 5 | 0 | 1 | 17 | 49 | 50.3 | 49 | frame_1.tiff |
+| 6 | 1 | 1 | 33 | 48 | 78.5 | 48 | frame_1.tiff |
+| 7 | 2 | 1 | 50 | 50 | 254.5 | 50 | frame_1.tiff |
 | ... | ... | ... | ... | ... | ... | ... | ... |
 
 > **_NOTE:_** Note that one segmentation path exists for each timepoint, and object IDs start at zero for each frame/timepoint. Timelapse Feature Explorer requires that every object ID be unique across all timepoints, so we will need to remap the object IDs later.
->
-> Also, one segmentation path exists for each timepoint.
 
+## Processing data
+
+Timelapse Feature Explorer reads data in the format specified by the [`DATA_FORMAT`](./documentation/DATA_FORMAT.md) document. `colorizer-data` provides utilities for working with the data format.
 
 ### Processing script
 
@@ -62,8 +76,8 @@ from colorizer_data.utils import (
     make_bounding_box_array,
 )
 
-data: pd.DataFrame = pd.read_csv("raw_dataset.csv")
-output_dir = "./data"
+data: pd.DataFrame = pd.read_csv("data.csv")
+output_dir = "./processed_dataset"
 ```
 
 2. Format the 
@@ -86,7 +100,7 @@ For this tutorial, we've hosted a copy of the processed example dataset on GitHu
 
 Open Timelapse Feature Explorer at [https://timelapse.allencell.org](https://timelapse.allencell.org).
 
-![The Load button on the Timelapse Feature Explorer header, next to the Help dropdown.](./documentation/getting_started_guide/assets/load-button.png)
+![The Load button on the Timelapse Feature Explorer header, next to the Help dropdown.](./getting_started_guide/assets/load-button.png)
 
 Click the **Load** in the header and paste in the following URL:
 
