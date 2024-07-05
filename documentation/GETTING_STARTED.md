@@ -16,6 +16,8 @@ A few key terms:
 
 ## Prerequisites
 
+### Installing `colorizer-data`
+
 From a command terminal, clone this repository and run the following commands to install dependencies. This will install the necessary libraries for the example scripts and the latest release of `colorizer-data`. (You may want to do this from a virtual Python environment-- see [venv](https://docs.python.org/3/library/venv.html) or [conda](https://docs.conda.io/en/latest/) for more information.)
 
 ```bash
@@ -79,7 +81,6 @@ python
 
 ```python
 from bioio import BioImage
-from datetime import datetime, timezone
 import pandas as pd
 
 from colorizer_data.types import DATETIME_FORMAT
@@ -211,8 +212,6 @@ metadata = ColorizerMetadata(
     description="An example dataset for the Timelapse Feature Explorer.",
     author="Jane Doe et al.",
     dataset_version="v1.0",
-    date_created=datetime.now(timezone.utc).strftime(DATETIME_FORMAT),
-    last_modified=datetime.now(timezone.utc).strftime(DATETIME_FORMAT),
     # The width and height of the original segmentations, in any arbitrary units.
     # This will control the scale bar in the viewer.
     frame_width=100,
@@ -232,30 +231,76 @@ Once the steps are run, the dataset should now be processed and found in the `pr
 
 Now that the dataset is processed, we can view it in the Timelapse Feature Explorer!
 
-### Hosting datasets
+Our public release of Timelapse Feature Explorer is designed to load datasets hosted on a web server. To load **local datasets and files**, you'll need to run a **local instance** of the viewer. We'll show both options, though we recommend 
+
+### Viewing files on a web server
 
 Timelapse Feature Explorer is designed to load datasets hosted in a cloud storage service or web server. This data will be fetched by the client's web browser, so it must be accessible via URL from the browser.
 
-> **_NOTE:_** To use a dataset with our public build of Timelapse Feature Explorer, the dataset must be accessible using the HTTPS protocol (e.g., `https://example.com/your-dataset/`). If you need to use HTTP, you can run a local instance of the viewer. See the [Timelapse Feature Explorer documentation](https://github.com/allen-cell-animated/timelapse-colorizer#installation) for instructions on downloading and running the viewer.
+> **_NOTE:_** To use a dataset with our public build of Timelapse Feature Explorer, the dataset must be accessible using the HTTPS protocol (e.g., `https://example.com/your-dataset/`). If you need to use HTTP, run a local instance of the viewer.
 
-For this tutorial, we've hosted a copy of the processed example dataset on GitHub. You can access it at this URL: [https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset](https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset)
+For this tutorial, you can load a copy of the processed example dataset on GitHub. You can access it at this URL: [https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset](https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset)
 
 ### Opening your dataset
 
-Open Timelapse Feature Explorer at [https://timelapse.allencell.org](https://timelapse.allencell.org).
+1. Open Timelapse Feature Explorer at [https://timelapse.allencell.org](https://timelapse.allencell.org).
+
+2. Click the **Load** in the header and paste in the following URL: `https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset/manifest.json`
 
 ![The Load button on the Timelapse Feature Explorer header, next to the Help dropdown.](./getting_started_guide/assets/load-button.png)
-
-Click the **Load** in the header and paste in the following URL:
-
-`https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset`
 
 > **_NOTE:_** You can either provide the URL of the directory containing a `manifest.json` or the full URL path of a `.json` file that follows the [manifest specification](./documentation/DATA_FORMAT.md#1-metadata). We recommend specifying the full URL path that includes the `manifest.json`.
 
 Click **Load** in the popup menu to load the dataset. The viewer should appear with the dataset loaded!
 
+### Installing Timelapse Feature Explorer locally
+
+To view our **locally converted dataset**, we'll also need to run a **local version** of the Timelapse Feature Explorer.
+
+#### 1. TFE installation
+
+Install Node from [nodejs.org](https://nodejs.org/). Once Node is installed, open a command terminal in the directory you want to install TFE into and run the following commands to clone the repository and install the dependencies:
+
+```bash
+git clone https://github.com/allen-cell-animated/timelapse-colorizer.git
+cd timelapse-colorizer
+npm install
+npm run start
+```
+
+You can now run `npm run start` at anytime to start the viewer. By default, it will be mounted at `http://localhost:5173`.
+
+#### 2. Serving local files
+
+1. Start a local server to serve the processed dataset files. You can use Python's built-in HTTP server for this. **Open a _new_ command terminal** at the root of this repository and run the following command:
+
+```bash
+# Should be inside the colorizer-data root directory
+python3 -m http.server 8080
+```
+
+#### 3. View the dataset
+
+Once both steps are done, open your web browser and navigate to `http://localhost:5173`. Click the **Load** button in the header and paste in the following URL: `http://localhost:8080/documentation/getting_started_guide/processed_dataset`.
+
+Your dataset should appear in the browser and be ready for interaction!
+
 ## What's next?
 
-### Loading local datasets
+### Collections
 
-If you want to load a dataset from your local machine, you can run a local instance of the Timelapse Feature Explorer. (We hope to add a feature to load local datasets in the future; you can track )
+If you have multiple datasets that you want to group together, you can create a **collection**. When loaded in the viewer, collections allows you to switch between any of the included datasets for easier comparison. See the [section on collections in our data format documentation](./DATA_FORMAT.md#collections) for more information.
+
+Also see the `update_collection()` method in the [`utils.py` file](../colorizer_data/utils.py) to create and update collections.
+
+### Advanced dataset conversion
+
+We provide a number of example scripts that perform more advanced data processing tasks, such as:
+
+1. Including bounding box data and outliers
+2. Handling 3D segmentation images
+3. Parallelizing frame processing
+4. Grouping datasets into collections
+5. Handling common arguments for processing scripts
+
+All of these scripts are available in the [`bin/example_scripts` directory](../colorizer_data/bin/example_scripts/).
