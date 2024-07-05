@@ -38,10 +38,18 @@ class ColorizerDatasetWriter:
     """
     Writes provided data as Colorizer-compatible dataset files to the configured output directory.
 
-    The output directory will contain a `manifest.json` and additional dataset files,
-    following the data schema described in the project documentation. (See
-    [DATA_FORMAT.md](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md)
-    for more details.)
+    Args:
+      output_dir (`str | pathlib.Path`): The output directory to write the dataset to.
+      dataset (`str`): The name of the dataset. The dataset will be written to a subdirectory with this name.
+
+    Keyword Args:
+        scale (`float`): The scale of the data. Defaults to 1.
+        force_overwrite (`bool`): If False (default), updates fields in the manifest file if one already exists
+        in the output directory. If True, overwrites the manifest file.
+
+    The dataset subdirectory will contain a `manifest.json` and additional dataset files,
+    following the data schema described in the project documentation. (See [DATA_FORMAT.md](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md) for
+    more details.)
     """
 
     outpath: Union[str, pathlib.Path]
@@ -414,6 +422,7 @@ class ColorizerDatasetWriter:
         """
         self.manifest["frames"] = paths
 
+    # TODO: Auto-update timestamps, but add a flag to disable the behavior.
     def write_manifest(
         self,
         num_frames: int = None,
@@ -428,7 +437,7 @@ class ColorizerDatasetWriter:
             num_frames (int): DEPRECATED. Define to generate the expected paths for frame images.
             metadata (ColorizerMetadata): Metadata to be written with the dataset. Leave fields blank to use existing default values.
 
-        Note that some metadata fields (like `last_modified`, `_writer_version`, `_revision`, and `date_created`) will
+        Note that some metadata fields (`_writer_version`, `_revision`) will
         be automatically updated. Add definitions for these fields in the `metadata` argument to override this behavior.
 
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#Dataset)
