@@ -1,25 +1,24 @@
-import pandas as pd
 from bioio import BioImage
+from datetime import datetime, timezone
+import pandas as pd
 
-# also install bioio-ome-tiff
+# TODO: also install bioio-ome-tiff
 
+from colorizer_data.types import DATETIME_FORMAT
+from colorizer_data.utils import (
+    remap_segmented_image,
+)
 from colorizer_data.writer import (
     ColorizerDatasetWriter,
     ColorizerMetadata,
     FeatureInfo,
     FeatureType,
 )
-from colorizer_data.utils import (
-    # configureLogging,
-    remap_segmented_image,
-)
 
 # Load the dataset
 data: pd.DataFrame = pd.read_csv("raw_dataset/data.csv")
 
 # Define column names
-INDEX_COLUMN = "index"  # Added column, used to remap object IDs.
-
 OBJECT_ID_COLUMN = "object_id"
 TRACK_ID_COLUMN = "track_id"
 TIMES_COLUMN = "time"
@@ -29,11 +28,14 @@ CENTROIDS_Y_COLUMN = "centroid_y"
 AREA_COLUMN = "area"
 HEIGHT_COLUMN = "height"
 
-# Add the index column to the data.
+# Add in a column to act as an index for the dataset.
+# This preserves row numbers even when the dataframe is grouped by
+# time later.
+INDEX_COLUMN = "index"
 data = data.reset_index(drop=True)
 data[INDEX_COLUMN] = data.index.values
 
-# Make the writer
+# Create the writer, which we'll be using to save dataset-related files.
 output_dir = "."
 dataset_name = "processed_dataset"
 writer = ColorizerDatasetWriter(output_dir, dataset_name)
@@ -90,11 +92,8 @@ for frame_num, frame_data in data_grouped_by_time:
     (remapped_segmentations, _lut) = remap_segmented_image(
         segmentation_image, frame_data, OBJECT_ID_COLUMN, INDEX_COLUMN
     )
-    print("frame num: ", frame_num)
-    print("frame lut: ", _lut)
-    print("frame data: ", frame_data)
 
-    # Write the remapped segmentation image.
+    # Write the new segmentation image.
     frame_prefix = "frame_"
     frame_suffix = ".png"
     writer.write_image(remapped_segmentations, frame_num, frame_prefix, frame_suffix)
@@ -106,15 +105,19 @@ writer.set_frame_paths(frame_paths)
 metadata = ColorizerMetadata(
     name="Example dataset",
     description="An example dataset for the Timelapse Feature Explorer.",
-    # The width and height of the frames in the original units.
-    # Our images are 100x100, but let's say the original microscopy
-    # area was 200x200 nanometers.
-    frame_width=200,
-    frame_height=200,
+    author="Jane Doe et al.",
+    dataset_version="v1.0",
+    date_created=datetime.now(timezone.utc).strftime(DATETIME_FORMAT),
+    last_modified=datetime.now(timezone.utc).strftime(DATETIME_FORMAT),
+    # The width and height of the original segmentations, in any arbitrary units.
+    # This will control the scale bar in the viewer.
+    frame_width=100,
+    frame_height=100,
     frame_units="nm",
-    # How long each frame lasts in seconds.
+    # Time elapsed between each frame capture, in seconds.
     frame_duration_sec=1,
 )
+
 
 # Write the final dataset
 writer.write_manifest(metadata=metadata)

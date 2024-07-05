@@ -1,6 +1,6 @@
 # Tutorial: How to process data for Timelapse Feature Explorer
 
-The Timelapse Feature Explorer is a web-based application designed for the interactive visualization and analysis of segmented time-series microscopy data! Data needs to be processed into a specific format to be loaded into the viewer. 
+The Timelapse Feature Explorer (TFE) is a web-based application designed for the interactive visualization and analysis of segmented time-series microscopy data! Data needs to be processed into a specific format to be loaded into the viewer.
 
 In this tutorial, you'll learn how to prepare your data for the Timelapse Feature Explorer.
 
@@ -16,12 +16,13 @@ A few key terms:
 
 ## Prerequisites
 
-From a command terminal, clone this repository and install the dependencies for this tutorial. This will install the necessary dependencies for the example scripts and the latest release of `colorizer-data`. (You may want to do this from a virtual Python environment-- see [venv](https://docs.python.org/3/library/venv.html) or [conda](https://docs.conda.io/en/latest/) for more information.)
+From a command terminal, clone this repository and run the following commands to install dependencies. This will install the necessary libraries for the example scripts and the latest release of `colorizer-data`. (You may want to do this from a virtual Python environment-- see [venv](https://docs.python.org/3/library/venv.html) or [conda](https://docs.conda.io/en/latest/) for more information.)
 
 ```bash
 git clone https://github.com/allen-cell-animated/colorizer-data.git
 cd colorizer-data/documentation/getting_started_guide
 
+# TODO: I have to make this still :)
 pip install -r ./requirements.txt
 ```
 
@@ -43,25 +44,22 @@ Here's a preview of the raw dataset, `data.csv`:
 
 | object_id | track_id | time | centroid_x | centroid_y | area | height | segmentation_path |
 | ----------- | ---------- | ------ | ------------ | ------------ | -------- | -------- | ------------------- |
-| 0 | 0 | 0 | 17 | 47 | 113.1 | 47 | frame_0.tiff |
-| 1 | 1 | 0 | 33 | 48 | 113.1 | 48 | frame_0.tiff |
-| 2 | 2 | 0 | 50 | 52 | 201.1 | 52 | frame_0.tiff |
+| 1 | 0 | 0 | 17 | 47 | 113.1 | 47 | frame_0.tiff |
+| 2 | 1 | 0 | 33 | 48 | 113.1 | 48 | frame_0.tiff |
+| 3 | 2 | 0 | 50 | 52 | 201.1 | 52 | frame_0.tiff |
 | ... | ... | ... | ... | ... | ... | ... | ... |
 | 5 | 0 | 1 | 17 | 49 | 50.3 | 49 | frame_1.tiff |
 | 6 | 1 | 1 | 33 | 48 | 78.5 | 48 | frame_1.tiff |
 | 7 | 2 | 1 | 50 | 50 | 254.5 | 50 | frame_1.tiff |
 | ... | ... | ... | ... | ... | ... | ... | ... |
 
-Is this comment outdated? ⬇
-> **_NOTE:_** Timelapse Feature Explorer requires that every object ID be unique across all timepoints. In this case, our object IDs are all unique (and roughly correspond to rows), so we don't have to do anything unique, but for other datasets you may need to remap object IDs.
+Each of the segmentation images is an OME-TIFF image containing the IDs of the segmented objects:
 
-Each of the segmentation images is an OME-TIFF image containing the IDs of the segmented objects.
+_Frame 0 of the example dataset, as viewed in FIJI._
 
-![Frame 6 of the example dataset. The background is black, labeled `id=0`. There are five circles of various diameters and positions, with IDs starting at 30 and increasing to 34.](./getting_started_guide/assets/sample-segmentation.png)
+![Frame 0 of the example dataset. The background is black, labeled `value=0`. There are five circles of various diameters and positions, with IDs starting at 30 and increasing to 34.](./getting_started_guide/assets/sample-segmentation.png)
 
-_Frame 6 of the example dataset, as viewed in FIJI._
-
-> **_NOTE:_** Note that `ID=0` represents the background in the segmentation images. Object ID are expected to start at 0, so values in the segmentation images are incremented by 1 to avoid conflicts with the background ID, so the actual object IDs will be one less than what is shown here.
+> **_NOTE:_** Note that `value=0` is used to represent the background in the segmentation images. For simplicity, we recommend starting object IDs at `1` to avoid conflicts with the background value.
 
 ## Processing data
 
@@ -69,61 +67,72 @@ Timelapse Feature Explorer reads data in the format specified by the [`DATA_FORM
 
 ### Processing script
 
-Start an interactive Python session.
+Start an interactive Python session and paste the following steps into the terminal. Make sure you are at `./documentation/getting_started_guide/` in the cloned repository.
 
 ```bash
 python
 ```
 
-Paste the following steps into the interactive terminal. (Alternatively, you can also create a Python script. The full script is available in the [`process_data.py` script](./getting_started_guide/process_data.py).)
+ (Alternatively, you can also create a Python script, copy in the lines, and run it. The full script is available in the [`process_data.py` script](./getting_started_guide/process_data.py).)
 
 #### 1. Import dependencies and load the dataset into a pandas DataFrame
 
 ```python
-import pandas as pd
 from bioio import BioImage
+from datetime import datetime, timezone
+import pandas as pd
+
+from colorizer_data.types import DATETIME_FORMAT
+from colorizer_data.utils import (
+    remap_segmented_image,
+)
 from colorizer_data.writer import (
     ColorizerDatasetWriter,
     ColorizerMetadata,
     FeatureInfo,
     FeatureType,
 )
-from colorizer_data.utils import (
-    # configureLogging,
-    generate_frame_paths,
-    remap_segmented_image,
-    make_bounding_box_array,
-)
 
 # Load the dataset
 data: pd.DataFrame = pd.read_csv("raw_dataset/data.csv")
+```
 
+#### 2. Configure the writer and data columns
+
+```python
 # Define column names
 OBJECT_ID_COLUMN = "object_id"
 TRACK_ID_COLUMN = "track_id"
 TIMES_COLUMN = "time"
-SEGMENTED_IMAGE_COLUMN = "OutputMask (H2B)"
+SEGMENTED_IMAGE_COLUMN = "segmentation_path"
 CENTROIDS_X_COLUMN = "centroid_x"
 CENTROIDS_Y_COLUMN = "centroid_y"
 AREA_COLUMN = "area"
 HEIGHT_COLUMN = "height"
 
-# Make the writer
+# Add in a column to act as an index for the dataset.
+# This preserves row numbers even when the dataframe is grouped by
+# time later.
+INDEX_COLUMN = "index"
+data = data.reset_index(drop=True)
+data[INDEX_COLUMN] = data.index.values
+
+# Create the writer, which we'll be using to save dataset-related files.
 output_dir = "."
 dataset_name = "processed_dataset"
 writer = ColorizerDatasetWriter(output_dir, dataset_name)
 ```
 
-#### 2. Create the writer and metadata objects, then write out the feature data
+#### 3. Write the core data
 
 ```python
 # Turn each column into a numpy array, to be saved by the writer.
 tracks = data[TRACK_ID_COLUMN].to_numpy()
-times = dataset[TIMES_COLUMN].to_numpy()
-centroids_x = dataset[CENTROIDS_X_COLUMN].to_numpy()
-centroids_y = dataset[CENTROIDS_Y_COLUMN].to_numpy()
-areas = dataset[AREA_COLUMN].to_numpy()
-heights = dataset[HEIGHT_COLUMN].to_numpy()
+times = data[TIMES_COLUMN].to_numpy()
+centroids_x = data[CENTROIDS_X_COLUMN].to_numpy()
+centroids_y = data[CENTROIDS_Y_COLUMN].to_numpy()
+areas = data[AREA_COLUMN].to_numpy()
+heights = data[HEIGHT_COLUMN].to_numpy()
 
 writer.write_data(
     tracks=tracks,
@@ -131,26 +140,36 @@ writer.write_data(
     centroids_x=centroids_x,
     centroids_y=centroids_y,
 )
+```
 
+#### 4. Write the features
+
+```python
 # Additional metadata can be provided for each feature, which will be shown
 # when interacting with it in the viewer.
 area_info = FeatureInfo(
     label="Area",
     key="area",
     type=FeatureType.CONTINUOUS,
-    units="px²",
+    unit="px²",
 )
 height_info = FeatureInfo(
     label="Height",
     key="height",
     type=FeatureType.CONTINUOUS,
-    units="nm",
+    unit="nm",
 )
 writer.write_feature(areas, area_info)
 writer.write_feature(heights, height_info)
 ```
 
-#### 3. Write the images
+#### 5. Write the images
+
+The `ColorizerDatasetWriter` writes images as PNGs with encoded object IDs. You can see more about what this looks like and how it works in  our [data format documentation](./DATA_FORMAT.md#5-frames). As previously noted, all object IDs must be unique too, so this next section will perform three tasks:
+
+1. Load in the image data from the segmentation images
+2. Remap the object IDs to be unique across all timepoints
+3. Write the remapped images using `ColorizerDatasetWriter.write_image()`
 
 ```python
 # Group data by the timestamp
@@ -161,48 +180,53 @@ for frame_num, frame_data in data_grouped_by_time:
     # Get the path to the image and load it.
     frame_path = frame_data.iloc[0][SEGMENTED_IMAGE_COLUMN]
 
-    segmentation_image = bioio.BioImage(frame_path).get_image_data("YX", S=0, T=0, C=0)
+    segmentation_image = BioImage("raw_dataset/" + frame_path).get_image_data(
+        "YX", S=0, T=0, C=0
+    )
 
     # NOTE: For datasets with 3D segmentations, you may need to flatten the data into 2D images. If so, replace the above line with the following:
     # segmentation_image = bioio.BioImage(frame_path).get_image_data("ZYX", S=0, T=0, C=0)
     # segmentation_image = segmentation_image.max(axis=0)
 
     # Remap the segmented so object IDs are unique across all timepoints.
-    (remapped_segmentations) = remap_segmented_image(segmentation_image, frame_data, OBJECT_ID_COLUMN, INDEX_COLUMN)
+    (remapped_segmentations, _lut) = remap_segmented_image(
+        segmentation_image, frame_data, OBJECT_ID_COLUMN, INDEX_COLUMN
+    )
 
     # Write the remapped segmentation image.
     frame_prefix = "frame_"
     frame_suffix = ".png"
-    writer.write_image(seg_remapped, frame_num, frame_prefix, frame_suffix)
-    frame_paths.append(frame_prefix + frame_num + frame_suffix)
+    writer.write_image(remapped_segmentations, frame_num, frame_prefix, frame_suffix)
+    frame_paths.append(frame_prefix + str(frame_num) + frame_suffix)
 
 writer.set_frame_paths(frame_paths)
 ```
 
-#### 4. Write the dataset and any additional metadata
+#### 6. Write the dataset and any additional metadata
 
 ```python
 # Define the metadata for this dataset.
 metadata = ColorizerMetadata(
     name="Example dataset",
     description="An example dataset for the Timelapse Feature Explorer.",
-
-    # The width and height of the frames in the original units.
-    # Our images are 100x100, but let's say the original microscopy
-    # area was 200x200 nanometers.
-    frame_width=200,
-    frame_height=200,
+    author="Jane Doe et al.",
+    dataset_version="v1.0",
+    date_created=datetime.now(timezone.utc).strftime(DATETIME_FORMAT),
+    last_modified=datetime.now(timezone.utc).strftime(DATETIME_FORMAT),
+    # The width and height of the original segmentations, in any arbitrary units.
+    # This will control the scale bar in the viewer.
+    frame_width=100,
+    frame_height=100,
     frame_units="nm",
-
-    # How long each frame lasts in seconds.
-    frame_duration_seconds = 1,
+    # Time elapsed between each frame capture, in seconds.
+    frame_duration_sec=1,
 )
 
-# Write the dataset.
+# Write the final dataset
 writer.write_manifest(metadata=metadata)
 ```
 
-That's it! The dataset should now be processed and found in the `processed_dataset` directory.
+Once the steps are run, the dataset should now be processed and found in the `processed_dataset` directory.
 
 ## Viewing the dataset
 
@@ -224,9 +248,7 @@ Open Timelapse Feature Explorer at [https://timelapse.allencell.org](https://tim
 
 Click the **Load** in the header and paste in the following URL:
 
-```
-https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset
-```
+`https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset`
 
 > **_NOTE:_** You can either provide the URL of the directory containing a `manifest.json` or the full URL path of a `.json` file that follows the [manifest specification](./documentation/DATA_FORMAT.md#1-metadata). We recommend specifying the full URL path that includes the `manifest.json`.
 
@@ -234,3 +256,6 @@ Click **Load** in the popup menu to load the dataset. The viewer should appear w
 
 ## What's next?
 
+### Loading local datasets
+
+If you want to load a dataset from your local machine, you can run a local instance of the Timelapse Feature Explorer. (We hope to add a feature to load local datasets in the future; you can track )
