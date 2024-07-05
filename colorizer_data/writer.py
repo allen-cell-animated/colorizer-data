@@ -422,7 +422,6 @@ class ColorizerDatasetWriter:
         """
         self.manifest["frames"] = paths
 
-    # TODO: Auto-update timestamps, but add a flag to disable the behavior.
     def write_manifest(
         self,
         num_frames: int = None,
@@ -437,7 +436,7 @@ class ColorizerDatasetWriter:
             num_frames (int): DEPRECATED. Define to generate the expected paths for frame images.
             metadata (ColorizerMetadata): Metadata to be written with the dataset. Leave fields blank to use existing default values.
 
-        Note that some metadata fields (`_writer_version`, `_revision`) will
+        Note that some metadata fields (like `last_modified`, `_writer_version`, `_revision`, and `date_created`) will
         be automatically updated. Add definitions for these fields in the `metadata` argument to override this behavior.
 
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#Dataset)
