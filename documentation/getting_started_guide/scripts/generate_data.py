@@ -63,8 +63,8 @@ for i in range(num_frames):
         # filling it with the object ID. (0 is reserved for the background,
         # so we add 1 to the object ID to avoid conflicts.)
         rr, cc = draw.disk((y, x), radius)
-        object_id = i * num_circles + j
-        image[rr, cc] = object_id + 1
+        object_id = i * num_circles + j + 1
+        image[rr, cc] = object_id
 
         # Add the circle's data to the data frame.
         # Calculate any additional features

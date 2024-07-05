@@ -90,6 +90,9 @@ for frame_num, frame_data in data_grouped_by_time:
     (remapped_segmentations, _lut) = remap_segmented_image(
         segmentation_image, frame_data, OBJECT_ID_COLUMN, INDEX_COLUMN
     )
+    print("frame num: ", frame_num)
+    print("frame lut: ", _lut)
+    print("frame data: ", frame_data)
 
     # Write the remapped segmentation image.
     frame_prefix = "frame_"
