@@ -4,7 +4,7 @@ The Timelapse Feature Explorer (TFE) is a web-based application designed for the
 
 In this tutorial, you'll learn how to prepare your data for the Timelapse Feature Explorer.
 
-## Terms
+## 1. Terms
 
 A few key terms:
 
@@ -14,7 +14,7 @@ A few key terms:
 - **Object ID**: An ID associated with a single segmentation at a single timepoint. In the TFE-accepted format, object IDs must be sequential, starting from 0, and be unique across the whole dataset.
 - **Track ID**: An identifier for a unique set of objects, linking their object IDs across timepoints.
 
-## Prerequisites
+## 2. Prerequisites
 
 ### Installing `colorizer-data`
 
@@ -28,7 +28,7 @@ cd colorizer-data/documentation/getting_started_guide
 pip install -r ./requirements.txt
 ```
 
-## Working with raw data
+## 3. Expected formats for raw data
 
 For this tutorial, we'll be working with sample data included in the [`getting_started_guide/raw_dataset`](./getting_started_guide/raw_dataset/) directory.
 
@@ -63,7 +63,7 @@ _Frame 0 of the example dataset, as viewed in FIJI._
 
 > **_NOTE:_** Note that `value=0` is used to represent the background in the segmentation images. For simplicity, we recommend starting object IDs at `1` to avoid conflicts with the background value.
 
-## Processing data
+## 4. Processing data
 
 Timelapse Feature Explorer reads data in the format specified by the [`DATA_FORMAT`](./documentation/DATA_FORMAT.md) document. We'll use the utilities provided by `colorizer-data` to convert to this format.
 
@@ -227,11 +227,11 @@ writer.write_manifest(metadata=metadata)
 
 Once the steps are run, the dataset should now be processed and found in the `processed_dataset` directory.
 
-## Viewing the dataset
+## 5. Viewing the dataset
 
 Now that the dataset is processed, we can view it in the Timelapse Feature Explorer!
 
-Our public release of Timelapse Feature Explorer is designed to load datasets hosted on a web server. To load **local datasets and files**, you'll need to run a **local instance** of the viewer. We'll show both options, though we recommend 
+Our public release of Timelapse Feature Explorer is designed to load datasets hosted on a web server. To load **local datasets and files**, you'll need to run a **local instance** of the viewer. We'll cover steps for both options.
 
 ### Viewing files on a web server
 
@@ -239,7 +239,9 @@ Timelapse Feature Explorer is designed to load datasets hosted in a cloud storag
 
 > **_NOTE:_** To use a dataset with our public build of Timelapse Feature Explorer, the dataset must be accessible using the HTTPS protocol (e.g., `https://example.com/your-dataset/`). If you need to use HTTP, run a local instance of the viewer.
 
-For this tutorial, you can load a copy of the processed example dataset on GitHub. You can access it at this URL: [https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset](https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset)
+For this tutorial, you can load a pre-processed example copy of the dataset on GitHub. You can access it at this URL: [https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset](https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset)
+
+However, if you have updated the dataset files or want to use a local dataset, skip to the next section.
 
 ### Opening your dataset
 
@@ -285,7 +287,7 @@ Once both steps are done, open your web browser and navigate to `http://localhos
 
 Your dataset should appear in the browser and be ready for interaction!
 
-## What's next?
+## 6. What's next?
 
 ### Collections
 
