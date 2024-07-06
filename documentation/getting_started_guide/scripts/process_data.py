@@ -1,5 +1,4 @@
 from bioio import BioImage
-from datetime import datetime, timezone
 import pandas as pd
 
 # TODO: also install bioio-ome-tiff
@@ -107,8 +106,6 @@ metadata = ColorizerMetadata(
     description="An example dataset for the Timelapse Feature Explorer.",
     author="Jane Doe et al.",
     dataset_version="v1.0",
-    date_created=datetime.now(timezone.utc).strftime(DATETIME_FORMAT),
-    last_modified=datetime.now(timezone.utc).strftime(DATETIME_FORMAT),
     # The width and height of the original segmentations, in any arbitrary units.
     # This will control the scale bar in the viewer.
     frame_width=100,
