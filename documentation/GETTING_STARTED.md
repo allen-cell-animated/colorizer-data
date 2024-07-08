@@ -20,13 +20,13 @@ A few key terms:
 
 From a command terminal, clone this repository and run the following commands to install dependencies. This will install the necessary libraries for the example scripts and the latest release of `colorizer-data`. (You may want to do this from a virtual Python environment-- see [venv](https://docs.python.org/3/library/venv.html) or [conda](https://docs.conda.io/en/latest/) for more information.)
 
-> **_NOTE_**: You must be on Python version 3.9 or above.
+> **_NOTE_**: You must be on Python version 3.9 or above. The installation may fail unexpectedly on older versions of Python.
 
 ```bash
 git clone https://github.com/allen-cell-animated/colorizer-data.git
 cd colorizer-data/documentation/getting_started_guide
 
-python3 -m pip install -r ./requirements.txt
+python -m pip install -r ./requirements.txt
 ```
 
 ## 3. Expected formats for raw data
@@ -76,7 +76,7 @@ Start an interactive Python session. Make sure you are at `./documentation/getti
 # If not already in the `getting_started_guide` directory:
 cd /documentation/getting_started_guide/
 
-python3
+python
 ```
 
 Paste the following steps into the terminal. (Alternatively, you can also create a Python script, copy in the code below, and run it. The full script can be found as [`process_data.py` in the `scripts` directory](./getting_started_guide/process_data.py).)
@@ -113,8 +113,8 @@ SEGMENTED_IMAGE_COLUMN = "segmentation_path"
 CENTROIDS_X_COLUMN = "centroid_x"
 CENTROIDS_Y_COLUMN = "centroid_y"
 AREA_COLUMN = "area"
-    LOCATION_COLUMN = "location"
-    RADIUS_COLUMN = "radius"
+LOCATION_COLUMN = "location"
+RADIUS_COLUMN = "radius"
 
 # Add in a column to act as an index for the dataset.
 # This preserves row numbers even when the dataframe is grouped by
@@ -268,7 +268,7 @@ Our public release of Timelapse Feature Explorer is designed to load datasets ho
 
 For this tutorial, you can load a pre-processed example copy of the dataset, which we've hosted on GitHub. You can access it at this URL: [https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset](https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset)
 
-If you have updated the dataset files or want to use a local dataset, skip to the next section ([Installing Timelapse Feature Explorer locally](./)).
+If you have updated the dataset files or want to use a local dataset, skip to the next section ([Installing Timelapse Feature Explorer locally](#installing-timelapse-feature-explorer-locally)).
 
 #### Opening your dataset
 
@@ -301,16 +301,16 @@ You can now run `npm run start` at anytime to start the viewer. By default, it w
 
 #### 2. Serving local files
 
-1. Start a local server to serve the processed dataset files. You can use Python's built-in HTTP server for this. **Open a new command terminal** at the root of this repository and run the following command:
+We've provided a simple script to start a local server and serve the processed dataset files. **Open a new command terminal in the `getting_started_guide` directory** and run the following command:
 
 ```bash
-# Should be inside the colorizer-data root directory
-python3 -m http.server 8080
+# Should be inside the getting_started_guide directory
+python scripts/run_local_server.py 8080
 ```
 
 #### 3. View the dataset
 
-Once both steps are done, open your web browser and navigate to [`http://localhost:5173`](http://localhost:5173). Click the **Load** button in the header and paste in the following URL: `http://localhost:8080/documentation/getting_started_guide/processed_dataset`.
+Once both steps are done, open your web browser and navigate to [`http://localhost:5173`](http://localhost:5173). Click the **Load** button in the header and paste in the following URL: `http://localhost:8080/processed_dataset`.
 
 Your dataset should appear in the browser and be ready for viewing!
 
