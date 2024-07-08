@@ -41,7 +41,6 @@ circle_max_position_change = 15
 circle_last_y_position = np.full(num_circles, frame_dimensions[0] / 2)
 circle_last_radius = np.full(num_circles, circle_base_radius)
 
-# TODO: Make a prettier pattern, like the circles spinning?
 for i in range(num_frames):
     image = np.zeros(frame_dimensions, dtype=np.uint8)
     t = i / num_frames

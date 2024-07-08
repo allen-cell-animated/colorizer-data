@@ -45,7 +45,8 @@ class ColorizerDatasetWriter:
     Keyword Args:
         scale (`float`): The scale of the data. Defaults to 1.
         force_overwrite (`bool`): If False (default), updates fields in the manifest file if one already exists
-        in the output directory. If True, overwrites the manifest file.
+        in the output directory. If True, overwrites the existing manifest file without
+        reading existing data.
 
     The dataset subdirectory will contain a `manifest.json` and additional dataset files,
     following the data schema described in the project documentation. (See [DATA_FORMAT.md](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md) for
