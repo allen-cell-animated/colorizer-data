@@ -45,7 +45,7 @@ Your files may be in a different format or have 3D segmentation images, in which
 Here's a preview of the raw dataset, `data.csv`:
 
 | object_id | track_id | time | centroid_x | centroid_y | area | radius | location | segmentation_path |
-| ----------- | ---------- | ------ | ------------ | ------------ | -------- | -------- | ------------------- |
+| ----------- | ---------- | ------ | ------------ | ------------ | -------- | -------- | ------------------- | --- |
 | 1 | 0 | 0 | 33 | 110 | 706.9 | 15 | middle | frame_0.tiff |
 | 2 | 1 | 0 | 67 | 100 | 804.2 | 16 | middle | frame_0.tiff |
 | 3 | 2 | 0 | 100 | 108 | 804.2 | 16 | middle | frame_0.tiff |
