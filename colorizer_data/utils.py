@@ -44,7 +44,7 @@ RESERVED_INDICES = 1
 
 
 class NumpyValuesEncoder(json.JSONEncoder):
-    """Handles float32 and int64 values."""
+    """Handles numpy numeric values (float32, double, float64, int16, int32, int64)."""
 
     def default(self, obj):
         if (
@@ -53,7 +53,11 @@ class NumpyValuesEncoder(json.JSONEncoder):
             or isinstance(obj, np.float64)
         ):
             return float(obj)
-        elif isinstance(obj, np.int32) or isinstance(obj, np.int64):
+        elif (
+            isinstance(obj, np.int16)
+            or isinstance(obj, np.int32)
+            or isinstance(obj, np.int64)
+        ):
             return int(obj)
         return json.JSONEncoder.default(self, obj)
 
