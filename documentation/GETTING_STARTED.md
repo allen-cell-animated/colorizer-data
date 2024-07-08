@@ -57,7 +57,7 @@ Here's a preview of the raw dataset, `data.csv`:
 
 Each of the segmentation images is an OME-TIFF image containing the IDs of the segmented objects:
 
-_Frame 0 of the example dataset, as viewed in FIJI._
+_Frame 0 of the example dataset, as viewed in FIJI. Contrast has been increased for easier viewing._
 
 ![Frame 0 of the example dataset. The background is black, labeled `value=0`. There are five circles of various diameters and positions, with IDs starting at 30 and increasing to 34.](./getting_started_guide/assets/sample-segmentation.png)
 
@@ -69,13 +69,16 @@ Timelapse Feature Explorer reads data in the format specified by the [`DATA_FORM
 
 ### Processing script
 
-Start an interactive Python session and paste the following steps into the terminal. Make sure you are at `./documentation/getting_started_guide/` in the cloned repository.
+Start an interactive Python session. Make sure you are at `./documentation/getting_started_guide/` in the cloned repository.
 
 ```bash
+# If not already in the `getting_started_guide` directory:
+cd /documentation/getting_started_guide/
+
 python
 ```
 
- (Alternatively, you can also create a Python script, copy in the code below, and run it. The full script can be found as [`process_data.py` in the `scripts` directory](./getting_started_guide/process_data.py).)
+Paste the following steps into the terminal. (Alternatively, you can also create a Python script, copy in the code below, and run it. The full script can be found as [`process_data.py` in the `scripts` directory](./getting_started_guide/process_data.py).)
 
 #### 1. Import dependencies and load the dataset into a pandas DataFrame
 
