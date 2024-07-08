@@ -1,18 +1,20 @@
 # colorizer-data
 
-### Python utilities to prepare data for the [Timelapse Feature Explorer](https://github.com/allen-cell-animated/timelapse-colorizer)
+_**Python utilities to prepare data for the [Timelapse Feature Explorer](https://github.com/allen-cell-animated/timelapse-colorizer)**_
 
 [Timelapse Feature Explorer](https://github.com/allen-cell-animated/timelapse-colorizer) is a browser-based web app for viewing tracked segmented data.
 
-Utilities are included in this repository to convert time-series data to the Timelapse Feature Explorer's format. You can read more about the data format specification here: [`DATA_FORMAT.md`](./documentation/DATA_FORMAT.md)
+Utilities are included in this repository to convert time-series data to the Timelapse Feature Explorer's format. Follow our tutorial to get started: [`GETTING_STARTED.md`](./documentation/GETTING_STARTED.md)
+
+You can read more about the data format specification here: [`DATA_FORMAT.md`](./documentation/DATA_FORMAT.md)
 
 Example scripts are also included in this repository, based on some of our internal projects. You can edit these scripts to work with your datasets as part of a processing pipeline.
 
-If using these example scripts, you'll need to run these commands in an environment with read access to the datasets and write access to the output directory. **The scripts also have their own external dependencies which must be installed separately**, as they are not direct dependencies of this package.
+If using these example scripts, you'll need to run these commands in an environment with read access to the datasets and write access to the output directory. **The scripts may have their own external dependencies which must be installed separately**, as they are not direct dependencies of this package.
 
 ## Installation
 
-```
+```cmd
 # pip
 pip install git+https://github.com/allen-cell-animated/colorizer-data.git@v1.2.0
 
@@ -24,7 +26,8 @@ To install a different version, replace the end of the URL with a specific versi
 
 ## Example Usage
 
-This is a simplified example. See our [example scripts](./colorizer_data/bin/example_scripts/) for complete working code!
+See the [Getting Started tutorial](./documentation/GETTING_STARTED.md) for a detailed walkthrough on how to get your datasets
+into the correct format for the Timelapse Feature Explorer.
 
 ```python
 import pandas as pd

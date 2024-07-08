@@ -1,4 +1,4 @@
-# Tutorial: How to process data for Timelapse Feature Explorer
+# Getting Started: how to process data for Timelapse Feature Explorer
 
 The [Timelapse Feature Explorer (TFE)](https://timelapse.allencell.org) is a web-based application designed for the interactive visualization and analysis of segmented time-series microscopy data! Data needs to be processed into a specific format to be loaded into the viewer.
 
@@ -20,12 +20,13 @@ A few key terms:
 
 From a command terminal, clone this repository and run the following commands to install dependencies. This will install the necessary libraries for the example scripts and the latest release of `colorizer-data`. (You may want to do this from a virtual Python environment-- see [venv](https://docs.python.org/3/library/venv.html) or [conda](https://docs.conda.io/en/latest/) for more information.)
 
+> **_NOTE_**: You must be on Python version 3.9 or above.
+
 ```bash
 git clone https://github.com/allen-cell-animated/colorizer-data.git
 cd colorizer-data/documentation/getting_started_guide
 
-# TODO: I have to make this still :)
-pip install -r ./requirements.txt
+python3 -m pip install -r ./requirements.txt
 ```
 
 ## 3. Expected formats for raw data
@@ -75,7 +76,7 @@ Start an interactive Python session. Make sure you are at `./documentation/getti
 # If not already in the `getting_started_guide` directory:
 cd /documentation/getting_started_guide/
 
-python
+python3
 ```
 
 Paste the following steps into the terminal. (Alternatively, you can also create a Python script, copy in the code below, and run it. The full script can be found as [`process_data.py` in the `scripts` directory](./getting_started_guide/process_data.py).)
@@ -112,8 +113,8 @@ SEGMENTED_IMAGE_COLUMN = "segmentation_path"
 CENTROIDS_X_COLUMN = "centroid_x"
 CENTROIDS_Y_COLUMN = "centroid_y"
 AREA_COLUMN = "area"
-LOCATION_COLUMN = "location"
-RADIUS_COLUMN = "radius"
+    LOCATION_COLUMN = "location"
+    RADIUS_COLUMN = "radius"
 
 # Add in a column to act as an index for the dataset.
 # This preserves row numbers even when the dataframe is grouped by
@@ -205,23 +206,22 @@ frame_paths = []
 for frame_num, frame_data in data_grouped_by_time:
     # Get the path to the image and load it.
     frame_path = frame_data.iloc[0][SEGMENTED_IMAGE_COLUMN]
-
     segmentation_image = BioImage("raw_dataset/" + frame_path).get_image_data(
         "YX", S=0, T=0, C=0
     )
-
+    #
     # NOTE: For datasets with 3D segmentations, you may need to flatten the data into
     # 2D images. Typically, it's simplest to do so with a max projection, but may vary
     # based on your data. Replace the above line with the following:
     #
     # segmentation_image = bioio.BioImage(frame_path).get_image_data("ZYX", S=0, T=0, C=0)
     # segmentation_image = segmentation_image.max(axis=0)
-
+    #
     # Remap the segmented so object IDs are unique across all timepoints.
     (remapped_segmentations, _lut) = remap_segmented_image(
         segmentation_image, frame_data, OBJECT_ID_COLUMN, INDEX_COLUMN
     )
-
+    #
     # Write the new segmentation image.
     frame_prefix = "frame_"
     frame_suffix = ".png"
