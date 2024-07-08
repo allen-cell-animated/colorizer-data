@@ -1,0 +1,7 @@
+numpy
+pandas
+skimage
+bioio
+bioio-ome-tiff
+
+colorizer_data @ git+https://github.com/allen-cell-animated/colorizer-data.git@v1.2.0
