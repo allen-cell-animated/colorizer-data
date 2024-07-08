@@ -44,16 +44,16 @@ Your files may be in a different format or have 3D segmentation images, in which
 
 Here's a preview of the raw dataset, `data.csv`:
 
-| object_id | track_id | time | centroid_x | centroid_y | area | height | segmentation_path |
-| ----------- | ---------- | ------ | ------------ | ------------ | -------- | -------- | ------------------- |
-| 1 | 0 | 0 | 17 | 47 | 113.1 | 47 | frame_0.tiff |
-| 2 | 1 | 0 | 33 | 48 | 113.1 | 48 | frame_0.tiff |
-| 3 | 2 | 0 | 50 | 52 | 201.1 | 52 | frame_0.tiff |
-| ... | ... | ... | ... | ... | ... | ... | ... |
-| 5 | 0 | 1 | 17 | 49 | 50.3 | 49 | frame_1.tiff |
-| 6 | 1 | 1 | 33 | 48 | 78.5 | 48 | frame_1.tiff |
-| 7 | 2 | 1 | 50 | 50 | 254.5 | 50 | frame_1.tiff |
-| ... | ... | ... | ... | ... | ... | ... | ... |
+| object_id | track_id | time | centroid_x | centroid_y | area | radius | location | segmentation_path |
+| ----------- | ---------- | ------ | ------------ | ------------ | -------- | -------- | ------------------- | --- |
+| 1 | 0 | 0 | 33 | 110 | 706.9 | 15 | middle | frame_0.tiff |
+| 2 | 1 | 0 | 67 | 100 | 804.2 | 16 | middle | frame_0.tiff |
+| 3 | 2 | 0 | 100 | 108 | 804.2 | 16 | middle | frame_0.tiff |
+| 4 | 3 | 0 | 133 | 88 | 706.9 | 15 | middle | frame_0.tiff |
+| 5 | 4 | 0 | 167 | 101 | 804.2 | 16 | middle | frame_0.tiff |
+| 6 | 0 | 1 | 33 | 121 | 530.9 | 13 | bottom | frame_1.tiff |
+| 7 | 1 | 1 | 67 | 113 | 804.2 | 16 | middle | frame_1.tiff |
+| ... | ... | ... | ... | ... | ... | ... | ... | ... |
 
 Each of the segmentation images is an OME-TIFF image containing the IDs of the segmented objects:
 
@@ -264,21 +264,17 @@ Our public release of Timelapse Feature Explorer is designed to load datasets ho
 
 ### Viewing datasets via the web
 
-TODO
-Timelapse Feature Explorer can 
- client's web browser, so it must be accessible via URL from the browser.
-
 > **_NOTE:_** To use a dataset with our public build of Timelapse Feature Explorer, the dataset must be accessible using the HTTPS protocol (e.g., `https://example.com/your-dataset/`). If you need to use HTTP, run a local instance of the viewer.
 
-For this tutorial, you can load a pre-processed example copy of the dataset on GitHub. You can access it at this URL: [https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset](https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset)
+For this tutorial, you can load a pre-processed example copy of the dataset, which we've hosted on GitHub. You can access it at this URL: [https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset](https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset)
 
-However, if you have updated the dataset files or want to use a local dataset, skip to the next section.
+If you have updated the dataset files or want to use a local dataset, skip to the next section ([Installing Timelapse Feature Explorer locally](./)).
 
 #### Opening your dataset
 
 1. Open Timelapse Feature Explorer at [https://timelapse.allencell.org](https://timelapse.allencell.org).
 
-2. Click the **Load** in the header and paste in the following URL: `https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset/manifest.json`
+2. Click the **Load** in the header and paste in the following URL: `https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/example/processed_dataset/manifest.json`
 
 ![The Load button on the Timelapse Feature Explorer header, next to the Help dropdown.](./getting_started_guide/assets/load-button.png)
 
@@ -317,6 +313,10 @@ python3 -m http.server 8080
 Once both steps are done, open your web browser and navigate to [`http://localhost:5173`](http://localhost:5173). Click the **Load** button in the header and paste in the following URL: `http://localhost:8080/documentation/getting_started_guide/processed_dataset`.
 
 Your dataset should appear in the browser and be ready for viewing!
+
+![The loaded dataset in Timelapse Feature Explorer. Five bubbles appear in the main viewport in various shades of purple and blue. The selected feature is Area, in units of pixels squared.](./getting_started_guide/assets/loaded-dataset.png)
+
+Click on the features dropdown to select a feature to visualize. You can also hover on individual objects to see their feature values.
 
 ## 6. What's next?
 
