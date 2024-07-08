@@ -1,6 +1,6 @@
 # Tutorial: How to process data for Timelapse Feature Explorer
 
-The Timelapse Feature Explorer (TFE) is a web-based application designed for the interactive visualization and analysis of segmented time-series microscopy data! Data needs to be processed into a specific format to be loaded into the viewer.
+The [Timelapse Feature Explorer (TFE)](https://timelapse.allencell.org) is a web-based application designed for the interactive visualization and analysis of segmented time-series microscopy data! Data needs to be processed into a specific format to be loaded into the viewer.
 
 In this tutorial, you'll learn how to prepare your data for the Timelapse Feature Explorer.
 
@@ -57,7 +57,7 @@ Here's a preview of the raw dataset, `data.csv`:
 
 Each of the segmentation images is an OME-TIFF image containing the IDs of the segmented objects:
 
-_Frame 0 of the example dataset, as viewed in FIJI._
+_Frame 0 of the example dataset, as viewed in FIJI. Contrast has been increased for easier viewing._
 
 ![Frame 0 of the example dataset. The background is black, labeled `value=0`. There are five circles of various diameters and positions, with IDs starting at 30 and increasing to 34.](./getting_started_guide/assets/sample-segmentation.png)
 
@@ -69,13 +69,16 @@ Timelapse Feature Explorer reads data in the format specified by the [`DATA_FORM
 
 ### Processing script
 
-Start an interactive Python session and paste the following steps into the terminal. Make sure you are at `./documentation/getting_started_guide/` in the cloned repository.
+Start an interactive Python session. Make sure you are at `./documentation/getting_started_guide/` in the cloned repository.
 
 ```bash
+# If not already in the `getting_started_guide` directory:
+cd /documentation/getting_started_guide/
+
 python
 ```
 
- (Alternatively, you can also create a Python script, copy in the lines, and run it. The full script is available in the [`process_data.py` script](./getting_started_guide/process_data.py).)
+Paste the following steps into the terminal. (Alternatively, you can also create a Python script, copy in the code below, and run it. The full script can be found as [`process_data.py` in the `scripts` directory](./getting_started_guide/process_data.py).)
 
 #### 1. Import dependencies and load the dataset into a pandas DataFrame
 
@@ -109,7 +112,8 @@ SEGMENTED_IMAGE_COLUMN = "segmentation_path"
 CENTROIDS_X_COLUMN = "centroid_x"
 CENTROIDS_Y_COLUMN = "centroid_y"
 AREA_COLUMN = "area"
-HEIGHT_COLUMN = "height"
+LOCATION_COLUMN = "location"
+RADIUS_COLUMN = "radius"
 
 # Add in a column to act as an index for the dataset.
 # This preserves row numbers even when the dataframe is grouped by
@@ -127,13 +131,11 @@ writer = ColorizerDatasetWriter(output_dir, dataset_name)
 #### 3. Write the core data
 
 ```python
-# Turn each column into a numpy array, to be saved by the writer.
+# Turn core data columns into a numpy array, to be saved by the writer.
 tracks = data[TRACK_ID_COLUMN].to_numpy()
 times = data[TIMES_COLUMN].to_numpy()
 centroids_x = data[CENTROIDS_X_COLUMN].to_numpy()
 centroids_y = data[CENTROIDS_Y_COLUMN].to_numpy()
-areas = data[AREA_COLUMN].to_numpy()
-heights = data[HEIGHT_COLUMN].to_numpy()
 
 writer.write_data(
     tracks=tracks,
@@ -145,7 +147,19 @@ writer.write_data(
 
 #### 4. Write the features
 
+Features can be one of three types:
+
+1. **Continuous** features are used for floating-point numbers.
+2. **Discrete** features are used for integers.
+3. **Categorical** features are used for string-based labels. Note that there can only be a max of 12 categories for a categorical feature.
+
+The `FeatureInfo` class is used to provide metadata about each feature, such as its label, key, type, and units if applicable.
+
 ```python
+areas = data[AREA_COLUMN].to_numpy()
+locations = data[LOCATION_COLUMN].to_numpy()
+radii = data[RADIUS_COLUMN].to_numpy()
+
 # Additional metadata can be provided for each feature, which will be shown
 # when interacting with it in the viewer.
 area_info = FeatureInfo(
@@ -154,14 +168,25 @@ area_info = FeatureInfo(
     type=FeatureType.CONTINUOUS,
     unit="px²",
 )
-height_info = FeatureInfo(
-    label="Height",
-    key="height",
-    type=FeatureType.CONTINUOUS,
-    unit="nm",
+radius_info = FeatureInfo(
+    label="Radius",
+    key="radius",
+    # Discrete features are used for integers.
+    type=FeatureType.DISCRETE,
+    unit="px",
+)
+location_info = FeatureInfo(
+    label="Location",
+    key="location",
+    # Categorical features are used for string-based labels.
+    type=FeatureType.CATEGORICAL,
+    # Categories can be auto-detected from the data, or provided manually
+    # if you want to preserve a specific order.
+    categories=["top", "middle", "bottom"],
 )
 writer.write_feature(areas, area_info)
-writer.write_feature(heights, height_info)
+writer.write_feature(radii, radius_info)
+writer.write_feature(locations, location_info)
 ```
 
 #### 5. Write the images
@@ -185,7 +210,10 @@ for frame_num, frame_data in data_grouped_by_time:
         "YX", S=0, T=0, C=0
     )
 
-    # NOTE: For datasets with 3D segmentations, you may need to flatten the data into 2D images. If so, replace the above line with the following:
+    # NOTE: For datasets with 3D segmentations, you may need to flatten the data into
+    # 2D images. Typically, it's simplest to do so with a max projection, but may vary
+    # based on your data. Replace the above line with the following:
+    #
     # segmentation_image = bioio.BioImage(frame_path).get_image_data("ZYX", S=0, T=0, C=0)
     # segmentation_image = segmentation_image.max(axis=0)
 
@@ -194,7 +222,7 @@ for frame_num, frame_data in data_grouped_by_time:
         segmentation_image, frame_data, OBJECT_ID_COLUMN, INDEX_COLUMN
     )
 
-    # Write the remapped segmentation image.
+    # Write the new segmentation image.
     frame_prefix = "frame_"
     frame_suffix = ".png"
     writer.write_image(remapped_segmentations, frame_num, frame_prefix, frame_suffix)
@@ -221,6 +249,7 @@ metadata = ColorizerMetadata(
     frame_duration_sec=1,
 )
 
+
 # Write the final dataset
 writer.write_manifest(metadata=metadata)
 ```
@@ -233,9 +262,11 @@ Now that the dataset is processed, we can view it in the Timelapse Feature Explo
 
 Our public release of Timelapse Feature Explorer is designed to load datasets hosted on a web server. To load **local datasets and files**, you'll need to run a **local instance** of the viewer. We'll cover steps for both options.
 
-### Viewing files on a web server
+### Viewing datasets via the web
 
-Timelapse Feature Explorer is designed to load datasets hosted in a cloud storage service or web server. This data will be fetched by the client's web browser, so it must be accessible via URL from the browser.
+TODO
+Timelapse Feature Explorer can 
+ client's web browser, so it must be accessible via URL from the browser.
 
 > **_NOTE:_** To use a dataset with our public build of Timelapse Feature Explorer, the dataset must be accessible using the HTTPS protocol (e.g., `https://example.com/your-dataset/`). If you need to use HTTP, run a local instance of the viewer.
 
@@ -243,7 +274,7 @@ For this tutorial, you can load a pre-processed example copy of the dataset on G
 
 However, if you have updated the dataset files or want to use a local dataset, skip to the next section.
 
-### Opening your dataset
+#### Opening your dataset
 
 1. Open Timelapse Feature Explorer at [https://timelapse.allencell.org](https://timelapse.allencell.org).
 
@@ -261,7 +292,7 @@ To view our **locally converted dataset**, we'll also need to run a **local vers
 
 #### 1. TFE installation
 
-Install Node from [nodejs.org](https://nodejs.org/). Once Node is installed, open a command terminal in the directory you want to install TFE into and run the following commands to clone the repository and install the dependencies:
+Install Node (v20 or above) from [nodejs.org](https://nodejs.org/). Once Node is installed, **open a command terminal** in the directory you want to install TFE into. Run the following commands to clone the repository and install the dependencies:
 
 ```bash
 git clone https://github.com/allen-cell-animated/timelapse-colorizer.git
@@ -274,7 +305,7 @@ You can now run `npm run start` at anytime to start the viewer. By default, it w
 
 #### 2. Serving local files
 
-1. Start a local server to serve the processed dataset files. You can use Python's built-in HTTP server for this. **Open a _new_ command terminal** at the root of this repository and run the following command:
+1. Start a local server to serve the processed dataset files. You can use Python's built-in HTTP server for this. **Open a new command terminal** at the root of this repository and run the following command:
 
 ```bash
 # Should be inside the colorizer-data root directory
@@ -283,9 +314,9 @@ python3 -m http.server 8080
 
 #### 3. View the dataset
 
-Once both steps are done, open your web browser and navigate to `http://localhost:5173`. Click the **Load** button in the header and paste in the following URL: `http://localhost:8080/documentation/getting_started_guide/processed_dataset`.
+Once both steps are done, open your web browser and navigate to [`http://localhost:5173`](http://localhost:5173). Click the **Load** button in the header and paste in the following URL: `http://localhost:8080/documentation/getting_started_guide/processed_dataset`.
 
-Your dataset should appear in the browser and be ready for interaction!
+Your dataset should appear in the browser and be ready for viewing!
 
 ## 6. What's next?
 
@@ -303,6 +334,6 @@ We provide a number of example scripts that perform more advanced data processin
 2. Handling 3D segmentation images
 3. Parallelizing frame processing
 4. Grouping datasets into collections
-5. Handling common arguments for processing scripts
+5. Handling common arguments/options for processing scripts
 
 All of these scripts are available in the [`bin/example_scripts` directory](../colorizer_data/bin/example_scripts/).
