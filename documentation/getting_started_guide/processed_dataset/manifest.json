@@ -8,11 +8,23 @@
       "key": "area"
     },
     {
-      "name": "Height",
+      "name": "Radius",
       "data": "feature_1.json",
-      "unit": "nm",
-      "type": "continuous",
-      "key": "height"
+      "unit": "px",
+      "type": "discrete",
+      "key": "radius"
+    },
+    {
+      "name": "Location",
+      "data": "feature_2.json",
+      "unit": "",
+      "type": "categorical",
+      "key": "location",
+      "categories": [
+        "top",
+        "middle",
+        "bottom"
+      ]
     }
   ],
   "tracks": "tracks.json",
@@ -28,7 +40,17 @@
     "frame_6.png",
     "frame_7.png",
     "frame_8.png",
-    "frame_9.png"
+    "frame_9.png",
+    "frame_10.png",
+    "frame_11.png",
+    "frame_12.png",
+    "frame_13.png",
+    "frame_14.png",
+    "frame_15.png",
+    "frame_16.png",
+    "frame_17.png",
+    "frame_18.png",
+    "frame_19.png"
   ],
   "metadata": {
     "name": "Example dataset",
@@ -36,8 +58,8 @@
     "author": "Jane Doe et al.",
     "datasetVersion": "v1.0",
     "dateCreated": "2024-07-05T22:16:13.270463Z",
-    "lastModified": "2024-07-05T22:16:13.270463Z",
-    "revision": 6,
+    "lastModified": "2024-07-08T17:24:35.732158Z",
+    "revision": 8,
     "writerVersion": "v1.2.0",
     "frameDims": {
       "width": 100,
