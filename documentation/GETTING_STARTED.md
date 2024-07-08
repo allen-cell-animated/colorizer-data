@@ -24,7 +24,6 @@ From a command terminal, clone this repository and run the following commands to
 git clone https://github.com/allen-cell-animated/colorizer-data.git
 cd colorizer-data/documentation/getting_started_guide
 
-# TODO: I have to make this still :)
 pip install -r ./requirements.txt
 ```
 

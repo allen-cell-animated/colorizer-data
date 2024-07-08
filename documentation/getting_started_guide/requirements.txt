@@ -1,6 +1,6 @@
 numpy
 pandas
-skimage
+scikit-image
 bioio
 bioio-ome-tiff
 
