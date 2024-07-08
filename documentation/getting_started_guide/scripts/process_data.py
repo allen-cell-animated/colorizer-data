@@ -25,7 +25,8 @@ SEGMENTED_IMAGE_COLUMN = "segmentation_path"
 CENTROIDS_X_COLUMN = "centroid_x"
 CENTROIDS_Y_COLUMN = "centroid_y"
 AREA_COLUMN = "area"
-HEIGHT_COLUMN = "height"
+LOCATION_COLUMN = "location"
+RADIUS_COLUMN = "radius"
 
 # Add in a column to act as an index for the dataset.
 # This preserves row numbers even when the dataframe is grouped by
@@ -45,7 +46,8 @@ times = data[TIMES_COLUMN].to_numpy()
 centroids_x = data[CENTROIDS_X_COLUMN].to_numpy()
 centroids_y = data[CENTROIDS_Y_COLUMN].to_numpy()
 areas = data[AREA_COLUMN].to_numpy()
-heights = data[HEIGHT_COLUMN].to_numpy()
+locations = data[LOCATION_COLUMN].to_numpy()
+radii = data[RADIUS_COLUMN].to_numpy()
 
 writer.write_data(
     tracks=tracks,
@@ -62,14 +64,25 @@ area_info = FeatureInfo(
     type=FeatureType.CONTINUOUS,
     unit="px²",
 )
-height_info = FeatureInfo(
-    label="Height",
-    key="height",
-    type=FeatureType.CONTINUOUS,
-    unit="nm",
+radius_info = FeatureInfo(
+    label="Radius",
+    key="radius",
+    # Discrete features are used for integers.
+    type=FeatureType.DISCRETE,
+    unit="px",
+)
+location_info = FeatureInfo(
+    label="Location",
+    key="location",
+    # Categorical features are used for string-based labels.
+    type=FeatureType.CATEGORICAL,
+    # Categories can be auto-detected from the data, or provided manually
+    # if you want to preserve a specific order.
+    categories=["top", "middle", "bottom"],
 )
 writer.write_feature(areas, area_info)
-writer.write_feature(heights, height_info)
+writer.write_feature(radii, radius_info)
+writer.write_feature(locations, location_info)
 
 # Group data by the timestamp
 data_grouped_by_time = data.groupby(TIMES_COLUMN)
