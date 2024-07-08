@@ -1,7 +1,11 @@
 from bioio import BioImage
 import pandas as pd
 
-# TODO: also install bioio-ome-tiff
+"""
+An example data processing script for the `GETTING_STARTED` tutorial.
+
+Run in the directory above the `scripts folder with the command `python ./scripts/process_data.py`.
+"""
 
 from colorizer_data.types import DATETIME_FORMAT
 from colorizer_data.utils import (
@@ -40,14 +44,11 @@ output_dir = "."
 dataset_name = "processed_dataset"
 writer = ColorizerDatasetWriter(output_dir, dataset_name)
 
-# Turn each column into a numpy array, to be saved by the writer.
+# Turn core data columns into a numpy array, to be saved by the writer.
 tracks = data[TRACK_ID_COLUMN].to_numpy()
 times = data[TIMES_COLUMN].to_numpy()
 centroids_x = data[CENTROIDS_X_COLUMN].to_numpy()
 centroids_y = data[CENTROIDS_Y_COLUMN].to_numpy()
-areas = data[AREA_COLUMN].to_numpy()
-locations = data[LOCATION_COLUMN].to_numpy()
-radii = data[RADIUS_COLUMN].to_numpy()
 
 writer.write_data(
     tracks=tracks,
@@ -55,6 +56,10 @@ writer.write_data(
     centroids_x=centroids_x,
     centroids_y=centroids_y,
 )
+
+areas = data[AREA_COLUMN].to_numpy()
+locations = data[LOCATION_COLUMN].to_numpy()
+radii = data[RADIUS_COLUMN].to_numpy()
 
 # Additional metadata can be provided for each feature, which will be shown
 # when interacting with it in the viewer.
@@ -96,7 +101,10 @@ for frame_num, frame_data in data_grouped_by_time:
         "YX", S=0, T=0, C=0
     )
 
-    # NOTE: For datasets with 3D segmentations, you may need to flatten the data into 2D images. If so, replace the above line with the following:
+    # NOTE: For datasets with 3D segmentations, you may need to flatten the data into
+    # 2D images. Typically, it's simplest to do so with a max projection, but may vary
+    # based on your data. Replace the above line with the following:
+    #
     # segmentation_image = bioio.BioImage(frame_path).get_image_data("ZYX", S=0, T=0, C=0)
     # segmentation_image = segmentation_image.max(axis=0)
 
