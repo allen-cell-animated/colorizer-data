@@ -1,4 +1,4 @@
-# Tutorial: How to process data for Timelapse Feature Explorer
+# Getting Started: how to process data for Timelapse Feature Explorer
 
 The [Timelapse Feature Explorer (TFE)](https://timelapse.allencell.org) is a web-based application designed for the interactive visualization and analysis of segmented time-series microscopy data! Data needs to be processed into a specific format to be loaded into the viewer.
 
