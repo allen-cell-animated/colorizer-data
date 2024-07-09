@@ -5,9 +5,6 @@ build-backend = "setuptools.build_meta"
 [tools.setuptools]
 packages = ["colorizer_data"]
 
-[tool.setuptools.dynamic]
-version = {attr = "colorizer_data.__version__"}
-
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["colorizer_data"]
@@ -15,6 +12,7 @@ namespaces = false
 
 [project]
 name = "colorizer_data"
+version = "1.2.0"
 authors = [
     {name = "", email = "danielt@alleninstitute.org"},
     {name = "", email = "peyton.lee@alleninstitute.org"},
@@ -34,7 +32,6 @@ dependencies = [
     "requests",
     "dataclasses-json",
 ]
-dynamic = ["version"]
 
 [project.optional-dependencies]
 # To install, run `pip install -e '.[dev]'`
