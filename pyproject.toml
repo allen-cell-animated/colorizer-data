@@ -5,6 +5,9 @@ build-backend = "setuptools.build_meta"
 [tools.setuptools]
 packages = ["colorizer_data"]
 
+[tool.setuptools.dynamic]
+version = {attr = "colorizer_data.VERSION"}
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["colorizer_data"]
