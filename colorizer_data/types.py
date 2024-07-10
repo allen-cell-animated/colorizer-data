@@ -58,6 +58,8 @@ class FeatureInfo:
     unit: str = ""
     type: FeatureType = FeatureType.INDETERMINATE
     categories: Optional[List[str]] = None
+    min: Optional[Union[int, float]] = None
+    max: Optional[Union[int, float]] = None
 
     def get_name(self) -> Union[str, None]:
         """
@@ -93,6 +95,8 @@ class FeatureMetadata(TypedDict):
     unit: str
     type: FeatureType
     categories: List[str]
+    min: Union[int, float]
+    max: Union[int, float]
 
 
 class BackdropMetadata(TypedDict):

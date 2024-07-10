@@ -8,6 +8,7 @@ from typing import Dict, List, Union
 
 import numpy as np
 from PIL import Image
+
 from colorizer_data.types import (
     BackdropMetadata,
     ColorizerMetadata,
@@ -16,7 +17,6 @@ from colorizer_data.types import (
     FeatureMetadata,
     FeatureType,
 )
-
 from colorizer_data.utils import (
     DEFAULT_FRAME_PREFIX,
     DEFAULT_FRAME_SUFFIX,
@@ -130,8 +130,6 @@ class ColorizerDatasetWriter:
         info: FeatureInfo,
         *,
         outliers: Union[np.ndarray, None] = None,
-        min: Union[int, float, None] = None,
-        max: Union[int, float, None] = None,
     ) -> None:
         """
         Writes a feature data array and stores feature metadata to be written to the manifest.
@@ -203,11 +201,11 @@ class ColorizerDatasetWriter:
         filtered_data = data
         if outliers is not None:
             filtered_data = data[np.logical_not(outliers)]
-        fmin = min
-        fmax = max
-        if min is None:
+        fmin = info.min
+        fmax = info.max
+        if fmin is None:
             fmin = np.nanmin(filtered_data)
-        if max is None:
+        if fmax is None:
             fmax = np.nanmax(filtered_data)
 
         key = info.key
@@ -222,6 +220,8 @@ class ColorizerDatasetWriter:
             "unit": info.unit,
             "type": info.type,
             "key": key,
+            "min": fmin,
+            "max": fmax,
         }
 
         # Add categories to metadata only if feature is categorical; also do validation here
