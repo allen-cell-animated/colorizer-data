@@ -204,7 +204,7 @@ class ColorizerDatasetWriter:
         if write_parquet:
             filename = parquet_filename
 
-        file_path = self.outpath + "/" + filename
+        parquet_file_path = self.outpath + "/" + parquet_filename
         json_file_path = self.outpath + "/" + json_filename
 
         # Calculate min/max
@@ -260,7 +260,7 @@ class ColorizerDatasetWriter:
 
         df = pd.DataFrame({"data": data})
         data_arrow = pa.Table.from_pandas(df)
-        pq.write_table(data_arrow, parquet_filename)
+        pq.write_table(data_arrow, parquet_file_path)
 
         # Update the manifest with this feature data
         # Default to column name if no label is given; throw error if neither is present
