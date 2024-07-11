@@ -7,7 +7,10 @@ import shutil
 from typing import Dict, List, Union
 
 import numpy as np
+import pandas as pd
 from PIL import Image
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 from colorizer_data.types import (
     BackdropMetadata,
@@ -130,6 +133,7 @@ class ColorizerDatasetWriter:
         info: FeatureInfo,
         *,
         outliers: Union[np.ndarray, None] = None,
+        write_parquet: bool = True,
     ) -> None:
         """
         Writes a feature data array and stores feature metadata to be written to the manifest.
@@ -139,8 +143,6 @@ class ColorizerDatasetWriter:
             info (`FeatureInfo`): Metadata for the feature.
             outliers (`np.ndarray`): Optional boolean array, where an object `i` is an outlier if `outliers[i] == True`.
                 Outliers will not count towards min/max calculation. Ignored if not provided.
-            min (int | float): Optional override for minimum feature value. If not provided, will be calculated from `data`.
-            max (int | float): Optional override for maximum feature value. If not provided, will be calculated from `data`.
 
         Feature JSON files are suffixed by index, starting at 0, which increments
         for each call to `write_feature()`. The first feature will have `feature_0.json`,
@@ -194,8 +196,16 @@ class ColorizerDatasetWriter:
                 replace_out_of_bounds_values_with_nan(data, 0, len(info.categories) - 1)
 
         num_features = len(self.features.keys())
-        filename = "feature_" + str(num_features) + ".json"
+
+        json_filename = "feature_" + str(num_features) + ".json"
+        parquet_filename = "feature_" + str(num_features) + ".parquet"
+
+        filename = json_filename
+        if write_parquet:
+            filename = parquet_filename
+
         file_path = self.outpath + "/" + filename
+        json_file_path = self.outpath + "/" + json_filename
 
         # Calculate min/max
         filtered_data = data
@@ -214,14 +224,15 @@ class ColorizerDatasetWriter:
             key = sanitize_key_name(info.label)
 
         # Create manifest from feature data
+        encoder = NumpyValuesEncoder()
         metadata: FeatureMetadata = {
             "name": info.label,
             "data": filename,
             "unit": info.unit,
             "type": info.type,
             "key": key,
-            "min": fmin,
-            "max": fmax,
+            "min": encoder.default(fmin),
+            "max": encoder.default(fmax),
         }
 
         # Add categories to metadata only if feature is categorical; also do validation here
@@ -242,10 +253,14 @@ class ColorizerDatasetWriter:
             # TODO cast to int, but handle NaN?
 
         # Write the feature JSON file
-        logging.info("Writing {}...".format(filename))
+        logging.info("Writing {}...".format(json_filename))
         js = {"data": data.tolist(), "min": fmin, "max": fmax}
-        with open(file_path, "w") as f:
+        with open(json_file_path, "w") as f:
             json.dump(js, f, cls=NumpyValuesEncoder)
+
+        df = pd.DataFrame({"data": data})
+        data_arrow = pa.Table.from_pandas(df)
+        pq.write_table(data_arrow, parquet_filename)
 
         # Update the manifest with this feature data
         # Default to column name if no label is given; throw error if neither is present
