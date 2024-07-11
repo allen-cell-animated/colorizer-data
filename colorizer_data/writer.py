@@ -252,6 +252,9 @@ class ColorizerDatasetWriter:
             metadata["categories"] = info.categories
             # TODO cast to int, but handle NaN?
 
+        if data.dtype == np.float64 or data.dtype == np.double:
+            data = data.astype(np.float32)
+
         # Write the feature JSON file
         logging.info("Writing {}...".format(json_filename))
         js = {"data": data.tolist(), "min": fmin, "max": fmax}
