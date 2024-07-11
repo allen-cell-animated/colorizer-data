@@ -24,12 +24,13 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
+    "dataclasses-json",
     "numpy",
     "pandas",
     "pillow",
+    "pyarrow",
     "scikit-image",
     "requests",
-    "dataclasses-json",
 ]
 dynamic = ["version"]
 
