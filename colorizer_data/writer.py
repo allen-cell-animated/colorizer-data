@@ -259,7 +259,7 @@ class ColorizerDatasetWriter:
             json.dump(js, f, cls=NumpyValuesEncoder)
 
         df = pd.DataFrame({"data": data})
-        data_arrow = pa.Table.from_pandas(df)
+        data_arrow = pa.Table.from_pandas(df, preserve_index=False)
         pq.write_table(data_arrow, parquet_file_path)
 
         # Update the manifest with this feature data
