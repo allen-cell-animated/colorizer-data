@@ -268,7 +268,65 @@ class ColorizerDatasetWriter:
         # cases where the dictionary doubles the file size compared to a plain encoding.
         # See https://parquet.apache.org/docs/file-format/data-pages/encodings/ for details... it looks like
         # it already does some determination of whether to use dictionary encoding by default?
+        parquet_format_file_path = (
+            self.outpath + "/" + "{}-feature_" + str(num_features) + ".parquet"
+        )
         pq.write_table(data_arrow, parquet_file_path)
+        pq.write_table(
+            data_arrow,
+            parquet_format_file_path.format("dict-snappy"),
+            use_dictionary=True,
+        )
+        pq.write_table(
+            data_arrow,
+            parquet_format_file_path.format("no_dict-snappy"),
+            use_dictionary=False,
+        )
+        pq.write_table(
+            data_arrow, parquet_format_file_path.format("gzip"), compression="gzip"
+        )
+        pq.write_table(
+            data_arrow, parquet_format_file_path.format("brotli"), compression="brotli"
+        )
+        pq.write_table(
+            data_arrow, parquet_format_file_path.format("zstd"), compression="zstd"
+        )
+        pq.write_table(
+            data_arrow, parquet_format_file_path.format("lz4"), compression="lz4"
+        )
+        pq.write_table(
+            data_arrow, parquet_format_file_path.format("none"), compression="none"
+        )
+        pq.write_table(
+            data_arrow,
+            parquet_format_file_path.format("no_dict-gzip"),
+            compression="gzip",
+            use_dictionary=False,
+        )
+        pq.write_table(
+            data_arrow,
+            parquet_format_file_path.format("no_dict-brotli"),
+            compression="brotli",
+            use_dictionary=False,
+        )
+        pq.write_table(
+            data_arrow,
+            parquet_format_file_path.format("no_dict-zstd"),
+            compression="zstd",
+            use_dictionary=False,
+        )
+        pq.write_table(
+            data_arrow,
+            parquet_format_file_path.format("no_dict-lz4"),
+            compression="lz4",
+            use_dictionary=False,
+        )
+        pq.write_table(
+            data_arrow,
+            parquet_format_file_path.format("no_dict-none"),
+            compression="none",
+            use_dictionary=False,
+        )
 
         # Update the manifest with this feature data
         # Default to column name if no label is given; throw error if neither is present
