@@ -264,7 +264,7 @@ Our public release of Timelapse Feature Explorer is designed to load datasets ho
 
 > **_NOTE:_** To use a dataset with our public build of Timelapse Feature Explorer, the dataset must be accessible using the HTTPS protocol (e.g., `https://example.com/your-dataset/`). If you need to use HTTP, run a local instance of the viewer.
 
-For this tutorial, you can load a pre-processed example copy of the dataset, which we've hosted on GitHub. You can access it at this URL: [https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset](https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/processed_dataset)
+For this tutorial, you can load a pre-processed example copy of the dataset, which we've hosted on GitHub. You can access it at this URL: `https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/doc/getting-started-guide/documentation/getting_started_guide/example/processed_dataset/manifest.json`
 
 If you have updated the dataset files or want to use a local dataset, skip to the next section ([Installing Timelapse Feature Explorer locally](#installing-timelapse-feature-explorer-locally)).
 
@@ -272,7 +272,7 @@ If you have updated the dataset files or want to use a local dataset, skip to th
 
 1. Open Timelapse Feature Explorer at [https://timelapse.allencell.org](https://timelapse.allencell.org).
 
-2. Click the **Load** in the header and paste in the following URL: `https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/getting_started_guide/example/processed_dataset/manifest.json`
+2. Click the **Load** in the header and paste in the following URL: `https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/doc/getting-started-guide/documentation/getting_started_guide/example/processed_dataset/manifest.json`
 
 ![The Load button on the Timelapse Feature Explorer header, next to the Help dropdown.](./getting_started_guide/assets/load-button.png)
 
