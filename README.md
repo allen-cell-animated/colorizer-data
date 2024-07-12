@@ -14,10 +14,10 @@ If using these example scripts, you'll need to run these commands in an environm
 
 ```
 # pip
-pip install git+https://github.com/allen-cell-animated/colorizer-data.git@v1.2.0
+pip install git+https://github.com/allen-cell-animated/colorizer-data.git@v1.2.1
 
 # requirements.txt
-colorizer_data @ git+https://github.com/allen-cell-animated/colorizer-data.git@v1.2.0
+colorizer_data @ git+https://github.com/allen-cell-animated/colorizer-data.git@v1.2.1
 ```
 
 To install a different version, replace the end of the URL with a specific version or branch, like `@vX.X.X` or `@{branch-name}`.
