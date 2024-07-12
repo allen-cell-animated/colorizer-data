@@ -252,6 +252,7 @@ class ColorizerDatasetWriter:
             metadata["categories"] = info.categories
             # TODO cast to int, but handle NaN?
 
+        # The viewer reads float data as float32, so cast it if needed.
         if data.dtype == np.float64 or data.dtype == np.double:
             data = data.astype(np.float32)
 
@@ -263,6 +264,10 @@ class ColorizerDatasetWriter:
 
         df = pd.DataFrame({"data": data})
         data_arrow = pa.Table.from_pandas(df, preserve_index=False)
+        # TODO: Do some calculation to determine whether to use a dictionary here. There are some
+        # cases where the dictionary doubles the file size compared to a plain encoding.
+        # See https://parquet.apache.org/docs/file-format/data-pages/encodings/ for details... it looks like
+        # it already does some determination of whether to use dictionary encoding by default?
         pq.write_table(data_arrow, parquet_file_path)
 
         # Update the manifest with this feature data
