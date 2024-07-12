@@ -10,3 +10,6 @@ glob = "**/*.md"
 
 [[tool.bumpversion.files]]
 filename = "colorizer_data/types.py"
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
