@@ -4,7 +4,7 @@ import multiprocessing
 import os
 import pathlib
 import shutil
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 from PIL import Image
@@ -31,7 +31,7 @@ from colorizer_data.utils import (
     MAX_CATEGORIES,
     NumpyValuesEncoder,
     update_metadata,
-    write_json_or_parquet_data,
+    write_parquet_or_json_data,
 )
 
 
@@ -104,7 +104,7 @@ class ColorizerDatasetWriter:
         data: np.ndarray,
         info: FeatureInfo,
         *,
-        write_parquet: bool = True,
+        write_json: bool = False,
     ) -> None:
         """
         Writes a categorical feature data array and stores feature metadata to be written to the manifest. See
@@ -116,8 +116,8 @@ class ColorizerDatasetWriter:
             data (`np.ndarray`): An array with dtype string, with no more than 12 unique values. Categories will be ordered
             in order of appearance in `data`.
             info (`FeatureInfo`): Metadata for the feature. The `categories` array and `type` will be overridden.
-            write_parquet (`bool`): Whether to write the feature data as a `.parquet` file rather than the default JSON format.
-                Compatible with TFE viewer >v1.1.0. Default is `True`.
+            write_json (`bool`): Whether to write the feature data as a `.json` file rather than the default Parquet format.
+                Compatible with TFE viewer >= v1.1.0. Default is `False`.
         """
         categories, indexed_data = np.unique(data.astype(str), return_inverse=True)
         if len(categories) > MAX_CATEGORIES:
@@ -131,7 +131,7 @@ class ColorizerDatasetWriter:
             return
         info.categories = categories.tolist()
         info.type = FeatureType.CATEGORICAL
-        return self.write_feature(indexed_data, info, write_parquet=write_parquet)
+        return self.write_feature(indexed_data, info, write_json=write_json)
 
     def write_feature(
         self,
@@ -139,7 +139,7 @@ class ColorizerDatasetWriter:
         info: FeatureInfo,
         *,
         outliers: Union[np.ndarray, None] = None,
-        write_parquet: bool = True,
+        write_json: bool = False,
     ) -> None:
         """
         Writes a feature data array and stores feature metadata to be written to the manifest.
@@ -149,8 +149,8 @@ class ColorizerDatasetWriter:
             info (`FeatureInfo`): Metadata for the feature.
             outliers (`np.ndarray`): Optional boolean array, where an object `i` is an outlier if `outliers[i] == True`.
                 Outliers will not count towards min/max calculation. Ignored if not provided.
-            write_parquet (`bool`): Whether to write the feature data as a `.parquet` file rather than the default JSON format.
-                Compatible with TFE viewer >v1.1.0. Default is `True`.
+            write_json (`bool`): Whether to write the feature data as a `.json` file rather than the default Parquet format.
+                Compatible with TFE viewer >= v1.1.0. Default is `False`.
 
         Feature JSON files are suffixed by index, starting at 0, which increments
         for each call to `write_feature()`. The first feature will have `feature_0.json`,
@@ -223,9 +223,9 @@ class ColorizerDatasetWriter:
             data = data.astype(np.float32)
 
         # Write the feature JSON file
-        logging.info("Writing {}...".format(filename))
-        filename = write_json_or_parquet_data(
-            data, self.outpath, file_basename, write_parquet=write_parquet
+        logging.info("Writing {}...".format(file_basename))
+        filename = write_parquet_or_json_data(
+            data, self.outpath, file_basename, write_json=write_json
         )
 
         # Write the metadata to the manifest
@@ -290,7 +290,7 @@ class ColorizerDatasetWriter:
         outliers: Union[np.ndarray, None] = None,
         bounds: Union[np.ndarray, None] = None,
         *,
-        write_parquet: bool = True,
+        write_json: bool = False,
     ):
         """
         Writes (non-feature) dataset data arrays (such as track, time, centroid, outlier,
@@ -316,23 +316,23 @@ class ColorizerDatasetWriter:
         # TODO check outlier and replace values with NaN or something!
         if outliers is not None:
             logging.info("Writing outliers data...")
-            track_filename = write_json_or_parquet_data(
-                outliers, self.outpath, "outliers", write_parquet=write_parquet
+            track_filename = write_parquet_or_json_data(
+                outliers, self.outpath, "outliers", write_json=write_json
             )
             self.manifest["outliers"] = track_filename
 
         # Note these must be in same order as features and same row order as the dataframe.
         if tracks is not None:
             logging.info("Writing track data...")
-            track_filename = write_json_or_parquet_data(
-                tracks, self.outpath, "tracks", write_parquet=write_parquet
+            track_filename = write_parquet_or_json_data(
+                tracks, self.outpath, "tracks", write_json=write_json
             )
             self.manifest["tracks"] = track_filename
 
         if times is not None:
             logging.info("Writing times data...")
-            times_filename = write_json_or_parquet_data(
-                times, self.outpath, "times", write_parquet=write_parquet
+            times_filename = write_parquet_or_json_data(
+                times, self.outpath, "times", write_json=write_json
             )
             self.manifest["times"] = times_filename
 
@@ -345,27 +345,27 @@ class ColorizerDatasetWriter:
             centroids_stacked = np.ravel(np.dstack([centroids_x, centroids_y]))
             centroids_stacked = centroids_stacked * self.scale
             centroids_stacked = centroids_stacked.astype(int)
-            centroids_filename = write_json_or_parquet_data(
+            centroids_filename = write_parquet_or_json_data(
                 centroids_stacked,
                 self.outpath,
                 "centroids",
-                write_parquet=write_parquet,
+                write_json=write_json,
             )
             self.manifest["centroids"] = centroids_filename
 
         if bounds is not None:
             logging.info("Writing bounds data...")
-            bounds_json = {"data": bounds.tolist()}
-            with open(self.outpath + "/bounds.json", "w") as f:
-                json.dump(bounds_json, f)
-            self.manifest["bounds"] = "bounds.json"
+            bounds_filename = write_parquet_or_json_data(
+                bounds, self.outpath, "bounds", write_json=write_json
+            )
+            self.manifest["bounds"] = bounds_filename
 
     def copy_and_add_backdrops(
         self,
         name: str,
         frame_paths: List[str],
         key=None,
-        subdir_name: str = None,
+        subdir_name: Optional[str] = None,
         clear_subdir: bool = True,
     ) -> None:
         """
