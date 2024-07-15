@@ -101,7 +101,13 @@ class ColorizerDatasetWriter:
         else:
             self.metadata = ColorizerMetadata.from_dict(self.manifest["metadata"])
 
-    def write_categorical_feature(self, data: np.ndarray, info: FeatureInfo) -> None:
+    def write_categorical_feature(
+        self,
+        data: np.ndarray,
+        info: FeatureInfo,
+        *,
+        write_parquet: bool = True,
+    ) -> None:
         """
         Writes a categorical feature data array and stores feature metadata to be written to the manifest. See
         `write_feature` for full description of file writing behavior and naming.
@@ -112,6 +118,8 @@ class ColorizerDatasetWriter:
             data (`np.ndarray`): An array with dtype string, with no more than 12 unique values. Categories will be ordered
             in order of appearance in `data`.
             info (`FeatureInfo`): Metadata for the feature. The `categories` array and `type` will be overridden.
+            write_parquet (`bool`): Whether to write the feature data as a `.parquet` file rather than the default JSON format.
+                Compatible with TFE viewer >v1.1.0. Default is `True`.
         """
         categories, indexed_data = np.unique(data.astype(str), return_inverse=True)
         if len(categories) > MAX_CATEGORIES:
@@ -125,7 +133,7 @@ class ColorizerDatasetWriter:
             return
         info.categories = categories.tolist()
         info.type = FeatureType.CATEGORICAL
-        return self.write_feature(indexed_data, info)
+        return self.write_feature(indexed_data, info, write_parquet=write_parquet)
 
     def write_feature(
         self,
@@ -143,6 +151,8 @@ class ColorizerDatasetWriter:
             info (`FeatureInfo`): Metadata for the feature.
             outliers (`np.ndarray`): Optional boolean array, where an object `i` is an outlier if `outliers[i] == True`.
                 Outliers will not count towards min/max calculation. Ignored if not provided.
+            write_parquet (`bool`): Whether to write the feature data as a `.parquet` file rather than the default JSON format.
+                Compatible with TFE viewer >v1.1.0. Default is `True`.
 
         Feature JSON files are suffixed by index, starting at 0, which increments
         for each call to `write_feature()`. The first feature will have `feature_0.json`,
@@ -264,67 +274,14 @@ class ColorizerDatasetWriter:
 
         df = pd.DataFrame({"data": data})
         data_arrow = pa.Table.from_pandas(df, preserve_index=False)
-        # TODO: Do some calculation to determine whether to use a dictionary here. There are some
-        # cases where the dictionary doubles the file size compared to a plain encoding.
-        # See https://parquet.apache.org/docs/file-format/data-pages/encodings/ for details... it looks like
-        # it already does some determination of whether to use dictionary encoding by default?
-        parquet_format_file_path = (
-            self.outpath + "/" + "{}-feature_" + str(num_features) + ".parquet"
-        )
-        pq.write_table(data_arrow, parquet_file_path)
+
+        # In testing, brotli compression + no dictionary encoding gave the smallest overall size
+        # (followed by GZIP + no dict). Because our data is largely numeric and not string-based,
+        # dictionary encoding can double the file size for some float features with highly unique values.
         pq.write_table(
             data_arrow,
-            parquet_format_file_path.format("dict-snappy"),
-            use_dictionary=True,
-        )
-        pq.write_table(
-            data_arrow,
-            parquet_format_file_path.format("no_dict-snappy"),
-            use_dictionary=False,
-        )
-        pq.write_table(
-            data_arrow, parquet_format_file_path.format("gzip"), compression="gzip"
-        )
-        pq.write_table(
-            data_arrow, parquet_format_file_path.format("brotli"), compression="brotli"
-        )
-        pq.write_table(
-            data_arrow, parquet_format_file_path.format("zstd"), compression="zstd"
-        )
-        pq.write_table(
-            data_arrow, parquet_format_file_path.format("lz4"), compression="lz4"
-        )
-        pq.write_table(
-            data_arrow, parquet_format_file_path.format("none"), compression="none"
-        )
-        pq.write_table(
-            data_arrow,
-            parquet_format_file_path.format("no_dict-gzip"),
-            compression="gzip",
-            use_dictionary=False,
-        )
-        pq.write_table(
-            data_arrow,
-            parquet_format_file_path.format("no_dict-brotli"),
+            parquet_file_path,
             compression="brotli",
-            use_dictionary=False,
-        )
-        pq.write_table(
-            data_arrow,
-            parquet_format_file_path.format("no_dict-zstd"),
-            compression="zstd",
-            use_dictionary=False,
-        )
-        pq.write_table(
-            data_arrow,
-            parquet_format_file_path.format("no_dict-lz4"),
-            compression="lz4",
-            use_dictionary=False,
-        )
-        pq.write_table(
-            data_arrow,
-            parquet_format_file_path.format("no_dict-none"),
-            compression="none",
             use_dictionary=False,
         )
 
@@ -357,6 +314,8 @@ class ColorizerDatasetWriter:
         centroids_y: Union[np.ndarray, None] = None,
         outliers: Union[np.ndarray, None] = None,
         bounds: Union[np.ndarray, None] = None,
+        # *,
+        # write_parquet: bool = True,
     ):
         """
         Writes (non-feature) dataset data arrays (such as track, time, centroid, outlier,
@@ -364,6 +323,16 @@ class ColorizerDatasetWriter:
 
         Accepts numpy arrays for each file type and writes them to the configured
         output directory according to the data format.
+
+        Args:
+            tracks (`np.ndarray`): A 1D numpy array of integer track numbers, where `tracks[i]` is the track number for the `i`th object.
+            times (`np.ndarray`): A 1D numpy array of float timestamps, where `times[i]` is the time, in frames, at which the `i`th object
+                is visible.
+            centroids_x (`np.ndarray`): A 1D numpy array of float x-coordinates for object centroids.
+            centroids_y (`np.ndarray`): A 1D numpy array of float y-coordinates for object centroids.
+            outliers (`np.ndarray`): An optional 1D numpy array of boolean values, where `outliers[i]` is `True` if the `i`th object is an outlier.
+            bounds (`np.ndarray`): An optional 1D numpy array of float values. For the `i`th object, the coordinates of the upper left corner are
+                `(x: bounds[4i], y: bounds[4i + 1])` and the lower right corner are `(x: bounds[4i + 2], y: bounds[4i + 3])`.
 
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#1-tracks)
         """
