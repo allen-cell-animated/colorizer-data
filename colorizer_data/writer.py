@@ -7,10 +7,7 @@ import shutil
 from typing import Dict, List, Union
 
 import numpy as np
-import pandas as pd
 from PIL import Image
-import pyarrow as pa
-import pyarrow.parquet as pq
 
 from colorizer_data.types import (
     BackdropMetadata,
@@ -34,6 +31,7 @@ from colorizer_data.utils import (
     MAX_CATEGORIES,
     NumpyValuesEncoder,
     update_metadata,
+    write_json_or_parquet_data,
 )
 
 
@@ -207,15 +205,7 @@ class ColorizerDatasetWriter:
 
         num_features = len(self.features.keys())
 
-        json_filename = "feature_" + str(num_features) + ".json"
-        parquet_filename = "feature_" + str(num_features) + ".parquet"
-
-        filename = json_filename
-        if write_parquet:
-            filename = parquet_filename
-
-        parquet_file_path = self.outpath + "/" + parquet_filename
-        json_file_path = self.outpath + "/" + json_filename
+        file_basename = "feature_" + str(num_features)
 
         # Calculate min/max
         filtered_data = data
@@ -228,12 +218,21 @@ class ColorizerDatasetWriter:
         if fmax is None:
             fmax = np.nanmax(filtered_data)
 
+        # The viewer reads float data as float32, so cast it if needed.
+        if data.dtype == np.float64 or data.dtype == np.double:
+            data = data.astype(np.float32)
+
+        # Write the feature JSON file
+        logging.info("Writing {}...".format(filename))
+        filename = write_json_or_parquet_data(
+            data, self.outpath, file_basename, write_parquet=write_parquet
+        )
+
+        # Write the metadata to the manifest
         key = info.key
         if key == "":
             # Use label, formatting as needed
             key = sanitize_key_name(info.label)
-
-        # Create manifest from feature data
         encoder = NumpyValuesEncoder()
         metadata: FeatureMetadata = {
             "name": info.label,
@@ -244,7 +243,6 @@ class ColorizerDatasetWriter:
             "min": encoder.default(fmin),
             "max": encoder.default(fmax),
         }
-
         # Add categories to metadata only if feature is categorical; also do validation here
         if info.type == FeatureType.CATEGORICAL:
             if info.categories is None:
@@ -261,29 +259,6 @@ class ColorizerDatasetWriter:
                 )
             metadata["categories"] = info.categories
             # TODO cast to int, but handle NaN?
-
-        # The viewer reads float data as float32, so cast it if needed.
-        if data.dtype == np.float64 or data.dtype == np.double:
-            data = data.astype(np.float32)
-
-        # Write the feature JSON file
-        logging.info("Writing {}...".format(json_filename))
-        js = {"data": data.tolist(), "min": fmin, "max": fmax}
-        with open(json_file_path, "w") as f:
-            json.dump(js, f, cls=NumpyValuesEncoder)
-
-        df = pd.DataFrame({"data": data})
-        data_arrow = pa.Table.from_pandas(df, preserve_index=False)
-
-        # In testing, brotli compression + no dictionary encoding gave the smallest overall size
-        # (followed by GZIP + no dict). Because our data is largely numeric and not string-based,
-        # dictionary encoding can double the file size for some float features with highly unique values.
-        pq.write_table(
-            data_arrow,
-            parquet_file_path,
-            compression="brotli",
-            use_dictionary=False,
-        )
 
         # Update the manifest with this feature data
         # Default to column name if no label is given; throw error if neither is present
@@ -314,8 +289,8 @@ class ColorizerDatasetWriter:
         centroids_y: Union[np.ndarray, None] = None,
         outliers: Union[np.ndarray, None] = None,
         bounds: Union[np.ndarray, None] = None,
-        # *,
-        # write_parquet: bool = True,
+        *,
+        write_parquet: bool = True,
     ):
         """
         Writes (non-feature) dataset data arrays (such as track, time, centroid, outlier,
@@ -333,48 +308,53 @@ class ColorizerDatasetWriter:
             outliers (`np.ndarray`): An optional 1D numpy array of boolean values, where `outliers[i]` is `True` if the `i`th object is an outlier.
             bounds (`np.ndarray`): An optional 1D numpy array of float values. For the `i`th object, the coordinates of the upper left corner are
                 `(x: bounds[4i], y: bounds[4i + 1])` and the lower right corner are `(x: bounds[4i + 2], y: bounds[4i + 3])`.
+            write_parquet (`bool`): Whether to write the specified data as a `.parquet` file rather than the default JSON format.
+                Compatible with TFE viewer >v1.1.0. Default is `True`.
 
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#1-tracks)
         """
         # TODO check outlier and replace values with NaN or something!
         if outliers is not None:
-            logging.info("Writing outliers.json...")
-            ojs = {"data": outliers.tolist(), "min": False, "max": True}
-            with open(self.outpath + "/outliers.json", "w") as f:
-                json.dump(ojs, f)
-            self.manifest["outliers"] = "outliers.json"
+            logging.info("Writing outliers data...")
+            track_filename = write_json_or_parquet_data(
+                outliers, self.outpath, "outliers", write_parquet=write_parquet
+            )
+            self.manifest["outliers"] = track_filename
 
         # Note these must be in same order as features and same row order as the dataframe.
         if tracks is not None:
-            logging.info("Writing track.json...")
-            trjs = {"data": tracks.tolist()}
-            with open(self.outpath + "/tracks.json", "w") as f:
-                json.dump(trjs, f)
-            self.manifest["tracks"] = "tracks.json"
+            logging.info("Writing track data...")
+            track_filename = write_json_or_parquet_data(
+                tracks, self.outpath, "tracks", write_parquet=write_parquet
+            )
+            self.manifest["tracks"] = track_filename
 
         if times is not None:
-            logging.info("Writing times.json...")
-            tijs = {"data": times.tolist()}
-            with open(self.outpath + "/times.json", "w") as f:
-                json.dump(tijs, f)
-            self.manifest["times"] = "times.json"
+            logging.info("Writing times data...")
+            times_filename = write_json_or_parquet_data(
+                times, self.outpath, "times", write_parquet=write_parquet
+            )
+            self.manifest["times"] = times_filename
 
         if centroids_x is not None or centroids_y is not None:
             if centroids_x is None or centroids_y is None:
                 raise Exception(
                     "Both arguments centroids_x and centroids_y must be defined."
                 )
-            logging.info("Writing centroids.json...")
+            logging.info("Writing centroids data...")
             centroids_stacked = np.ravel(np.dstack([centroids_x, centroids_y]))
             centroids_stacked = centroids_stacked * self.scale
             centroids_stacked = centroids_stacked.astype(int)
-            centroids_json = {"data": centroids_stacked.tolist()}
-            with open(self.outpath + "/centroids.json", "w") as f:
-                json.dump(centroids_json, f)
-            self.manifest["centroids"] = "centroids.json"
+            centroids_filename = write_json_or_parquet_data(
+                centroids_stacked,
+                self.outpath,
+                "centroids",
+                write_parquet=write_parquet,
+            )
+            self.manifest["centroids"] = centroids_filename
 
         if bounds is not None:
-            logging.info("Writing bounds.json...")
+            logging.info("Writing bounds data...")
             bounds_json = {"data": bounds.tolist()}
             with open(self.outpath + "/bounds.json", "w") as f:
                 json.dump(bounds_json, f)

@@ -11,6 +11,8 @@ from typing import Dict, List, Optional, Sequence, TypeVar, Union, Tuple
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 import requests
 import skimage
 
@@ -253,6 +255,52 @@ def update_collection(
         json.dump(collection, f)
 
 
+def write_json_or_parquet_data(
+    data: np.ndarray,
+    outpath: str,
+    filename: str,
+    *,
+    min: Optional[float | int] = None,
+    max: Optional[float | int] = None,
+    write_parquet: bool = False,
+) -> str:
+    """
+    Writes a numpy array to a JSON or Parquet file, returning the filename of the written file.
+
+    Args:
+        data (`np.ndarray[int | float]`): The numpy array to write.
+        outpath (`str`): The directory to write the file to.
+        filename (`str`): The base filename to write to.
+        min (`Optional[int | float]`): The minimum value of the data array, written only to JSON files.
+        max (`Optional[int | float]`): The maximum value of the data array, written only to JSON files.
+        write_parquet (`bool`): If True, writes the data to a Parquet file. If False, writes to a JSON file.
+
+    Returns:
+        The `str` filename of the written file, ending in either `.parquet` or `.json`.z
+    """
+    if not write_parquet:
+        data_json = {"data": data.tolist(), "min": min, "max": max}
+        filename = "{}.json".format(filename)
+        with open(outpath + "/" + filename, "w") as f:
+            json.dump(data_json, f)
+        return filename
+    else:
+        df = pd.DataFrame({"data": data})
+        data_arrow = pa.Table.from_pandas(df, preserve_index=False)
+        filename = "{}.parquet".format(filename)
+
+        # In testing, brotli compression + no dictionary encoding gave the smallest overall size
+        # (followed by GZIP + no dict). Because our data is largely numeric and not string-based,
+        # dictionary encoding can double the file size for some float features with highly unique values.
+        pq.write_table(
+            data_arrow,
+            outpath + "/" + filename,
+            compression="brotli",
+            use_dictionary=False,
+        )
+        return filename
+
+
 def get_total_objects(dataframe: pd.DataFrame) -> int:
     """
     Get the total number of object IDs in the dataset.
@@ -289,7 +337,7 @@ def update_bounding_box_data(
         seg_remapped (np.ndarray): Segmentation image whose indices start at 1 and are are absolutely unique across the whole dataset,
             such as the results of `remap_segmented_image()`.
 
-    [Documentation for bounds data format](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#7-bounds-optional)
+    [Documentation for bounds data format](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#8-bounds-optional)
     """
     # Capture bounding boxes
     object_ids = np.unique(seg_remapped)
