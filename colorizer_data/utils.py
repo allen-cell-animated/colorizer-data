@@ -260,8 +260,8 @@ def write_parquet_or_json_data(
     outpath: str,
     filename: str,
     *,
-    min: Optional[float | int] = None,
-    max: Optional[float | int] = None,
+    min: Union[float, int, None] = None,
+    max: Union[float, int, None] = None,
     write_json: bool = False,
     parquet_compression: str = "brotli",
     parquet_use_dictionary: bool = False,
@@ -274,8 +274,8 @@ def write_parquet_or_json_data(
         outpath (`str`): The directory to write the file to.
         filename (`str`): The base filename to write to.
 
-        min (`Optional[int | float]`): The minimum value of the data array, written only to JSON files.
-        max (`Optional[int | float]`): The maximum value of the data array, written only to JSON files.
+        min (`int | float | None`): The minimum value of the data array, written only to JSON files.
+        max (`int | float | None`): The maximum value of the data array, written only to JSON files.
         write_json (`bool`): If True, writes the data as a JSON file instead of a parquet file.
         parquet_compression (`str`): The compression algorithm to use for parquet files. Defaults to 'brotli'.
             See https://arrow.apache.org/docs/python/parquet.html#compression-encoding-and-file-compatibility for more details.
