@@ -211,12 +211,15 @@ class ColorizerDatasetWriter:
         filtered_data = data
         if outliers is not None:
             filtered_data = data[np.logical_not(outliers)]
-        fmin = info.min
-        fmax = info.max
+        encoder = NumpyValuesEncoder()
+        fmin = encoder.default(info.min)
+        fmax = encoder.default(info.max)
         if fmin is None:
             fmin = np.nanmin(filtered_data)
         if fmax is None:
             fmax = np.nanmax(filtered_data)
+        fmin = encoder.default(fmin)
+        fmax = encoder.default(fmax)
 
         # The viewer reads float data as float32, so cast it if needed.
         if data.dtype == np.float64 or data.dtype == np.double:
@@ -225,7 +228,12 @@ class ColorizerDatasetWriter:
         # Write the feature JSON file
         logging.info("Writing {}...".format(file_basename))
         filename = write_parquet_or_json_data(
-            data, self.outpath, file_basename, write_json=write_json
+            data,
+            self.outpath,
+            file_basename,
+            write_json=write_json,
+            min=fmin,
+            max=fmax,
         )
 
         # Write the metadata to the manifest
@@ -233,15 +241,14 @@ class ColorizerDatasetWriter:
         if key == "":
             # Use label, formatting as needed
             key = sanitize_key_name(info.label)
-        encoder = NumpyValuesEncoder()
         metadata: FeatureMetadata = {
             "name": info.label,
             "data": filename,
             "unit": info.unit,
             "type": info.type,
             "key": key,
-            "min": encoder.default(fmin),
-            "max": encoder.default(fmax),
+            "min": fmin,
+            "max": fmax,
         }
         # Add categories to metadata only if feature is categorical; also do validation here
         if info.type == FeatureType.CATEGORICAL:
