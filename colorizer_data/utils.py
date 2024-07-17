@@ -268,7 +268,7 @@ def write_parquet_or_json_data(
     max: Union[float, int, None] = None,
     write_json: bool = False,
     parquet_compression: str = "brotli",
-    parquet_use_dictionary: bool = False,
+    parquet_use_dict: bool = False,
 ) -> str:
     """
     Writes a numpy array to a JSON or Parquet file, returning the filename of the written file.
@@ -276,17 +276,19 @@ def write_parquet_or_json_data(
     Args:
         data (`np.ndarray[int | float]`): The numpy array to write.
         outpath (`str`): The directory to write the file to.
-        filename (`str`): The base filename to write to.
+        filename (`str`): The base filename to write to. The resulting file will be named `{filename}.parquet`
+            or `{filename}.json`.
 
-        min (`int | float | None`): The minimum value of the data array, written only to JSON files.
-        max (`int | float | None`): The maximum value of the data array, written only to JSON files.
-        write_json (`bool`): If True, writes the data as a JSON file instead of a parquet file.
-        parquet_compression (`str`): The compression algorithm to use for parquet files. Defaults to 'brotli'.
+        min (`int | float | None`): The minimum value of the data array. Written only to JSON files. Defaults to None.
+        max (`int | float | None`): The maximum value of the data array. Written only to JSON files. Defaults to None.
+        write_json (`bool`): If True, writes the data as a JSON file instead of a Parquet file. False by default.
+        parquet_compression (`str`): The compression algorithm to use for Parquet files. Defaults to 'brotli'.
             See https://arrow.apache.org/docs/python/parquet.html#compression-encoding-and-file-compatibility for more details.
-        parquet_use_dictionary (`bool`): If True, uses dictionary encoding for parquet files. Defaults to False.
+        parquet_use_dict (`bool`): If True, uses dictionary encoding for parquet files; useful for large dtypes (like strings)
+            with repeated values. Defaults to False.
 
     Returns:
-        The `str` filename of the written file, ending in either `.parquet` or `.json`.
+        The `str` filename of the written file, ending in either `{filename}.parquet` or `{filename}.json`.
     """
     if write_json:
         data_json = {"data": data.tolist(), "min": min, "max": max}
@@ -306,7 +308,7 @@ def write_parquet_or_json_data(
             data_arrow,
             outpath + "/" + filename,
             compression=parquet_compression,
-            use_dictionary=parquet_use_dictionary,
+            use_dictionary=parquet_use_dict,
         )
         return filename
 
