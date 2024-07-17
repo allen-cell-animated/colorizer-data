@@ -341,3 +341,67 @@ class TestWriteFeature:
             # Check parquet data has expected contents
             table = pq.read_table(tmp_path / DEFAULT_DATASET_NAME / feature_file)
             assert table.to_pandas()["data"].tolist() == data.tolist()
+
+
+class TestWriteData:
+    centroids_x = np.array([-1, 1, 2, 3, 4])
+    centroids_y = np.array([5, 6, 7, 8, 9])
+
+    default_data = {
+        "tracks": np.array([0, 1, 0, 1, 2]),
+        "times": np.array([1, 1, 2, 2, 3]),
+        "centroids_x": centroids_x,
+        "centroids_y": centroids_y,
+        "centroids": np.ravel(np.dstack([centroids_x, centroids_y])),
+        "outliers": np.array([1, 0, 0, 1, 0]),
+        "bounds": np.array(
+            [0, 3, 4, 5, 1, 5, 6, 7, 24, 65, 87, 54, 38, 234, 12, 34, 34, 56, 132, 24],
+        ),
+    }
+
+    def write_default_data(self, writer: ColorizerDatasetWriter, write_json: bool):
+        writer.write_data(
+            tracks=self.default_data["tracks"],
+            times=self.default_data["times"],
+            centroids_x=self.default_data["centroids_x"],
+            centroids_y=self.default_data["centroids_y"],
+            outliers=self.default_data["outliers"],
+            bounds=self.default_data["bounds"],
+            write_json=write_json,
+        )
+        writer.set_frame_paths([""])
+
+    def validate_json(self, path: str, expected_data: np.ndarray):
+        assert str(path).endswith(".json")
+        with open(path, "r") as f:
+            data = json.load(f)
+            assert data["data"] == expected_data.tolist()
+
+    def validate_parquet(self, path: str, expected_data: np.ndarray):
+        assert str(path).endswith(".parquet")
+        table = pq.read_table(path)
+        assert table.to_pandas()["data"].tolist() == expected_data.tolist()
+
+    def validate_default_data(self, dataset_root: str, write_json: bool):
+        # Check that all data files exist and match the default contents.
+        data_keys = ["tracks", "times", "centroids", "outliers", "bounds"]
+        with open(dataset_root / "manifest.json", "r") as f:
+            manifest: DatasetManifest = json.load(f)
+            for key in data_keys:
+                data_path = dataset_root / manifest[key]
+                if write_json:
+                    self.validate_json(data_path, self.default_data[key])
+                else:
+                    self.validate_parquet(data_path, self.default_data[key])
+
+    def test_write_data_writes_json_data(self, tmp_path):
+        writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
+        self.write_default_data(writer, write_json=True)
+        writer.write_manifest()
+        self.validate_default_data(tmp_path / DEFAULT_DATASET_NAME, write_json=True)
+
+    def test_write_data_writes_parquet_data(self, tmp_path):
+        writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
+        self.write_default_data(writer, write_json=False)
+        writer.write_manifest()
+        self.validate_default_data(tmp_path / DEFAULT_DATASET_NAME, write_json=False)
