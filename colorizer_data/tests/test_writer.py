@@ -322,7 +322,7 @@ class TestWriteFeature:
         setup_dummy_writer_data(writer)
 
         feature_info = FeatureInfo(key="feature", label="Feature")
-        data = np.array([0, 1, 2, 3, 4])
+        data = np.array([-5, 0, 2, 3, 4])
         writer.write_feature(data, feature_info)
         writer.write_manifest()
 
@@ -330,7 +330,7 @@ class TestWriteFeature:
             manifest: DatasetManifest = json.load(f)
             feature_info = manifest["features"][0]
             # Min and max should be saved to the manifest
-            assert feature_info["min"] == 0
+            assert feature_info["min"] == -5
             assert feature_info["max"] == 4
 
             # Data should be saved to a parquet file
@@ -341,6 +341,30 @@ class TestWriteFeature:
             # Check parquet data has expected contents
             table = pq.read_table(tmp_path / DEFAULT_DATASET_NAME / feature_file)
             assert table.to_pandas()["data"].tolist() == data.tolist()
+
+    def write_features_can_write_nan_to_parquet(self, tmp_path):
+        writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
+        setup_dummy_writer_data(writer)
+
+        feature_info = FeatureInfo(key="feature", label="Feature")
+        data = np.array([np.nan, 1, 2, np.nan, 4])
+        writer.write_feature(data, feature_info)
+        with open(tmp_path / DEFAULT_DATASET_NAME / "manifest.json", "r") as f:
+            manifest: DatasetManifest = json.load(f)
+            feature_info = manifest["features"][0]
+            assert feature_info["min"] == 1
+            assert feature_info["max"] == 4
+
+            # Data should be saved to a parquet file
+            feature_file = feature_info["data"]
+            # Check parquet data has expected contents
+            table = pq.read_table(tmp_path / DEFAULT_DATASET_NAME / feature_file)
+            file_data = table.to_pandas()["data"].tolist()
+            assert np.isnan(file_data[0])
+            assert file_data[1] == 1
+            assert file_data[2] == 2
+            assert np.isnan(file_data[3])
+            assert file_data[4] == 4
 
 
 class TestWriteData:
