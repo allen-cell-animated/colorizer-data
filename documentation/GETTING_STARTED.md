@@ -259,23 +259,21 @@ metadata = ColorizerMetadata(
 writer.write_manifest(metadata=metadata)
 ```
 
-Once the steps are run, the new dataset will be found in the `processed_dataset` directory.
+Congratulations! If you got this far, you have a complete dataset ready to view in the TFE viewer. The new dataset will be found in the `processed_dataset` directory.
 
 ## 5. Viewing the dataset
 
 Now that the dataset is processed, we can view it in the Timelapse Feature Explorer!
 
-Our public release of Timelapse Feature Explorer is designed to load datasets hosted on a web server. To load **local datasets and files**, you'll need to run a **local instance** of the viewer. We'll cover steps for both options.
+Timelapse Feature Explorer is designed to load datasets using HTTP(S). Your data must be hosted on a web server and served over HTTPS to be loaded on our public build. Alternatively, you can run a **local web server** and a **local instance** of the viewer. We'll cover steps for both options.
 
 ### Viewing datasets via the web
-
-> **_NOTE:_** To use a dataset with our public build of Timelapse Feature Explorer, the dataset must be accessible using the HTTPS protocol (e.g., `https://example.com/your-dataset/`). If you need to use HTTP, run a local instance of the viewer.
 
 For this tutorial, you can load a pre-processed example copy of the dataset, which we've hosted on GitHub. You can access it at this URL: `https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/doc/getting-started-guide/documentation/getting_started_guide/example/processed_dataset/manifest.json`
 
 If you have updated the dataset files or want to use a local dataset, skip to the next section ([Installing Timelapse Feature Explorer locally](#installing-timelapse-feature-explorer-locally)).
 
-#### Opening your dataset
+#### Opening your dataset with data hosted via HTTPS
 
 1. Open Timelapse Feature Explorer at [https://timelapse.allencell.org](https://timelapse.allencell.org).
 
@@ -287,7 +285,7 @@ If you have updated the dataset files or want to use a local dataset, skip to th
 
 Click **Load** in the popup menu to load the dataset. The viewer should appear with the dataset loaded!
 
-### Installing Timelapse Feature Explorer locally
+### Opening your dataset from a local directory over HTTP
 
 To view our **locally converted dataset**, we'll also need to run a **local version** of the Timelapse Feature Explorer.
 
@@ -295,9 +293,9 @@ To view our **locally converted dataset**, we'll also need to run a **local vers
 <summary><b>[Why do we need to run a local instance of the viewer?]</b></summary>
 
 ---
-The public version of TFE is served over HTTPS, which is a secure protocol. For security reasons, HTTPS pages cannot load HTTP content, which means that the public version of TFE can only access web content hosted on HTTPS.
+The public version of TFE is served over HTTPS, which is a secure protocol. (The "S" stands for secure!) For security reasons, HTTPS pages cannot load HTTP content, which is enforced by the browser. This means that the public version of TFE can only access other web content also hosted on HTTPS.
 
-We can run a local server to serve our local files over HTTP, but we need to also run TFE on HTTP to access them.
+Configuring an HTTPS server is complicated and requires a certificate. Instead, if we run TFE locally on HTTP, we can run a local server to also serve our local files over HTTP.
 
 ---
 
@@ -314,7 +312,7 @@ npm install
 npm run start
 ```
 
-You can now run `npm run start` at anytime to start the viewer. By default, it will be mounted at `http://localhost:5173`.
+You can now run `npm run start` at anytime in this directory to start the viewer. By default, it will be mounted at `http://localhost:5173`.
 
 #### 2. Serving local files
 
