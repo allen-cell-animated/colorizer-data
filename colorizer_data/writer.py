@@ -31,7 +31,7 @@ from colorizer_data.utils import (
     MAX_CATEGORIES,
     NumpyValuesEncoder,
     update_metadata,
-    write_parquet_or_json_data,
+    write_data_array,
 )
 
 
@@ -227,7 +227,7 @@ class ColorizerDatasetWriter:
 
         # Write the feature JSON file
         logging.info("Writing {}...".format(file_basename))
-        filename = write_parquet_or_json_data(
+        filename = write_data_array(
             data,
             self.outpath,
             file_basename,
@@ -315,15 +315,15 @@ class ColorizerDatasetWriter:
             outliers (`np.ndarray`): An optional 1D numpy array of boolean values, where `outliers[i]` is `True` if the `i`th object is an outlier.
             bounds (`np.ndarray`): An optional 1D numpy array of float values. For the `i`th object, the coordinates of the upper left corner are
                 `(x: bounds[4i], y: bounds[4i + 1])` and the lower right corner are `(x: bounds[4i + 2], y: bounds[4i + 3])`.
-            write_parquet (`bool`): Whether to write the specified data as a `.parquet` file rather than the default JSON format.
-                Compatible with TFE viewer >v1.1.0. Default is `True`.
+            write_json (`bool`): Whether to write the specified data as a JSON file rather than the default Parquet format.
+                Parquet data is compatible with TFE viewer >= v1.1.0. Default is `False`.
 
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#1-tracks)
         """
         # TODO check outlier and replace values with NaN or something!
         if outliers is not None:
             logging.info("Writing outliers data...")
-            track_filename = write_parquet_or_json_data(
+            track_filename = write_data_array(
                 outliers, self.outpath, "outliers", write_json=write_json
             )
             self.manifest["outliers"] = track_filename
@@ -331,14 +331,14 @@ class ColorizerDatasetWriter:
         # Note these must be in same order as features and same row order as the dataframe.
         if tracks is not None:
             logging.info("Writing track data...")
-            track_filename = write_parquet_or_json_data(
+            track_filename = write_data_array(
                 tracks, self.outpath, "tracks", write_json=write_json
             )
             self.manifest["tracks"] = track_filename
 
         if times is not None:
             logging.info("Writing times data...")
-            times_filename = write_parquet_or_json_data(
+            times_filename = write_data_array(
                 times, self.outpath, "times", write_json=write_json
             )
             self.manifest["times"] = times_filename
@@ -352,7 +352,7 @@ class ColorizerDatasetWriter:
             centroids_stacked = np.ravel(np.dstack([centroids_x, centroids_y]))
             centroids_stacked = centroids_stacked * self.scale
             centroids_stacked = centroids_stacked.astype(int)
-            centroids_filename = write_parquet_or_json_data(
+            centroids_filename = write_data_array(
                 centroids_stacked,
                 self.outpath,
                 "centroids",
@@ -362,7 +362,7 @@ class ColorizerDatasetWriter:
 
         if bounds is not None:
             logging.info("Writing bounds data...")
-            bounds_filename = write_parquet_or_json_data(
+            bounds_filename = write_data_array(
                 bounds, self.outpath, "bounds", write_json=write_json
             )
             self.manifest["bounds"] = bounds_filename

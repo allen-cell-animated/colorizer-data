@@ -259,7 +259,7 @@ def update_collection(
         json.dump(collection, f)
 
 
-def write_parquet_or_json_data(
+def write_data_array(
     data: np.ndarray,
     outpath: str,
     filename: str,

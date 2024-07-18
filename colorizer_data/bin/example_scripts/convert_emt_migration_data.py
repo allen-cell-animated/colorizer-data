@@ -271,7 +271,7 @@ def make_collection(output_dir="./data/", do_frames=True, scale=1, dataset=""):
     # use pandas to load data
     # a is the full collection!
     a = pd.read_csv(
-        "//allen/aics/microscopy/EMTImmunostainingResults/EMTTimelapse_7-25-23/Output_CAAX/MigratoryTracksTable_AvgColonyOverlapLessThan0.9_AllPaths.csv"
+        "./data/MigratoryTracksTable_AvgColonyOverlapLessThan0.9_AllPaths.csv"
     )
 
     if dataset != "":
