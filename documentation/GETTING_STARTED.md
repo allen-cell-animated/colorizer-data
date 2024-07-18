@@ -63,9 +63,7 @@ Each of the segmentation images is an OME-TIFF image containing the IDs of the s
 
 _Frame 0 of the example dataset, as viewed in FIJI. Contrast has been increased for easier viewing._
 
-![Frame 0 of the example dataset. The background is black, labeled `value=0`. There are five circles of various diameters and positions, with IDs starting at 30 and increasing to 34.](./getting_started_guide/assets/sample-segmentation.png)
-
-> **_NOTE:_** Note that `value=0` is used to represent the background in the segmentation images. For simplicity, we recommend starting object IDs at `1` to avoid conflicts with the background value.
+> **_NOTE:_** A value of `0` is used to represent the background in the segmentation images. For simplicity, we recommend starting object IDs at `1` to avoid conflicts with the background value.
 
 ## 4. Processing data
 
@@ -87,6 +85,8 @@ Paste the following steps into the terminal. (Alternatively, you can also create
 #### 1. Import dependencies and load the dataset into a pandas DataFrame
 
 ```python
+import Path from pathlib
+
 from bioio import BioImage
 import pandas as pd
 
@@ -102,19 +102,24 @@ from colorizer_data.writer import (
 )
 
 # Load the dataset
-data: pd.DataFrame = pd.read_csv("raw_dataset/data.csv")
+source_dataset_directory = Path("raw_dataset")
+data: pd.DataFrame = pd.read_csv(source_dataset_directory / "data.csv")
 ```
 
 #### 2. Configure the writer and data columns
 
 ```python
-# Define column names
+# # Define column names as they appear in the loaded csv. Some of these are core data timelapse and others are the extra calculated features for use in the viewer.
+
+# Core data columns
 OBJECT_ID_COLUMN = "object_id"
 TRACK_ID_COLUMN = "track_id"
 TIMES_COLUMN = "time"
 SEGMENTED_IMAGE_COLUMN = "segmentation_path"
 CENTROIDS_X_COLUMN = "centroid_x"
 CENTROIDS_Y_COLUMN = "centroid_y"
+
+# Feature columns
 AREA_COLUMN = "area"
 LOCATION_COLUMN = "location"
 RADIUS_COLUMN = "radius"
@@ -195,7 +200,7 @@ writer.write_feature(locations, location_info)
 
 #### 5. Write the images
 
-The `ColorizerDatasetWriter` writes images as PNGs with encoded object IDs. You can see more about what this looks like and how it works in our [data format documentation](./DATA_FORMAT.md#5-frames). As previously noted, all object IDs must be unique too, so this next section will perform three tasks:
+The `ColorizerDatasetWriter` needs to prepare images for fast visualization by converting them to PNGs with encoded object IDs. You can see more about what this looks like and how it works in our [data format documentation](./DATA_FORMAT.md#5-frames). As previously noted, all object IDs must be unique too, so this next section will perform three tasks:
 
 1. Load in the image data from the segmentation images
 2. Remap the object IDs to be unique across all timepoints
@@ -207,9 +212,9 @@ data_grouped_by_time = data.groupby(TIMES_COLUMN)
 frame_paths = []
 
 for frame_num, frame_data in data_grouped_by_time:
-    # Get the path to the image and load it.
+    # Get the path to the segmentation image and load it.
     frame_path = frame_data.iloc[0][SEGMENTED_IMAGE_COLUMN]
-    segmentation_image = BioImage("raw_dataset/" + frame_path).get_image_data(
+    segmentation_image = BioImage(source_dataset_directory / frame_path).get_image_data(
         "YX", S=0, T=0, C=0
     )
     # NOTE: For datasets with 3D segmentations, you may need to flatten the data into
@@ -226,8 +231,8 @@ for frame_num, frame_data in data_grouped_by_time:
     # Write the new segmentation image.
     frame_prefix = "frame_"
     frame_suffix = ".png"
-    writer.write_image(remapped_segmentations, frame_num, frame_prefix, frame_suffix)
-    frame_paths.append(frame_prefix + str(frame_num) + frame_suffix)
+    image_path = writer.write_image(remapped_segmentations, frame_num, frame_prefix, frame_suffix)
+    frame_paths.append(image_path)
 
 writer.set_frame_paths(frame_paths)
 ```
