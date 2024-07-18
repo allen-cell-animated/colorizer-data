@@ -1,4 +1,4 @@
-# Getting Started: how to process data for Timelapse Feature Explorer
+# Getting Started: how to prepare data for Timelapse Feature Explorer
 
 The [Timelapse Feature Explorer (TFE)](https://timelapse.allencell.org) is a web-based application designed for the interactive visualization and analysis of segmented time-series microscopy data! Data needs to be processed into a specific format to be loaded into the viewer.
 
@@ -8,11 +8,11 @@ In this tutorial, you'll learn how to prepare your data for the Timelapse Featur
 
 A few key terms:
 
-- **Dataset**: A dataset is a single time-series, and can have any number of tracked objects and features.
+- **Dataset**: A dataset is a single time-series containing tracked objects and features (up to about 16.7 million unique tracked objects).
 - **Raw dataset**: The raw data that you have collected or generated, before processing into the TFE format.
 - **Collection**: An arbitrary grouping of datasets.
 - **Object ID**: An ID associated with a single segmentation at a single timepoint. In the TFE-accepted format, object IDs must be sequential, starting from 0, and be unique across the whole dataset.
-- **Track ID**: An identifier for a unique set of objects, linking their object IDs across timepoints.
+- **Track ID**: An identifier for a unique set of objects, linking their object IDs across timepoints. Generally this describes the track of one object along the time sequence.
 
 ## 2. Prerequisites
 
@@ -35,7 +35,9 @@ For this tutorial, we'll be working with sample data included in the [`getting_s
 
 This dataset is a simplified example of raw, pre-processed segmentation data. The data was generated using the [`generate_raw_data.py` script](./getting_started_guide/scripts/generate_data.py), which generates a **CSV file** with columns for object IDs, track IDs, times, centroids, features (volume/height), and paths to the segmentation images. The **segmentation images** are 2D images in the OME-TIFF format, encoding the locations of segmented objects.
 
-Your files may be in a different format or have 3D segmentation images, in which case it will need to be transformed. Generally, we recommend:
+If your segmentation images are 3D, you may choose to flatten them to 2D or use our provided utilites to do so.
+
+Your tracked object data may be in a different format, in which case it will need to be transformed to work well with our utilities. Generally, we recommend:
 
 1. Save your data as a CSV or other format that can be read into a pandas `DataFrame`.
 2. Make every segmented object its own row in the table.
@@ -61,9 +63,7 @@ Each of the segmentation images is an OME-TIFF image containing the IDs of the s
 
 _Frame 0 of the example dataset, as viewed in FIJI. Contrast has been increased for easier viewing._
 
-![Frame 0 of the example dataset. The background is black, labeled `value=0`. There are five circles of various diameters and positions, with IDs starting at 30 and increasing to 34.](./getting_started_guide/assets/sample-segmentation.png)
-
-> **_NOTE:_** Note that `value=0` is used to represent the background in the segmentation images. For simplicity, we recommend starting object IDs at `1` to avoid conflicts with the background value.
+> **_NOTE:_** A value of `0` is used to represent the background in the segmentation images. For simplicity, we recommend starting object IDs at `1` to avoid conflicts with the background value.
 
 ## 4. Processing data
 
@@ -85,6 +85,8 @@ Paste the following steps into the terminal. (Alternatively, you can also create
 #### 1. Import dependencies and load the dataset into a pandas DataFrame
 
 ```python
+import Path from pathlib
+
 from bioio import BioImage
 import pandas as pd
 
@@ -100,19 +102,24 @@ from colorizer_data.writer import (
 )
 
 # Load the dataset
-data: pd.DataFrame = pd.read_csv("raw_dataset/data.csv")
+source_dataset_directory = Path("raw_dataset")
+data: pd.DataFrame = pd.read_csv(source_dataset_directory / "data.csv")
 ```
 
 #### 2. Configure the writer and data columns
 
 ```python
-# Define column names
+# # Define column names as they appear in the loaded csv. Some of these are core data timelapse and others are the extra calculated features for use in the viewer.
+
+# Core data columns
 OBJECT_ID_COLUMN = "object_id"
 TRACK_ID_COLUMN = "track_id"
 TIMES_COLUMN = "time"
 SEGMENTED_IMAGE_COLUMN = "segmentation_path"
 CENTROIDS_X_COLUMN = "centroid_x"
 CENTROIDS_Y_COLUMN = "centroid_y"
+
+# Feature columns
 AREA_COLUMN = "area"
 LOCATION_COLUMN = "location"
 RADIUS_COLUMN = "radius"
@@ -193,7 +200,7 @@ writer.write_feature(locations, location_info)
 
 #### 5. Write the images
 
-The `ColorizerDatasetWriter` writes images as PNGs with encoded object IDs. You can see more about what this looks like and how it works in our [data format documentation](./DATA_FORMAT.md#5-frames). As previously noted, all object IDs must be unique too, so this next section will perform three tasks:
+The `ColorizerDatasetWriter` needs to prepare images for fast visualization by converting them to PNGs with encoded object IDs. You can see more about what this looks like and how it works in our [data format documentation](./DATA_FORMAT.md#5-frames). As previously noted, all object IDs must be unique too, so this next section will perform three tasks:
 
 1. Load in the image data from the segmentation images
 2. Remap the object IDs to be unique across all timepoints
@@ -205,9 +212,9 @@ data_grouped_by_time = data.groupby(TIMES_COLUMN)
 frame_paths = []
 
 for frame_num, frame_data in data_grouped_by_time:
-    # Get the path to the image and load it.
+    # Get the path to the segmentation image and load it.
     frame_path = frame_data.iloc[0][SEGMENTED_IMAGE_COLUMN]
-    segmentation_image = BioImage("raw_dataset/" + frame_path).get_image_data(
+    segmentation_image = BioImage(source_dataset_directory / frame_path).get_image_data(
         "YX", S=0, T=0, C=0
     )
     # NOTE: For datasets with 3D segmentations, you may need to flatten the data into
@@ -224,8 +231,8 @@ for frame_num, frame_data in data_grouped_by_time:
     # Write the new segmentation image.
     frame_prefix = "frame_"
     frame_suffix = ".png"
-    writer.write_image(remapped_segmentations, frame_num, frame_prefix, frame_suffix)
-    frame_paths.append(frame_prefix + str(frame_num) + frame_suffix)
+    image_path = writer.write_image(remapped_segmentations, frame_num, frame_prefix, frame_suffix)
+    frame_paths.append(image_path)
 
 writer.set_frame_paths(frame_paths)
 ```

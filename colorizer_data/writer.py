@@ -488,7 +488,7 @@ class ColorizerDatasetWriter:
         frame_num: int,
         frame_prefix: str = DEFAULT_FRAME_PREFIX,
         frame_suffix: str = DEFAULT_FRAME_SUFFIX,
-    ):
+    ) -> str:
         """
         Writes the current segmented image to a PNG file in the output directory.
         By default, the image will be saved as `frame_{frame_num}.png`.
@@ -508,6 +508,9 @@ class ColorizerDatasetWriter:
           Writes the ID information to an RGB image file at the path `{frame_prefix}{frame_num}{frame_suffix}`. (By default, this looks
           like `frame_n.png`.)
 
+        Returns:
+          str: The relative path to the saved image file.
+
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#3-frames)
         """
         seg_rgba = np.zeros(
@@ -519,7 +522,9 @@ class ColorizerDatasetWriter:
         seg_rgba[:, :, 3] = 255  # (seg2d & 0xFF000000) >> 24
         img = Image.fromarray(seg_rgba)  # new("RGBA", (xres, yres), seg2d)
         # TODO: Automatically create subdirectories if `frame_prefix` contains them.
-        img.save(self.outpath + "/" + frame_prefix + str(frame_num) + frame_suffix)
+        relative_image_path = frame_prefix + str(frame_num) + frame_suffix
+        img.save(self.outpath + "/" + relative_image_path)
+        return relative_image_path
 
     def validate_dataset(
         self,
