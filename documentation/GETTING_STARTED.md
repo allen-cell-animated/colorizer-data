@@ -1,4 +1,4 @@
-# Getting Started: how to process data for Timelapse Feature Explorer
+# Getting Started: how to prepare data for Timelapse Feature Explorer
 
 The [Timelapse Feature Explorer (TFE)](https://timelapse.allencell.org) is a web-based application designed for the interactive visualization and analysis of segmented time-series microscopy data! Data needs to be processed into a specific format to be loaded into the viewer.
 
@@ -8,11 +8,11 @@ In this tutorial, you'll learn how to prepare your data for the Timelapse Featur
 
 A few key terms:
 
-- **Dataset**: A dataset is a single time-series, and can have any number of tracked objects and features.
+- **Dataset**: A dataset is a single time-series containing tracked objects and features (up to about 16.7 million unique tracked objects).
 - **Raw dataset**: The raw data that you have collected or generated, before processing into the TFE format.
 - **Collection**: An arbitrary grouping of datasets.
 - **Object ID**: An ID associated with a single segmentation at a single timepoint. In the TFE-accepted format, object IDs must be sequential, starting from 0, and be unique across the whole dataset.
-- **Track ID**: An identifier for a unique set of objects, linking their object IDs across timepoints.
+- **Track ID**: An identifier for a unique set of objects, linking their object IDs across timepoints. Generally this describes the track of one object along the time sequence.
 
 ## 2. Prerequisites
 
@@ -35,7 +35,9 @@ For this tutorial, we'll be working with sample data included in the [`getting_s
 
 This dataset is a simplified example of raw, pre-processed segmentation data. The data was generated using the [`generate_raw_data.py` script](./getting_started_guide/scripts/generate_data.py), which generates a **CSV file** with columns for object IDs, track IDs, times, centroids, features (volume/height), and paths to the segmentation images. The **segmentation images** are 2D images in the OME-TIFF format, encoding the locations of segmented objects.
 
-Your files may be in a different format or have 3D segmentation images, in which case it will need to be transformed. Generally, we recommend:
+If your segmentation images are 3D, you may choose to flatten them to 2D or use our provided utilites to do so.
+
+Your tracked object data may be in a different format, in which case it will need to be transformed to work well with our utilities. Generally, we recommend:
 
 1. Save your data as a CSV or other format that can be read into a pandas `DataFrame`.
 2. Make every segmented object its own row in the table.
