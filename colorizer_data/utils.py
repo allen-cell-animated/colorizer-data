@@ -7,7 +7,6 @@ import pathlib
 import platform
 import re
 import shutil
-from types import NoneType
 from typing import Dict, List, Optional, Sequence, TypeVar, Union, Tuple
 
 import numpy as np
@@ -48,20 +47,10 @@ class NumpyValuesEncoder(json.JSONEncoder):
     """Handles numpy numeric values (float32, double, float64, int16, int32, int64)."""
 
     def default(self, obj):
-        if (
-            isinstance(obj, np.float32)
-            or isinstance(obj, np.double)
-            or isinstance(obj, np.float64)
-        ):
+        if isinstance(obj, np.float32):
             return float(obj)
-        elif (
-            isinstance(obj, np.int16)
-            or isinstance(obj, np.int32)
-            or isinstance(obj, np.int64)
-        ):
+        elif isinstance(obj, np.int64):
             return int(obj)
-        elif isinstance(obj, NoneType):
-            return None
         return json.JSONEncoder.default(self, obj)
 
 
