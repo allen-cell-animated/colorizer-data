@@ -12,6 +12,7 @@ namespaces = false
 
 [project]
 name = "colorizer_data"
+version = "1.2.1"
 authors = [
     {name = "", email = "danielt@alleninstitute.org"},
     {name = "", email = "peyton.lee@alleninstitute.org"},
@@ -31,7 +32,6 @@ dependencies = [
     "requests",
     "dataclasses-json",
 ]
-dynamic = ["version"]
 
 [project.optional-dependencies]
 # To install, run `pip install -e '.[dev]'`
