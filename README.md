@@ -115,7 +115,7 @@ Contributing developers can update the version number using the [`bump-my-versio
 
 #### Basic Usage
 
-```
+```txt
 # Do a dry run and check the output before updating!
 bump-my-version bump --dry-run -v [type]
 
