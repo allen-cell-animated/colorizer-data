@@ -13,3 +13,6 @@ filename = "colorizer_data/types.py"
 
 [[tool.bumpversion.files]]
 filename = "pyproject.toml"
+
+[[tool.bumpversion.files]]
+filename = "documentation/getting_started_guide/requirements.txt"
