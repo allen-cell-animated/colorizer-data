@@ -12,6 +12,8 @@ from typing import Dict, List, Optional, Sequence, TypeVar, Union, Tuple
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 import requests
 import skimage
 
@@ -55,7 +57,8 @@ class NumpyValuesEncoder(json.JSONEncoder):
         ):
             return float(obj)
         elif (
-            isinstance(obj, np.int16)
+            isinstance(obj, int)
+            or isinstance(obj, np.int16)
             or isinstance(obj, np.int32)
             or isinstance(obj, np.int64)
         ):
@@ -256,6 +259,60 @@ def update_collection(
         json.dump(collection, f)
 
 
+def write_data_array(
+    data: np.ndarray,
+    outpath: str,
+    filename: str,
+    *,
+    min: Union[float, int, None] = None,
+    max: Union[float, int, None] = None,
+    write_json: bool = False,
+    parquet_compression: str = "brotli",
+    parquet_use_dict: bool = False,
+) -> str:
+    """
+    Writes a numpy array to a JSON or Parquet file, returning the filename of the written file.
+
+    Args:
+        data (`np.ndarray[int | float]`): The numpy array to write.
+        outpath (`str`): The directory to write the file to.
+        filename (`str`): The base filename to write to. The resulting file will be named `{filename}.parquet`
+            or `{filename}.json`.
+
+        min (`int | float | None`): The minimum value of the data array. Written only to JSON files. Defaults to None.
+        max (`int | float | None`): The maximum value of the data array. Written only to JSON files. Defaults to None.
+        write_json (`bool`): If True, writes the data as a JSON file instead of a Parquet file. False by default.
+        parquet_compression (`str`): The compression algorithm to use for Parquet files. Defaults to 'brotli'.
+            See https://arrow.apache.org/docs/python/parquet.html#compression-encoding-and-file-compatibility for more details.
+        parquet_use_dict (`bool`): If True, uses dictionary encoding for parquet files; useful for large dtypes (like strings)
+            with repeated values. Defaults to False.
+
+    Returns:
+        The `str` filename of the written file, ending in either `{filename}.parquet` or `{filename}.json`.
+    """
+    if write_json:
+        data_json = {"data": data.tolist(), "min": min, "max": max}
+        filename = "{}.json".format(filename)
+        with open(outpath + "/" + filename, "w") as f:
+            json.dump(data_json, f)
+        return filename
+    else:
+        df = pd.DataFrame({"data": data})
+        data_arrow = pa.Table.from_pandas(df, preserve_index=False)
+        filename = "{}.parquet".format(filename)
+
+        # In testing, brotli compression + no dictionary encoding gave the smallest overall size
+        # (followed by GZIP + no dict). Because our data is largely numeric and not string-based,
+        # dictionary encoding can double the file size for some float features with highly unique values.
+        pq.write_table(
+            data_arrow,
+            outpath + "/" + filename,
+            compression=parquet_compression,
+            use_dictionary=parquet_use_dict,
+        )
+        return filename
+
+
 def get_total_objects(dataframe: pd.DataFrame) -> int:
     """
     Get the total number of object IDs in the dataset.
@@ -292,7 +349,7 @@ def update_bounding_box_data(
         seg_remapped (np.ndarray): Segmentation image whose indices start at 1 and are are absolutely unique across the whole dataset,
             such as the results of `remap_segmented_image()`.
 
-    [Documentation for bounds data format](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#7-bounds-optional)
+    [Documentation for bounds data format](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#8-bounds-optional)
     """
     # Capture bounding boxes
     object_ids = np.unique(seg_remapped)

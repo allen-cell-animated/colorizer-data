@@ -2,15 +2,16 @@ import json
 import os
 from pathlib import Path
 from typing import Optional, Tuple
+
 import numpy as np
 import pytest
+import pyarrow.parquet as pq
 
 from colorizer_data.types import (
     CURRENT_VERSION,
     ColorizerMetadata,
     DatasetManifest,
     FeatureInfo,
-    FeatureMetadata,
 )
 from colorizer_data.writer import ColorizerDatasetWriter
 
@@ -42,7 +43,7 @@ BLANK_MANIFEST_CONTENT: DatasetManifest = {
 
 
 def setup_dummy_writer_data(writer: ColorizerDatasetWriter):
-    writer.write_data(times=np.ndarray([]))
+    writer.write_data(times=np.ndarray([0]), write_json=True)
     writer.set_frame_paths([""])
 
 
@@ -270,41 +271,161 @@ def test_writer_overwrites_duplicate_backdrop_keys(tmp_path):
         assert manifest["backdrops"][0]["name"] == "Backdrop 2"
 
 
-def test_writer_ignores_outliers_when_calculating_feature_min_max(tmp_path):
-    writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
-    setup_dummy_writer_data(writer)
+class TestWriteFeature:
+    def test_write_feature_ignores_outliers_when_calculating_feature_min_max(
+        self, tmp_path
+    ):
+        writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
+        setup_dummy_writer_data(writer)
 
-    feature_info = FeatureInfo(key="feature", label="Feature")
-    writer.write_feature(
-        np.array([0, 1, 2, 3, 4]),
-        feature_info,
-        outliers=[True, False, False, True, True],
-    )
-    writer.write_manifest()
+        feature_info = FeatureInfo(key="feature", label="Feature")
+        writer.write_feature(
+            np.array([0, 1, 2, 3, 4]),
+            feature_info,
+            outliers=[True, False, False, True, True],
+            write_json=True,
+        )
+        writer.write_manifest()
 
-    with open(tmp_path / DEFAULT_DATASET_NAME / "manifest.json", "r") as f:
-        manifest: DatasetManifest = json.load(f)
-        feature_file = manifest["features"][0]["data"]
-        with open(tmp_path / DEFAULT_DATASET_NAME / feature_file, "r") as f2:
-            feature_data = json.load(f2)
-            assert feature_data["min"] == 1
-            assert feature_data["max"] == 2
-            assert feature_data["data"] == [0, 1, 2, 3, 4]
+        with open(tmp_path / DEFAULT_DATASET_NAME / "manifest.json", "r") as f:
+            manifest: DatasetManifest = json.load(f)
+            feature_file = manifest["features"][0]["data"]
+            with open(tmp_path / DEFAULT_DATASET_NAME / feature_file, "r") as f2:
+                feature_data = json.load(f2)
+                assert feature_data["min"] == 1
+                assert feature_data["max"] == 2
+                assert feature_data["data"] == [0, 1, 2, 3, 4]
+
+    def test_write_feature_uses_overrides_when_calculating_feature_min_max(
+        self, tmp_path
+    ):
+        writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
+        setup_dummy_writer_data(writer)
+
+        feature_info = FeatureInfo(key="feature", label="Feature", min=-5, max=3)
+        writer.write_feature(np.array([0, 1, 2, 3, 4]), feature_info, write_json=True)
+        writer.write_manifest()
+
+        with open(tmp_path / DEFAULT_DATASET_NAME / "manifest.json", "r") as f:
+            manifest: DatasetManifest = json.load(f)
+
+            # Check manifest min + max
+            feature_file = manifest["features"][0]["data"]
+            with open(tmp_path / DEFAULT_DATASET_NAME / feature_file, "r") as f2:
+                feature_data = json.load(f2)
+                assert feature_data["min"] == -5
+                assert feature_data["max"] == 3
+                assert feature_data["data"] == [0, 1, 2, 3, 4]
+
+    def test_write_feature_writes_parquet_data(self, tmp_path):
+        writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
+        setup_dummy_writer_data(writer)
+
+        feature_info = FeatureInfo(key="feature", label="Feature")
+        data = np.array([-5, 0, 2, 3, 4])
+        writer.write_feature(data, feature_info)
+        writer.write_manifest()
+
+        with open(tmp_path / DEFAULT_DATASET_NAME / "manifest.json", "r") as f:
+            manifest: DatasetManifest = json.load(f)
+            feature_info = manifest["features"][0]
+            # Min and max should be saved to the manifest
+            assert feature_info["min"] == -5
+            assert feature_info["max"] == 4
+
+            # Data should be saved to a parquet file
+            feature_file = feature_info["data"]
+            assert feature_file.endswith(".parquet")
+            assert os.path.exists(tmp_path / DEFAULT_DATASET_NAME / feature_file)
+
+            # Check parquet data has expected contents
+            table = pq.read_table(tmp_path / DEFAULT_DATASET_NAME / feature_file)
+            assert table.to_pandas()["data"].tolist() == data.tolist()
+
+    def write_features_can_write_nan_to_parquet(self, tmp_path):
+        writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
+        setup_dummy_writer_data(writer)
+
+        feature_info = FeatureInfo(key="feature", label="Feature")
+        data = np.array([np.nan, 1, 2, np.nan, 4])
+        writer.write_feature(data, feature_info)
+        with open(tmp_path / DEFAULT_DATASET_NAME / "manifest.json", "r") as f:
+            manifest: DatasetManifest = json.load(f)
+            feature_info = manifest["features"][0]
+            assert feature_info["min"] == 1
+            assert feature_info["max"] == 4
+
+            # Data should be saved to a parquet file
+            feature_file = feature_info["data"]
+            # Check parquet data has expected contents
+            table = pq.read_table(tmp_path / DEFAULT_DATASET_NAME / feature_file)
+            file_data = table.to_pandas()["data"].tolist()
+            assert np.isnan(file_data[0])
+            assert file_data[1] == 1
+            assert file_data[2] == 2
+            assert np.isnan(file_data[3])
+            assert file_data[4] == 4
 
 
-def test_writer_uses_overrides_when_calculating_feature_min_max(tmp_path):
-    writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
-    setup_dummy_writer_data(writer)
+class TestWriteData:
+    centroids_x = np.array([-1, 1, 2, 3, 4])
+    centroids_y = np.array([5, 6, 7, 8, 9])
 
-    feature_info = FeatureInfo(key="feature", label="Feature")
-    writer.write_feature(np.array([0, 1, 2, 3, 4]), feature_info, min=-5, max=3)
-    writer.write_manifest()
+    default_data = {
+        "tracks": np.array([0, 1, 0, 1, 2]),
+        "times": np.array([1, 1, 2, 2, 3]),
+        "centroids_x": centroids_x,
+        "centroids_y": centroids_y,
+        "centroids": np.ravel(np.dstack([centroids_x, centroids_y])),
+        "outliers": np.array([1, 0, 0, 1, 0]),
+        "bounds": np.array(
+            [0, 3, 4, 5, 1, 5, 6, 7, 24, 65, 87, 54, 38, 234, 12, 34, 34, 56, 132, 24],
+        ),
+    }
 
-    with open(tmp_path / DEFAULT_DATASET_NAME / "manifest.json", "r") as f:
-        manifest: DatasetManifest = json.load(f)
-        feature_file = manifest["features"][0]["data"]
-        with open(tmp_path / DEFAULT_DATASET_NAME / feature_file, "r") as f2:
-            feature_data = json.load(f2)
-            assert feature_data["min"] == -5
-            assert feature_data["max"] == 3
-            assert feature_data["data"] == [0, 1, 2, 3, 4]
+    def write_default_data(self, writer: ColorizerDatasetWriter, write_json: bool):
+        writer.write_data(
+            tracks=self.default_data["tracks"],
+            times=self.default_data["times"],
+            centroids_x=self.default_data["centroids_x"],
+            centroids_y=self.default_data["centroids_y"],
+            outliers=self.default_data["outliers"],
+            bounds=self.default_data["bounds"],
+            write_json=write_json,
+        )
+        writer.set_frame_paths([""])
+
+    def validate_json(self, path: str, expected_data: np.ndarray):
+        assert str(path).endswith(".json")
+        with open(path, "r") as f:
+            data = json.load(f)
+            assert data["data"] == expected_data.tolist()
+
+    def validate_parquet(self, path: str, expected_data: np.ndarray):
+        assert str(path).endswith(".parquet")
+        table = pq.read_table(path)
+        assert table.to_pandas()["data"].tolist() == expected_data.tolist()
+
+    def validate_default_data(self, dataset_root: str, write_json: bool):
+        # Check that all data files exist and match the default contents.
+        data_keys = ["tracks", "times", "centroids", "outliers", "bounds"]
+        with open(dataset_root / "manifest.json", "r") as f:
+            manifest: DatasetManifest = json.load(f)
+            for key in data_keys:
+                data_path = dataset_root / manifest[key]
+                if write_json:
+                    self.validate_json(data_path, self.default_data[key])
+                else:
+                    self.validate_parquet(data_path, self.default_data[key])
+
+    def test_write_data_writes_json_data(self, tmp_path):
+        writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
+        self.write_default_data(writer, write_json=True)
+        writer.write_manifest()
+        self.validate_default_data(tmp_path / DEFAULT_DATASET_NAME, write_json=True)
+
+    def test_write_data_writes_parquet_data(self, tmp_path):
+        writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
+        self.write_default_data(writer, write_json=False)
+        writer.write_manifest()
+        self.validate_default_data(tmp_path / DEFAULT_DATASET_NAME, write_json=False)
