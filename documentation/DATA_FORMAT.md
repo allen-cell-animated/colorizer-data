@@ -430,11 +430,9 @@ The resulting frame would look like this:
 
 Datasets can contain any number of `features`, which are a numeric value assigned to each object ID in the dataset. Features are used by the Timelapse Feature Explorer to colorize objects, and each feature file corresponds to a single column of data. Examples of relevant features might include the volume, depth, number of neighbors, age, etc. of each object.
 
-Features include a `data` array, specifying the feature value for each object ID, and should also provide a `min` and `max` range property. How feature values
-should be interpreted can be defined in the `manifest.json` metadata.
+Feature JSON files include a numeric `data` array, specifying the feature value for each object ID, and can optionally provide a `min` and `max` range property. Note that the `min` and `max` can also be defined in the `manifest.json`'s feature metadata, which will override the `min` and `max` provided in a JSON file if both are present.
 
-For continuous features, decimal and float values will be shown directly, and discrete features will be rounded to the nearest int. For categorical features,
-the feature values will be parsed as integers (rounded) and used to index into the `categories` array provided in the `manifest.json`.
+For continuous features, decimal and float values will be shown directly, and discrete features will be rounded to the nearest int. For categorical features, the feature values will be parsed as integers (i.e. rounded) and used to index into the `categories` array provided in the `manifest.json`.
 
 `feature1.json:`
 
@@ -605,14 +603,14 @@ As of Timelapse Feature Explorer v1.1.0, JSON data files (e.g. tracks, times, ce
 
 Parquet binary files are much smaller than JSON files and can speed up the initial dataset load when loading datasets with many features or objects.
 
-Files are expected to have a single `"data"` column where data values are stored. Any standard data compression method (Uncompressed, Brotli, Snappy, LZ4, Gzip ZSTD, and LZ4-RAW) is supported.
+Files are expected to have a `"data"` column where data values are stored. Any standard data compression method (Uncompressed, Brotli, Snappy, LZ4, Gzip ZSTD, and LZ4-RAW) is supported.
 
 The `manifest.json`'s path to the feature file will also need to have the full filename, including the `.parquet` suffix for the filetype. Because the Parquet data cannot include a min and max, please ensure that, for features, the min and max are included in the manifest's feature metadata.
 
 If using utilities provided by the `colorizer-data` library, you can toggle whether JSON or Parquet data is used when writing data and feature arrays by specifying the `write_json` flag.
 
 <details>
-<summary><b>[Show me an example!]</b></summary>
+<summary><b>[🔍 Show me an example!]</b></summary>
 
 ---
 
@@ -625,7 +623,6 @@ An example feature file could look like this. Note that the index should not be 
 | 2 | -143.3 |
 | 3 | 94.5 |
 | 4 | 349.4 |
-| ... | ... |
 
 `manifest.json:`
 
@@ -666,6 +663,9 @@ By default, collection files should be named `collection.json`.
         ...
     ],
     "metadata": {
+        "name": <name of collection>,
+        "description": <description text>,
+        "author": <string author name>,
         ...
     }
 }
@@ -732,6 +732,8 @@ A collection file can also include optional metadata fields, saved under the `me
     }
 }
 ```
+
+If using utilities provided by the `colorizer-data` library (`update_collection`), the `dateCreated`, `lastModified`, `revision`, and `dataVersion` fields will be automatically updated.
 
 ## FAQ
 
