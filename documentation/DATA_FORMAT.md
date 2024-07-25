@@ -39,6 +39,8 @@ The most important file is the **manifest**, which is a JSON file that describes
             "unit": <unit label>,                                 //< optional
             "type": <"continuous" | "discrete" | "categorical">,  //< optional
             "categories": [<category 1>, <category 2>, ...,]      //< optional unless type is "categorical"; max 12 categories
+            "min": <minimum value>,
+            "max": <maximum value>,
         }
         {
             "name": <feature display name>,
@@ -590,6 +592,58 @@ For example, if a dataset had the following tracks and outliers, the file might 
         true   // 5
     ]
 }
+```
+
+---
+
+</details>
+
+
+### 10. Parquet binary data
+
+As of Timelapse Feature Explorer v1.1.0, JSON data files (e.g. tracks, times, centroids, bounds, outliers, and features) can be replaced with files in the [**Apache Parquet** binary format](https://parquet.apache.org/).
+
+Parquet binary files are much smaller than JSON files and can speed up the initial dataset load when loading datasets with many features or objects.
+
+Files are expected to have a single `"data"` column where data values are stored. Any standard data compression method (Uncompressed, Brotli, Snappy, LZ4, Gzip ZSTD, and LZ4-RAW) is supported.
+
+The `manifest.json`'s path to the feature file will also need to have the full filename, including the `.parquet` suffix for the filetype. Because the Parquet data cannot include a min and max, please ensure that, for features, the min and max are included in the manifest's feature metadata.
+
+If using utilities provided by the `colorizer-data` library, you can toggle whether JSON or Parquet data is used when writing data and feature arrays by specifying the `write_json` flag.
+
+<details>
+<summary><b>[Show me an example!]</b></summary>
+
+---
+
+An example feature file could look like this. Note that the index should not be included as a column, and is only included here for reference.
+
+| (index) | data |
+| --- | --- |
+| 0 | 34.23 |
+| 1 | 0.67 |
+| 2 | -143.3 |
+| 3 | 94.5 |
+| 4 | 349.4 |
+| ... | ... |
+
+`manifest.json:`
+
+```txt
+...
+"features": [
+        {
+            "key": "example_feature",
+            "name": "Example Parquet Feature",
+            "data": "feature_0.parquet",
+            "unit": "mm",
+            "type": "continuous",
+            "min": 0.67,
+            "max": 349.4,
+        }
+   ...
+  ],
+...
 ```
 
 ---
