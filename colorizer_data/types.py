@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Type, TypeVar, TypedDict, Union
 Json = Union[dict, str, int, float, bool, None]
 
 
-CURRENT_VERSION = "v1.2.2"
+CURRENT_VERSION = "v1.3.0"
 DEFAULT_COLLECTION_VERSION = "v1.0"
 DEFAULT_DATASET_VERSION = "v1.0"
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
@@ -58,6 +58,8 @@ class FeatureInfo:
     unit: str = ""
     type: FeatureType = FeatureType.INDETERMINATE
     categories: Optional[List[str]] = None
+    min: Optional[Union[int, float]] = None
+    max: Optional[Union[int, float]] = None
 
     def get_name(self) -> Union[str, None]:
         """
@@ -93,6 +95,8 @@ class FeatureMetadata(TypedDict):
     unit: str
     type: FeatureType
     categories: List[str]
+    min: Union[int, float]
+    max: Union[int, float]
 
 
 class BackdropMetadata(TypedDict):
@@ -151,7 +155,7 @@ class ColorizerMetadata(DataClassJsonMixin):
     is rewritten. Starts at 0.
     """
     _writer_version: Optional[str] = CURRENT_VERSION
-    """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.2.2)"""
+    """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.3.0)"""
 
     # Exclude these three fields from auto-encode/decode, because they need to be structured
     # together under the frameDims subfield and not as their own root-level fields.
@@ -263,7 +267,7 @@ class CollectionMetadata(DataClassJsonMixin):
     is rewritten, starting at 0.
     """
     _writer_version: Optional[str] = CURRENT_VERSION
-    """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.2.2)"""
+    """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.3.0)"""
 
 
 class CollectionDatasetEntry(TypedDict):
