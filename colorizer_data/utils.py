@@ -47,7 +47,7 @@ RESERVED_INDICES = 1
 
 
 class NumpyValuesEncoder(json.JSONEncoder):
-    """Handles float32 and int64 values."""
+    """Handles numpy numeric values (float32, double, float64, int16, int32, int64)."""
 
     def default(self, obj):
         if (
