@@ -7,7 +7,6 @@ import pathlib
 import platform
 import re
 import shutil
-from types import NoneType
 from typing import Dict, List, Optional, Sequence, TypeVar, Union, Tuple
 
 import numpy as np
@@ -63,7 +62,7 @@ class NumpyValuesEncoder(json.JSONEncoder):
             or isinstance(obj, np.int64)
         ):
             return int(obj)
-        elif isinstance(obj, NoneType):
+        elif obj is None:
             return None
         return json.JSONEncoder.default(self, obj)
 
