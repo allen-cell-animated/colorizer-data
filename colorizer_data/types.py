@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Type, TypeVar, TypedDict, Union
 Json = Union[dict, str, int, float, bool, None]
 
 
-CURRENT_VERSION = "v1.4.0"
+CURRENT_VERSION = "v1.4.1"
 DEFAULT_COLLECTION_VERSION = "v1.0"
 DEFAULT_DATASET_VERSION = "v1.0"
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
@@ -155,7 +155,7 @@ class ColorizerMetadata(DataClassJsonMixin):
     is rewritten. Starts at 0.
     """
     _writer_version: Optional[str] = CURRENT_VERSION
-    """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.4.0)"""
+    """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.4.1)"""
 
     # Exclude these three fields from auto-encode/decode, because they need to be structured
     # together under the frameDims subfield and not as their own root-level fields.
@@ -267,7 +267,7 @@ class CollectionMetadata(DataClassJsonMixin):
     is rewritten, starting at 0.
     """
     _writer_version: Optional[str] = CURRENT_VERSION
-    """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.4.0)"""
+    """Version of the data writer utility scripts. Uses semantic versioning (e.g. v1.4.1)"""
 
 
 class CollectionDatasetEntry(TypedDict):
