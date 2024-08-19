@@ -230,6 +230,16 @@ class ColorizerDatasetWriter:
         fmin = encoder.default(fmin)
         fmax = encoder.default(fmax)
 
+        # Data validation
+        if info.description_short is not None:
+            if len(info.description_short) > 100:
+                logging.warning(
+                    "write_feature: Short description for feature '{}' is too long ({} > 100). Description will be truncated".format(
+                        info.get_name(), len(info.description_short)
+                    )
+                )
+                info.description_short = info.description_short[:97] + "..."
+
         # The viewer reads float data as float32, so cast it if needed.
         if data.dtype == np.float64 or data.dtype == np.double:
             data = data.astype(np.float32)
@@ -258,6 +268,8 @@ class ColorizerDatasetWriter:
             "key": key,
             "min": fmin,
             "max": fmax,
+            "descriptionShort": info.description_short,
+            "descriptionLong": info.description_long,
         }
         # Add categories to metadata only if feature is categorical; also do validation here
         if info.type == FeatureType.CATEGORICAL:
