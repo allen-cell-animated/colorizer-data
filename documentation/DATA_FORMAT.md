@@ -36,10 +36,15 @@ The most important file is the **manifest**, which is a JSON file that describes
             "key": <feature key>,                                 // See note on keys below.
             "name": <feature display name>,
             "data": <relative path to feature JSON>,
-            "unit": <unit label>,                                 //< optional
-            "type": <"continuous" | "discrete" | "categorical">,  //< optional
-            "categories": [<category 1>, <category 2>, ...,]      //< optional unless type is "categorical"; max 12 categories
-        }
+            // Optional fields:
+            "unit": <unit label>,                                 
+            "type": <"continuous" | "discrete" | "categorical">,  
+            "categories": [<category 1>, <category 2>, ...,]      //< required if type "categorical"; max 12 categories
+            "min": <min value for feature>,                       
+            "max": <max value for feature>,
+            "descriptionShort": <short <100 character description>,
+            "descriptionLong": <long description>,
+        }     
         {
             "name": <feature display name>,
             ...
@@ -124,8 +129,8 @@ The `manifest.json` file would look something like this:
             "type": "discrete"
         },
         {
-            "key": "life_stage",
-            "name": "Life Stage",
+            "key": "cycle_stage",
+            "name": "Cell Cycle Stage",
             "data": "feature_2.json",
             "type": "categorical",
             "categories": ["G1", "S", "G2", "Prophase", "Metaphase", "Anaphase", "Telophase" ]
@@ -454,7 +459,7 @@ the feature values will be parsed as integers (rounded) and used to index into t
 
 ---
 
-Let's use the "Life Stages" feature example from before, in the manifest. Here's a snippet of the feature metadata in the manifest.
+Let's use the "Cell Cycle Stage" feature example from before, in the manifest. Here's a snippet of the feature metadata in the manifest.
 
 `manifest.json:`
 
@@ -462,11 +467,12 @@ Let's use the "Life Stages" feature example from before, in the manifest. Here's
 ...,
 "features": [
     {
-        "key": "life_stage",
-        "name": "Life Stage",
+        "key": "cycle_stage",
+        "name": "Cell Cycle Stage",
         "data": "feature_2.json",
         "type": "categorical",
-        "categories": ["G1", "S", "G2", "Prophase", "Metaphase", "Anaphase", "Telophase" ]
+        "categories": ["G1", "S", "G2", "Prophase", "Metaphase", "Anaphase", "Telophase" ],
+
     },
     ...
 ]
@@ -475,12 +481,12 @@ Let's use the "Life Stages" feature example from before, in the manifest. Here's
 
 There are 7 categories, so our feature values should be integer indexes ranging from 0 to 6. Let's say our dataset has only one frame, for simplicity, and the following cells are visible:
 
-| Cell # | Life Stage | Index |
-| ------ | ---------- | ----- |
-| 0      | Metaphase  | 4     |
-| 1      | G1         | 0     |
-| 2      | Telophase  | 6     |
-| 3      | G2         | 2     |
+| Cell # | Cell Cycle Stage | Index |
+| ------ | ---------------- | ----- |
+| 0      | Metaphase        | 4     |
+| 1      | G1               | 0     |
+| 2      | Telophase        | 6     |
+| 3      | G2               | 2     |
 
 Our feature file should look something like this.
 

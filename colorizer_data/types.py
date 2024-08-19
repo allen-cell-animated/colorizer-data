@@ -52,10 +52,12 @@ class FeatureInfo:
         `categories`: The ordered categories for categorical features. `None` by default.
         `min`: The minimum value for continuous or discrete features. `None` by default.
         `max`: The maximum value for continuous or discrete features. `None` by default.
-        `description_short`: A short (~60) character description that will appear in tooltips and
+        TODO: Should short description be enforced here or in the UI?
+        `description_short`: A short (ideally ~60) character description that will appear in tooltips and
         other UI elements. A hard character limit of 100 characters is enforced; longer
-        descriptions will be truncated.
-        `description_long`: A longer description that will appear in a feature glossary on the UI.
+        descriptions will be truncated. `None` by default.
+        `description_long`: A full description that will appear in a feature glossary on the UI.
+        `None` by default.
     """
 
     label: str = ""
