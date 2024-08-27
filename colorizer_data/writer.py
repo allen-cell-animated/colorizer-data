@@ -156,7 +156,7 @@ class ColorizerDatasetWriter:
 
         Args:
             data (`np.ndarray[int | float]`): The numpy array for the feature, to be written to a JSON file.
-            info (`FeatureInfo`): Metadata for the feature.
+            info (`FeatureInfo`): Metadata for the feature. See `FeatureInfo` for more details.
             outliers (`np.ndarray`): Optional boolean array, where an object `i` is an outlier if `outliers[i] == True`.
                 Outliers will not count towards min/max calculation. Ignored if not provided.
             write_json (`bool`): Whether to write the feature data as a `.json` file rather than the default Parquet format.
@@ -231,8 +231,15 @@ class ColorizerDatasetWriter:
         fmin = encoder.default(fmin)
         fmax = encoder.default(fmax)
 
-        # Data validation
+        # Description
         if info.description_short is not None:
+            if info.description_long is None:
+                logging.warning(
+                    "write_feature: A description_short field was provided for feature '{}' but no description_long field was provided. The short description will be used for both.".format(
+                        info.get_name()
+                    )
+                )
+                info.description_long = info.description_short
             if len(info.description_short) > MAX_SHORT_DESCRIPTION_CHARS:
                 logging.warning(
                     "write_feature: Short description for feature '{}' is too long ({} > {}). Description will be truncated".format(

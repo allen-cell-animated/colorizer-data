@@ -73,8 +73,8 @@ class FeatureInfo:
     categories: Optional[List[str]] = None
     min: Optional[Union[int, float]] = None
     max: Optional[Union[int, float]] = None
-    description_short: str = None
-    description_long: str = None
+    description_short: Optional[str] = None
+    description_long: Optional[str] = None
 
     def get_name(self) -> Union[str, None]:
         """
