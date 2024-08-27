@@ -10,6 +10,7 @@ import numpy as np
 from PIL import Image
 
 from colorizer_data.types import (
+    MAX_SHORT_DESCRIPTION_CHARS,
     BackdropMetadata,
     ColorizerMetadata,
     DatasetManifest,
@@ -232,13 +233,17 @@ class ColorizerDatasetWriter:
 
         # Data validation
         if info.description_short is not None:
-            if len(info.description_short) > 100:
+            if len(info.description_short) > MAX_SHORT_DESCRIPTION_CHARS:
                 logging.warning(
-                    "write_feature: Short description for feature '{}' is too long ({} > 100). Description will be truncated".format(
-                        info.get_name(), len(info.description_short)
+                    "write_feature: Short description for feature '{}' is too long ({} > {}). Description will be truncated".format(
+                        info.get_name(),
+                        len(info.description_short),
+                        MAX_SHORT_DESCRIPTION_CHARS,
                     )
                 )
-                info.description_short = info.description_short[:97] + "..."
+                info.description_short = (
+                    info.description_short[: (MAX_SHORT_DESCRIPTION_CHARS - 3)] + "..."
+                )
 
         # The viewer reads float data as float32, so cast it if needed.
         if data.dtype == np.float64 or data.dtype == np.double:

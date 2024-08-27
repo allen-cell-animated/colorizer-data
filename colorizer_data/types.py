@@ -17,6 +17,12 @@ Note: time MUST be in UTC!
 Use `datetime.now(timezone.utc).strftime(DATETIME_FORMAT)`.
 """
 
+MAX_SHORT_DESCRIPTION_CHARS = 100
+"""
+Maximum number of characters the `FeatureInfo.description_short` field can have.
+Descriptions longer than this will be truncated.
+"""
+
 
 class FeatureType(str, Enum):
     CONTINUOUS = "continuous"
@@ -52,10 +58,9 @@ class FeatureInfo:
         `categories`: The ordered categories for categorical features. `None` by default.
         `min`: The minimum value for continuous or discrete features. `None` by default.
         `max`: The maximum value for continuous or discrete features. `None` by default.
-        TODO: Should short description be enforced here or in the UI?
         `description_short`: A short (ideally ~60) character description that will appear in tooltips and
-        other UI elements. A hard character limit of 100 characters is enforced; longer
-        descriptions will be truncated. `None` by default.
+        other UI elements. A hard character limit of `MAX_SHORT_DESCRIPTION_CHARS` (100) characters is enforced;
+        longer descriptions will be truncated. `None` by default.
         `description_long`: A full description that will appear in a feature glossary on the UI.
         `None` by default.
     """
