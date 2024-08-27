@@ -52,7 +52,7 @@ class FeatureInfo:
         `categories`: The ordered categories for categorical features. `None` by default.
         `min`: The minimum value for continuous or discrete features. `None` by default.
         `max`: The maximum value for continuous or discrete features. `None` by default.
-        `description`: A description of the feature, to be shown on the UI. `None` by default.
+        `description`: A description of the feature, to be shown on the UI. Empty string (`""`) by default.
     """
 
     label: str = ""
@@ -63,7 +63,7 @@ class FeatureInfo:
     categories: Optional[List[str]] = None
     min: Optional[Union[int, float]] = None
     max: Optional[Union[int, float]] = None
-    description: Optional[str] = None
+    description: str = ""
 
     def get_name(self) -> Union[str, None]:
         """
@@ -92,8 +92,8 @@ class FeatureInfo:
 class FeatureMetadata(TypedDict):
     """For data writer internal use. Represents the metadata that will be saved for each feature."""
 
-    """The relative path from the manifest to the feature JSON file."""
     data: str
+    """The relative path from the manifest to the feature JSON file."""
     key: str
     name: str
     unit: str
