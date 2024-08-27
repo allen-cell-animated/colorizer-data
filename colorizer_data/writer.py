@@ -10,7 +10,6 @@ import numpy as np
 from PIL import Image
 
 from colorizer_data.types import (
-    MAX_SHORT_DESCRIPTION_CHARS,
     BackdropMetadata,
     ColorizerMetadata,
     DatasetManifest,
@@ -231,27 +230,6 @@ class ColorizerDatasetWriter:
         fmin = encoder.default(fmin)
         fmax = encoder.default(fmax)
 
-        # Description
-        if info.description_short is not None:
-            if info.description_long is None:
-                logging.warning(
-                    "write_feature: A description_short field was provided for feature '{}' but no description_long field was provided. The short description will be used for both.".format(
-                        info.get_name()
-                    )
-                )
-                info.description_long = info.description_short
-            if len(info.description_short) > MAX_SHORT_DESCRIPTION_CHARS:
-                logging.warning(
-                    "write_feature: Short description for feature '{}' is too long ({} > {}). Description will be truncated".format(
-                        info.get_name(),
-                        len(info.description_short),
-                        MAX_SHORT_DESCRIPTION_CHARS,
-                    )
-                )
-                info.description_short = (
-                    info.description_short[: (MAX_SHORT_DESCRIPTION_CHARS - 3)] + "..."
-                )
-
         # The viewer reads float data as float32, so cast it if needed.
         if data.dtype == np.float64 or data.dtype == np.double:
             data = data.astype(np.float32)
@@ -280,8 +258,7 @@ class ColorizerDatasetWriter:
             "key": key,
             "min": fmin,
             "max": fmax,
-            "descriptionShort": info.description_short,
-            "descriptionLong": info.description_long,
+            "description": info.description,
         }
         # Add categories to metadata only if feature is categorical; also do validation here
         if info.type == FeatureType.CATEGORICAL:

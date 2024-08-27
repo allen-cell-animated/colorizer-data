@@ -17,12 +17,6 @@ Note: time MUST be in UTC!
 Use `datetime.now(timezone.utc).strftime(DATETIME_FORMAT)`.
 """
 
-MAX_SHORT_DESCRIPTION_CHARS = 100
-"""
-Maximum number of characters the `FeatureInfo.description_short` field can have.
-Descriptions longer than this will be truncated.
-"""
-
 
 class FeatureType(str, Enum):
     CONTINUOUS = "continuous"
@@ -58,11 +52,7 @@ class FeatureInfo:
         `categories`: The ordered categories for categorical features. `None` by default.
         `min`: The minimum value for continuous or discrete features. `None` by default.
         `max`: The maximum value for continuous or discrete features. `None` by default.
-        `description_short`: A short (ideally ~60) character description that will appear in tooltips and
-        other UI elements. A hard character limit of `MAX_SHORT_DESCRIPTION_CHARS` (100) characters is enforced;
-        longer descriptions will be truncated. `None` by default.
-        `description_long`: A full description that will appear in a feature glossary on the UI.
-        `None` by default.
+        `description`: A description of the feature, to be shown on the UI. `None` by default.
     """
 
     label: str = ""
@@ -73,8 +63,7 @@ class FeatureInfo:
     categories: Optional[List[str]] = None
     min: Optional[Union[int, float]] = None
     max: Optional[Union[int, float]] = None
-    description_short: Optional[str] = None
-    description_long: Optional[str] = None
+    description: Optional[str] = None
 
     def get_name(self) -> Union[str, None]:
         """
@@ -112,8 +101,7 @@ class FeatureMetadata(TypedDict):
     categories: List[str]
     min: Union[int, float]
     max: Union[int, float]
-    descriptionShort: str
-    descriptionLong: str
+    description: str
 
 
 class BackdropMetadata(TypedDict):

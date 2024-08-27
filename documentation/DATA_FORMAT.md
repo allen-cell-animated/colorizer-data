@@ -42,8 +42,7 @@ The most important file is the **manifest**, which is a JSON file that describes
             "categories": [<category 1>, <category 2>, ...,]      //< required if type "categorical"; max 12 categories
             "min": <min value for feature>,                       
             "max": <max value for feature>,
-            "descriptionShort": <short description, max ~100 characters>,
-            "descriptionLong": <long description>,
+            "description": <feature description>,
         }     
         {
             "name": <feature display name>,
