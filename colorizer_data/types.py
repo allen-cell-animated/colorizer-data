@@ -52,7 +52,7 @@ class FeatureInfo:
         `categories`: The ordered categories for categorical features. `None` by default.
         `min`: The minimum value for continuous or discrete features. `None` by default.
         `max`: The maximum value for continuous or discrete features. `None` by default.
-        `description`: A description of the feature, to be shown on the UI. Empty string (`""`) by default.
+        `description`: A description of the feature. Empty string (`""`) by default.
     """
 
     label: str = ""
