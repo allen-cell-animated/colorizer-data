@@ -50,6 +50,9 @@ class FeatureInfo:
         `type`: The type, either continuous, discrete, or categorical, of this feature.
         `FeatureType.INDETERMINATE` by default.
         `categories`: The ordered categories for categorical features. `None` by default.
+        `min`: The minimum value for continuous or discrete features. `None` by default.
+        `max`: The maximum value for continuous or discrete features. `None` by default.
+        `description`: A description of the feature. Empty string (`""`) by default.
     """
 
     label: str = ""
@@ -60,6 +63,7 @@ class FeatureInfo:
     categories: Optional[List[str]] = None
     min: Optional[Union[int, float]] = None
     max: Optional[Union[int, float]] = None
+    description: str = ""
 
     def get_name(self) -> Union[str, None]:
         """
@@ -89,14 +93,15 @@ class FeatureMetadata(TypedDict):
     """For data writer internal use. Represents the metadata that will be saved for each feature."""
 
     data: str
+    """The relative path from the manifest to the feature JSON file."""
     key: str
     name: str
-    """The relative path from the manifest to the feature JSON file."""
     unit: str
     type: FeatureType
     categories: List[str]
     min: Union[int, float]
     max: Union[int, float]
+    description: str
 
 
 class BackdropMetadata(TypedDict):

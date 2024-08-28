@@ -155,7 +155,7 @@ class ColorizerDatasetWriter:
 
         Args:
             data (`np.ndarray[int | float]`): The numpy array for the feature, to be written to a JSON file.
-            info (`FeatureInfo`): Metadata for the feature.
+            info (`FeatureInfo`): Metadata for the feature. See `FeatureInfo` for more details.
             outliers (`np.ndarray`): Optional boolean array, where an object `i` is an outlier if `outliers[i] == True`.
                 Outliers will not count towards min/max calculation. Ignored if not provided.
             write_json (`bool`): Whether to write the feature data as a `.json` file rather than the default Parquet format.
@@ -258,6 +258,7 @@ class ColorizerDatasetWriter:
             "key": key,
             "min": fmin,
             "max": fmax,
+            "description": info.description,
         }
         # Add categories to metadata only if feature is categorical; also do validation here
         if info.type == FeatureType.CATEGORICAL:
