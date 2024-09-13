@@ -1,19 +1,49 @@
 {
-  "frames": ["frame_0.png", "frame_1.png", "frame_2.png", "frame_3.png", "frame_4.png"],
+  "frames": [
+    "frame_0.png",
+    "frame_1.png",
+    "frame_2.png",
+    "frame_3.png",
+    "frame_4.png"
+  ],
   "features": [
-    { "name": "Continuous Feature", "data": "feature_0.json", "units": "°F", "type": "continuous" },
-    { "name": "Discrete Feature", "data": "feature_1.json", "units": "nodes", "type": "discrete" },
+    {
+      "name": "Continuous Feature",
+      "data": "feature_0.json",
+      "units": "°F",
+      "type": "continuous",
+      "description": "A continuous feature can represent any decimal number. NaNs can also be included and will be shown on the UI as an outlier (grey by default)."
+    },
+    {
+      "name": "Discrete Feature",
+      "data": "feature_1.json",
+      "units": "nodes",
+      "type": "discrete",
+      "description": "A discrete feature represents an integer value."
+    },
     {
       "name": "Categorical Feature (5)",
       "data": "feature_2.json",
       "type": "categorical",
-      "categories": ["Spicy", "Sour", "Bitter", "Sweet", "Dry"]
+      "categories": ["Spicy", "Sour", "Bitter", "Sweet", "Dry"],
+      "description": "Categorical features have a predefined set of categories (up to 12 max), and are shown in the order they are defined in the manifest."
     },
     {
       "name": "Categorical Feature (9)",
       "data": "feature_2.json",
       "type": "categorical",
-      "categories": ["Spicy", "Sour", "Bitter", "Sweet", "Dry", "Chewy", "Umami", "Salty", "Crispy"]
+      "categories": [
+        "Spicy",
+        "Sour",
+        "Bitter",
+        "Sweet",
+        "Dry",
+        "Chewy",
+        "Umami",
+        "Salty",
+        "Crispy"
+      ],
+      "description": "Categorical features have a predefined set of categories (up to 12 max), and are shown in the order they are defined in the manifest."
     },
     {
       "name": "Categorical Feature (12)",
@@ -32,7 +62,8 @@
         "JJJJJJJJJJJJ",
         "KKKKKKKKKKKK",
         "LLLLLLLLLLLL"
-      ]
+      ],
+      "description": "Categorical features have a predefined set of categories (up to 12 max), and are shown in the order they are defined in the manifest."
     }
   ],
   "backdrops": [

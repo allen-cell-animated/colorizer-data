@@ -4,9 +4,7 @@ Last release: v1.4.2
 
 Timelapse Feature Explorer can only load datasets that follow the defined data specification.
 
-The easiest way to get started is to modify one of our existing data processing scripts, like [`convert_nucmorph_data.py`](../colorizer_data/bin/example_scripts/convert_nucmorph_data.py)! See the [README](../README.md) for more details on how to install this package.
-
-(Check with your team or one of the developers on the Simulation & Visualization team to see if there's already a data generation script for your project!)
+The easiest way to get started is to follow our [getting started guide](./getting_started_guide/GETTING_STARTED.ipynb)! See the [README](../README.md) for more details on how to install this package.
 
 ## Terms
 
@@ -67,7 +65,7 @@ Note that the `outliers`, `centroids`, and `bounds` files are optional, but cert
 
 Features that have the `categorical` type must also define an array of string `categories`, up to a maximum of 12.
 
-A complete example dataset is also available in the [`documentation`](./example_dataset) directory of this project, and can be [viewed on Timelapse Feature Explorer](https://allen-cell-animated.github.io/timelapse-colorizer/viewer?dataset=https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/example_dataset/manifest.json).
+A complete example dataset is also available in the [`documentation`](./example_dataset) directory of this project, and can be [viewed on Timelapse Feature Explorer](https://timelapse.allencell.org/viewer?dataset=https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/example_dataset/manifest.json).
 
 ### Note on keys
 
