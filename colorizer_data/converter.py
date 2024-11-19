@@ -4,9 +4,10 @@ import multiprocessing
 import os
 import pathlib
 import time
-from typing import Dict, List, Sequence, TypedDict, Union
+from typing import Dict, List, Optional, Sequence, TypedDict, Union
 
 from aicsimageio import AICSImage
+from dataclasses import dataclass, field
 from pandas import DataFrame
 from pandas.core.groupby.generic import DataFrameGroupBy
 import pandas as pd
@@ -17,6 +18,7 @@ from colorizer_data.types import BackdropMetadata, ColorizerMetadata, FeatureInf
 from colorizer_data.utils import (
     get_total_objects,
     remap_segmented_image,
+    sanitize_key_name,
     sanitize_path_by_platform,
     scale_image,
     update_bounding_box_data,
@@ -70,26 +72,28 @@ Notes:
 """
 
 
+@dataclass
 class ConverterConfig(TypedDict):
-    object_id_column: str
-    times_column: str
-    track_column: str
-    image_column: str
-    centroid_x_column: str
-    centroid_y_column: str
-    outlier_column: str
-    backdrop_columns: Dict[str, BackdropMetadata]
-    feature_column_names: List[str]
-    feature_info: Dict[str, FeatureInfo]
+    object_id_column: str = "Label"
+    times_column: str = "Frame"
+    track_column: str = "Track"
+    image_column: str = "File Path"
+    centroid_x_column: str = "Centroid X"
+    centroid_y_column: str = "Centroid Y"
+    outlier_column: str = "Outlier"
+    backdrop_columns: Optional[List[str]] = None
+    backdrop_info: Optional[Dict[str, BackdropMetadata]] = None
+    feature_column_names: Optional[List[str]] = None
+    feature_info: Optional[Dict[str, FeatureInfo]] = None
 
 
-def get_image_from_row(row: pd.DataFrame, config: ConverterConfig) -> AICSImage:
+def _get_image_from_row(row: pd.DataFrame, config: ConverterConfig) -> AICSImage:
     zstackpath = row[config.image_column]
     zstackpath = sanitize_path_by_platform(zstackpath)
     return AICSImage(zstackpath)
 
 
-def make_frame(
+def _make_frame(
     frame: pd.DataFrame,
     scale: float,
     bounds_arr: Sequence[int],
@@ -103,7 +107,7 @@ def make_frame(
     row = frame.iloc[0]
     frame_number = row[config.times_column]
     # Flatten the z-stack to a 2D image.
-    aics_image = get_image_from_row(row)
+    aics_image = _get_image_from_row(row)
     zstack = aics_image.get_image_data("ZYX", S=0, T=0, C=0)
     seg2d = zstack.max(axis=0)
 
@@ -127,7 +131,7 @@ def make_frame(
     )
 
 
-def make_frames_parallel(
+def _make_frames_parallel(
     grouped_frames: DataFrameGroupBy,
     scale: float,
     writer: ColorizerDatasetWriter,
@@ -144,46 +148,74 @@ def make_frames_parallel(
         bounds_arr = manager.Array("i", [0] * int(total_objects * 4))
         with multiprocessing.Pool() as pool:
             pool.starmap(
-                make_frame,
+                _make_frame,
                 [
                     (frame, scale, bounds_arr, writer, config)
-                    for group_name, frame in grouped_frames
+                    for _group_name, frame in grouped_frames
                 ],
             )
         writer.write_data(bounds=np.array(bounds_arr, dtype=np.uint32))
 
 
-def write_data(
+def _get_data_or_none(
+    dataset: pd.DataFrame, column_name: str
+) -> Union[np.ndarray, None]:
+    if column_name in dataset.columns:
+        return dataset[column_name].to_numpy()
+    else:
+        return None
+
+
+def _write_data(
     dataset: pd.DataFrame,
     writer: ColorizerDatasetWriter,
     config: ConverterConfig,
 ):
-    outliers = dataset[config["outlier_column"]].to_numpy()
-    tracks = dataset[config["track_column"]].to_numpy()
-    times = dataset[config["times_column"]].to_numpy()
-    # TODO: Check for this column's existence, return None if unavailable
-    centroids_x = dataset[config["centroid_x_column"]].to_numpy()
-    centroids_y = dataset[config["centroid_y_column"]].to_numpy()
-
     writer.write_data(
-        tracks=tracks,
-        times=times,
-        centroids_x=centroids_x,
-        centroids_y=centroids_y,
-        outliers=outliers,
+        tracks=_get_data_or_none(dataset, config["track_column"]),
+        times=_get_data_or_none(dataset, config["times_column"]),
+        centroids_x=_get_data_or_none(dataset, config["centroid_x_column"]),
+        centroids_y=_get_data_or_none(dataset, config["centroid_y_column"]),
+        outliers=_get_data_or_none(dataset, config["outlier_column"]),
     )
 
 
-def write_features(
+def _write_backdrops(
     dataset: pd.DataFrame,
-    dataset_name: str,
     writer: ColorizerDatasetWriter,
     config: ConverterConfig,
 ):
     pass
 
 
-def should_regenerate_frames(writer: ColorizerDatasetWriter, data: DataFrame) -> bool:
+def _write_features(
+    dataset: pd.DataFrame,
+    dataset_name: str,
+    writer: ColorizerDatasetWriter,
+    config: ConverterConfig,
+):
+    # Detect all features
+    feature_columns = config["feature_column_names"]
+    if config["feature_column_names"] is None:
+        feature_columns = [col for col in dataset.columns if col not in config.values()]
+        logging.info(
+            f"No feature columns specified. The following columns will be used as features: {feature_columns}"
+        )
+
+    outliers = _get_data_or_none(dataset, config["outlier_column"])
+    for feature_column in feature_columns:
+        # Get the feature data
+        feature_data = dataset[feature_column].to_numpy()
+        # Get the feature metadata
+        default_feature_info = FeatureInfo(
+            label=feature_column,
+            key=sanitize_key_name(feature_column),
+        )
+        feature_info = config["feature_info"].get(feature_column, default_feature_info)
+        writer.write_feature(feature_data, feature_info, outliers=outliers)
+
+
+def _should_regenerate_frames(writer: ColorizerDatasetWriter, data: DataFrame) -> bool:
     # get object count and regenerate frames if it has changed
     num_objects = data["Label"].nunique(False)
 
@@ -215,7 +247,6 @@ def should_regenerate_frames(writer: ColorizerDatasetWriter, data: DataFrame) ->
                 f"Number of objects has changed. Regenerating all frames. Old: {times_objects}, New: {num_objects}"
             )
             return True
-
     return False
 
 
@@ -231,41 +262,47 @@ def convert_colorizer_data(
     centroid_x_column: str = "Centroid X",
     centroid_y_column: str = "Centroid Y",
     outlier_column: str = "Outlier",
-    backdrop_columns: Dict[str, BackdropMetadata] = {},
-    feature_column_names: List[str] = None,  # Array of feature columns.
+    backdrop_columns: Optional[
+        List[str]
+    ] = None,  # use this if backdrops are column -> paths to images
+    backdrop_info: Optional[
+        Dict[str, BackdropMetadata]
+    ] = None,  # use this if backdrops are already stored somewhere
+    feature_column_names: Union[List[str], None] = None,  # Array of feature columns.
     # If set, ONLY these columns will be parsed.
-    feature_info: Dict[
-        str, FeatureInfo
+    feature_info: Optional[
+        Dict[str, FeatureInfo]
     ] = None,  # Map from string column name to FeatureInfo.
     # Metadata will be applied to these features.
     force_frame_generation=False,  # If false, frames will be regenerated only as needed.
+    use_json=False,
 ):
     """ """
-    config = {
-        "object_id_column": object_id_column,
-        "times_column": times_column,
-        "track_column": track_column,
-        "image_column": image_column,
-        "centroid_x_column": centroid_x_column,
-        "centroid_y_column": centroid_y_column,
-        "outlier_column": outlier_column,
-        "backdrop_columns": backdrop_columns,
-        "feature_column_names": feature_column_names,
-        "feature_info": feature_info,
-    }
+    config = ConverterConfig(
+        object_id_column=object_id_column,
+        times_column=times_column,
+        track_column=track_column,
+        image_column=image_column,
+        centroid_x_column=centroid_x_column,
+        centroid_y_column=centroid_y_column,
+        outlier_column=outlier_column,
+        backdrop_columns=backdrop_columns,
+        feature_column_names=feature_column_names,
+        feature_info=feature_info,
+    )
 
     parent_directory = pathlib.Path(output_dir).parent
     dataset_name = pathlib.Path(output_dir).name
 
     writer = ColorizerDatasetWriter(parent_directory, dataset_name)
 
-    write_data(data, writer, config)
-    write_features(data, writer, config)
+    _write_data(data, writer, config)
+    _write_features(data, writer, config)
 
-    if force_frame_generation or should_regenerate_frames(writer, data):
+    if force_frame_generation or _should_regenerate_frames(writer, data):
         # Group the data by time.
         grouped_frames = data.groupby(config["times_column"])
-        make_frames_parallel(grouped_frames, 1.0, writer, config)
+        _make_frames_parallel(grouped_frames, 1.0, writer, config)
 
     # TODO: get count of frames
     writer.write_manifest(1, metadata)
