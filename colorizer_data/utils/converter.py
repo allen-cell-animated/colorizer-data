@@ -190,7 +190,6 @@ def _write_backdrops(
 
 def _write_features(
     dataset: pd.DataFrame,
-    dataset_name: str,
     writer: ColorizerDatasetWriter,
     config: ConverterConfig,
 ):
@@ -223,7 +222,7 @@ def _should_regenerate_frames(writer: ColorizerDatasetWriter, data: DataFrame) -
         logging.info("No frames found in dataset manifest. Regenerating all frames.")
         return True
     else:
-        # Check that all frames exist. If any are missing, regenerate all.
+        # Check that all frames exist. If any are missing, frames should be regenerated.
         for frame in writer.manifest["frames"]:
             if not os.path.exists(writer.outpath / frame):
                 logging.info(f"Frame {frame} is missing. Regenerating all frames.")
@@ -298,6 +297,7 @@ def convert_colorizer_data(
 
     _write_data(data, writer, config)
     _write_features(data, writer, config)
+    _write_backdrops(data, writer, config)
 
     if force_frame_generation or _should_regenerate_frames(writer, data):
         # Group the data by time.
