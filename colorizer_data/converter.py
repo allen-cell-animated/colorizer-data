@@ -17,6 +17,7 @@ import numpy as np
 from colorizer_data.types import BackdropMetadata, ColorizerMetadata, FeatureInfo
 from colorizer_data.utils import (
     INITIAL_INDEX_COLUMN,
+    generate_frame_paths,
     get_total_objects,
     remap_segmented_image,
     sanitize_key_name,
@@ -86,6 +87,7 @@ class ConverterConfig(TypedDict):
     backdrop_info: Optional[Dict[str, BackdropMetadata]] = None
     feature_column_names: Optional[List[str]] = None
     feature_info: Optional[Dict[str, FeatureInfo]] = None
+    use_json: bool = False
 
 
 def _get_image_from_row(row: pd.DataFrame, config: ConverterConfig) -> AICSImage:
@@ -178,6 +180,7 @@ def _write_data(
         centroids_x=_get_data_or_none(dataset, config["centroid_x_column"]),
         centroids_y=_get_data_or_none(dataset, config["centroid_y_column"]),
         outliers=_get_data_or_none(dataset, config["outlier_column"]),
+        write_json=config["use_json"],
     )
 
 
@@ -215,7 +218,9 @@ def _write_features(
             feature_column in config["feature_info"]
         ):
             feature_info = config["feature_info"].get(feature_column)
-        writer.write_feature(feature_data, feature_info, outliers=outliers)
+        writer.write_feature(
+            feature_data, feature_info, outliers=outliers, write_json=config["use_json"]
+        )
 
 
 def _should_regenerate_frames(writer: ColorizerDatasetWriter, data: DataFrame) -> bool:
@@ -281,6 +286,7 @@ def convert_colorizer_data(
     use_json=False,
 ):
     """ """
+    # TODO: Trim spaces from column names and data
     config = ConverterConfig(
         object_id_column=object_id_column,
         times_column=times_column,
@@ -292,6 +298,7 @@ def convert_colorizer_data(
         backdrop_columns=backdrop_columns,
         feature_column_names=feature_column_names,
         feature_info=feature_info,
+        use_json=use_json,
     )
 
     parent_directory = pathlib.Path(output_dir).parent
@@ -311,9 +318,11 @@ def convert_colorizer_data(
         reduced_dataset = reduced_dataset.reset_index(drop=True)
         reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
         grouped_frames = reduced_dataset.groupby(config["times_column"])
+        # TODO: this should pass out the frames
         _make_frames_parallel(grouped_frames, 1.0, writer, config)
 
     # TODO: get count of frames
-    writer.write_manifest(metadata=metadata)
+    max_frame = data[config["times_column"]].max()
+    writer.set_frame_paths(generate_frame_paths(max_frame + 1))
 
-    pass
+    writer.write_manifest(metadata=metadata)
