@@ -481,7 +481,7 @@ class ColorizerDatasetWriter:
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#Dataset)
         """
 
-        if num_frames is not None and self.manifest["frames"] is None:
+        if num_frames is not None and "frames" not in self.manifest:
             logging.warning(
                 "ColorizerDatasetWriter: The argument `num_frames` on `write_manifest` is deprecated and will be removed in the future! Please call `set_frame_paths(generate_frame_paths(num_frames))` instead."
             )
@@ -589,7 +589,7 @@ class ColorizerDatasetWriter:
             backdrop_keys = [backdrop["key"] for backdrop in self.manifest["backdrops"]]
             self.__check_for_duplicate_keys(backdrop_keys, "backdrop")
 
-        if self.manifest["frames"] is None:
+        if "frames" not in self.manifest:
             logging.warning(
                 "No frames are provided! Did you forget to call `set_frame_paths` on the writer?"
             )

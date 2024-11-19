@@ -16,6 +16,7 @@ import numpy as np
 
 from colorizer_data.types import BackdropMetadata, ColorizerMetadata, FeatureInfo
 from colorizer_data.utils import (
+    INITIAL_INDEX_COLUMN,
     get_total_objects,
     remap_segmented_image,
     sanitize_key_name,
@@ -88,7 +89,7 @@ class ConverterConfig(TypedDict):
 
 
 def _get_image_from_row(row: pd.DataFrame, config: ConverterConfig) -> AICSImage:
-    zstackpath = row[config.image_column]
+    zstackpath = row[config["image_column"]]
     zstackpath = sanitize_path_by_platform(zstackpath)
     return AICSImage(zstackpath)
 
@@ -105,9 +106,9 @@ def _make_frame(
     # Get the path to the segmented zstack image frame from the first row (should be the same for
     # all rows in this group, since they are all on the same frame).
     row = frame.iloc[0]
-    frame_number = row[config.times_column]
+    frame_number = row[config["times_column"]]
     # Flatten the z-stack to a 2D image.
-    aics_image = _get_image_from_row(row)
+    aics_image = _get_image_from_row(row, config)
     zstack = aics_image.get_image_data("ZYX", S=0, T=0, C=0)
     seg2d = zstack.max(axis=0)
 
@@ -119,7 +120,7 @@ def _make_frame(
     seg_remapped, lut = remap_segmented_image(
         seg2d,
         frame,
-        config.object_id_column,
+        config["object_id_column"],
     )
 
     writer.write_image(seg_remapped, frame_number)
@@ -200,17 +201,20 @@ def _write_features(
         logging.info(
             f"No feature columns specified. The following columns will be used as features: {feature_columns}"
         )
-
     outliers = _get_data_or_none(dataset, config["outlier_column"])
+
     for feature_column in feature_columns:
         # Get the feature data
         feature_data = dataset[feature_column].to_numpy()
-        # Get the feature metadata
-        default_feature_info = FeatureInfo(
+        # Get feature info if it's provided
+        feature_info = FeatureInfo(
             label=feature_column,
             key=sanitize_key_name(feature_column),
         )
-        feature_info = config["feature_info"].get(feature_column, default_feature_info)
+        if (config["feature_info"] is not None) and (
+            feature_column in config["feature_info"]
+        ):
+            feature_info = config["feature_info"].get(feature_column)
         writer.write_feature(feature_data, feature_info, outliers=outliers)
 
 
@@ -218,7 +222,7 @@ def _should_regenerate_frames(writer: ColorizerDatasetWriter, data: DataFrame) -
     # get object count and regenerate frames if it has changed
     num_objects = data["Label"].nunique(False)
 
-    if writer.manifest["frames"] is None:
+    if "frames" not in writer.manifest:
         logging.info("No frames found in dataset manifest. Regenerating all frames.")
         return True
     else:
@@ -253,7 +257,7 @@ def convert_colorizer_data(
     data: DataFrame,
     output_dir: Union[str, pathlib.Path],
     *,
-    metadata: ColorizerMetadata = {},
+    metadata: Optional[ColorizerMetadata] = None,
     object_id_column: str = "Label",
     times_column: str = "Frame",
     track_column: str = "Track",
@@ -301,10 +305,15 @@ def convert_colorizer_data(
 
     if force_frame_generation or _should_regenerate_frames(writer, data):
         # Group the data by time.
-        grouped_frames = data.groupby(config["times_column"])
+        reduced_dataset = data[
+            [config["times_column"], config["image_column"], config["object_id_column"]]
+        ]
+        reduced_dataset = reduced_dataset.reset_index(drop=True)
+        reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
+        grouped_frames = reduced_dataset.groupby(config["times_column"])
         _make_frames_parallel(grouped_frames, 1.0, writer, config)
 
     # TODO: get count of frames
-    writer.write_manifest(1, metadata)
+    writer.write_manifest(metadata=metadata)
 
     pass
