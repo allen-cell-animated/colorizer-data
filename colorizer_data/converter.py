@@ -27,6 +27,8 @@ from colorizer_data.utils import (
 )
 from colorizer_data.writer import ColorizerDatasetWriter
 
+# If updating these constants, ensure they match the default column names in
+# the `convert_colorizer_data` function signature.
 DEFAULT_OBJECT_ID_COLUMN = "ID"
 DEFAULT_TIMES_COLUMN = "Frame"
 DEFAULT_TRACK_COLUMN = "Track"
@@ -203,7 +205,7 @@ def _should_regenerate_frames(
 
     if writer.manifest["times"] is not None:
         # parse existing times to get object count and compare to new data
-        # parse either JSON or Parquet!!!
+        # TODO: refactor this into a utility method for reading json/parquet data
         times_path = writer.outpath / writer.manifest["times"]
         _times_filename, times_extension = os.path.splitext(times_path)
         with open(times_path, "r") as f:
@@ -228,7 +230,8 @@ def convert_colorizer_data(
     *,
     metadata: Optional[ColorizerMetadata] = None,
     # Note: These are redundant with the named constants, but make the function
-    # signature more readable.
+    # signature more readable. If updating, ensure these match the DEFAULT_*_COLUMN
+    # constants at the start of this file.
     object_id_column: str = "ID",
     times_column: str = "Frame",
     track_column: str = "Track",
@@ -267,17 +270,17 @@ def convert_colorizer_data(
         times_column (str): The name of the column containing time steps. Defaults to "Frame."
         track_column (str): The name of the column containing track IDs. Defaults to "Track."
         image_column (str): The name of the column containing filepaths to the segmentation images.
-            Defaults to "File Path." Images will be remapped and flattened along the Z-axis using a
-            max projection if they are 3D.
+            Defaults to "File Path." Images will be copied and remapped. If they are 3D, they will
+            be flattened along the Z-axis using a max projection.
         centroid_x_column (str): The name of the column containing x-coordinates of object
             centroids, in pixels relative to the frame image, where 0 is the left edge of the
             image. Defaults to "Centroid X."
         centroid_y_column (str): The name of the column containing y-coordinates of object
             centroids, in pixels relative to the frame image, where 0 is the top edge of the image.
             Defaults to "Centroid X.""
-        outlier_column (str): The name of the column containing outlier flags. 0 indicates a normal
-            object, while 1 indicates an outlier. Outliers are excluded from min/max calculation
-            for features. Defaults to "Outlier."
+        outlier_column (str): The name of the column containing outlier flags. 0/False indicates a
+            normal object, while 1/True indicates an outlier. Outliers are excluded from min/max
+            calculation for features. Defaults to "Outlier."
         backdrop_columns (List[str] | None): A list of column names containing file paths to
             backdrop images. If set, these images will be copied and included in the dataset as
             backdrops that can be toggled. Defaults to `None`.
@@ -287,15 +290,15 @@ def convert_colorizer_data(
             will be copied to it and the paths updated to be relative to the manifest. Defaults to
             `None`.
         feature_column_names (List[str] | None): An array of feature column names. If a value is
-            provided, only the provided column names will be parsed as features; otherwise, all
-            columns that don't aren't specified as a backdrop or a data column (e.g. object ID,
-            time, track, etc.) will be parsed as features. Defaults to `None`.
+            provided, ONLY the provided column names will be parsed as features; otherwise, ALL
+            columns that aren't specified as a backdrop or a data column (e.g. object ID, time,
+            track, etc.) will be treated as a feature. Defaults to `None`.
         feature_info (Dict[str, FeatureInfo] | None): A dictionary mapping column names to
             `FeatureInfo` metadata. This includes the feature's type (continuous, discrete, or
-            categorical), units, min/max value overrides, descriptions, and categories for
-            categorical features. If a feature's column name does not exist in the dictionary (or
-            the dictionary is `None`), the feature type will be inferred based on column values.
-            Defaults to `None`.
+            categorical), units, min/max value overrides, descriptions, and category order for
+            categorical features. If a feature's column name does not exist in the `feature_info`
+            (or the dictionary is `None`), the feature type and metadata will be inferred based
+            on column values. Defaults to `None`.
         force_frame_generation (bool): If True, frames will be regenerated even if they already
             exist. If False (default), frames will be regenerated only when changes are detected.
         use_json (bool): If True, data will be written as JSON files instead of the default Parquet
@@ -336,7 +339,7 @@ def convert_colorizer_data(
                 "my_other_feature_column": FeatureInfo(
                     label="Cell Type",
                     type=FeatureType.CATEGORICAL,
-                    categories=["Colony", "Migratory", "Apoptotic"],
+                    categories=["Colony", "Edge", "Migratory"],
                 ),
             }
             convert_colorizer_data(
@@ -371,14 +374,14 @@ def convert_colorizer_data(
     _write_backdrops(data, writer, config)
 
     if force_frame_generation or _should_regenerate_frames(writer, data, config):
-        # Group the data by time.
+        # Group the data by time, then run frame generation in parallel.
         reduced_dataset = data[
             [config["times_column"], config["image_column"], config["object_id_column"]]
         ]
         reduced_dataset = reduced_dataset.reset_index(drop=True)
         reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
         grouped_frames = reduced_dataset.groupby(config["times_column"])
-        # TODO: this should pass out the frames
+        # TODO: this should pass out the frame paths
         _make_frames_parallel(grouped_frames, 1.0, writer, config)
 
     # TODO: get accurate count of frames
