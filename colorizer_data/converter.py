@@ -227,13 +227,15 @@ def convert_colorizer_data(
     output_dir: Union[str, pathlib.Path],
     *,
     metadata: Optional[ColorizerMetadata] = None,
-    object_id_column: str = DEFAULT_OBJECT_ID_COLUMN,
-    times_column: str = DEFAULT_TIMES_COLUMN,
-    track_column: str = DEFAULT_TRACK_COLUMN,
-    image_column: str = DEFAULT_IMAGE_COLUMN,
-    centroid_x_column: str = DEFAULT_CENTROID_X_COLUMN,
-    centroid_y_column: str = DEFAULT_CENTROID_Y_COLUMN,
-    outlier_column: str = DEFAULT_OUTLIER_COLUMN,
+    # Note: These are redundant with the named constants, but make the function
+    # signature more readable.
+    object_id_column: str = "ID",
+    times_column: str = "Frame",
+    track_column: str = "Track",
+    image_column: str = "File Path",
+    centroid_x_column: str = "Centroid X",
+    centroid_y_column: str = "Centroid Y",
+    outlier_column: str = "Outlier",
     # TODO: implement backdrop support
     # backdrop_columns: Optional[
     #     List[str]
@@ -276,6 +278,14 @@ def convert_colorizer_data(
         outlier_column (str): The name of the column containing outlier flags. 0 indicates a normal
             object, while 1 indicates an outlier. Outliers are excluded from min/max calculation
             for features. Defaults to "Outlier."
+        backdrop_columns (List[str] | None): A list of column names containing file paths to
+            backdrop images. If set, these images will be copied and included in the dataset as
+            backdrops that can be toggled. Defaults to `None`.
+        backdrop_info (Dict[str, BackdropMetadata] | None): A dictionary mapping column names to
+            `BackdropMetadata` metadata. This includes the backdrop's name, description, and
+            file paths. If the files do not exist in the dataset directory, the files
+            will be copied to it and the paths updated to be relative to the manifest. Defaults to
+            `None`.
         feature_column_names (List[str] | None): An array of feature column names. If a value is
             provided, only the provided column names will be parsed as features; otherwise, all
             columns that don't aren't specified as a backdrop or a data column (e.g. object ID,
