@@ -27,52 +27,6 @@ from colorizer_data.utils import (
 )
 from colorizer_data.writer import ColorizerDatasetWriter
 
-"""
-from colorizer_data.types import ColorizerMetadata, FeatureInfo, BackdropMetadata
-from colorizer_data.utils import update_collection, convert_colorizer_data
-
-data = pd.read_csv('colorizer_data.csv')
-
-dataset_path = convert_colorizer_data(
-    data: DataFrame,
-    output_dir: str | pathlib.Path
-    *,
-    metadata: ColorizerMetadata = {},
-    object_id_column: str = "Label",  # <- does this make sense? Is there a convention?
-    times_column: str = "Frame",
-    track_column: str = "Track",
-    image_column: str = "File Path",
-    centroid_x_column: str,    # <- is there a convention for these too?
-    centroid_y_column: str,
-    outliers_column: str,
-    backdrop_columns: Dict[str, BackdropMetadata] = None,
-    feature_column_names: str[] = None,          # Array of feature columns.
-                                                 # If set, ONLY these columns will be parsed.
-    feature_info: Dict[str, FeatureInfo] = None, # Map from string column name to FeatureInfo. 
-                                                 # Metadata will be applied to these features.
-
-    force_frame_generation = False,      # If false, frames will be regenerated only as needed.
-)
-
-# If the number of objects is mismatched, this will throw an error
-append_feature(
-    output_dir: str | pathLib.Path
-    feature_data: np.ndarray,
-    feature_info: FeatureInfo,
-)
-
-update_collection(
-    collection_filepath: str | pathlib.Path,
-    dataset_name: str,
-    dataset_path: str | pathlib.Path,
-)
-"""
-
-"""
-Notes:
-- If times is non-contiguous, throw a warning (since backdrops)
-"""
-
 
 @dataclass
 class ConverterConfig(TypedDict):
@@ -399,7 +353,8 @@ def convert_colorizer_data(
         # TODO: this should pass out the frames
         _make_frames_parallel(grouped_frames, 1.0, writer, config)
 
-    # TODO: get count of frames
+    # TODO: get accurate count of frames
+    # TODO: throw error/warning if times are non-contiguous
     max_frame = data[config["times_column"]].max()
     writer.set_frame_paths(generate_frame_paths(max_frame + 1))
 
