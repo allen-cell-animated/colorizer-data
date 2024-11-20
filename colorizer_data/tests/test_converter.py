@@ -29,7 +29,7 @@ def validate_data(path: pathlib.Path, data: Union[List[int], List[float]]):
         assert abs(loaded_data[i] - d) < 1e-6
 
 
-sample_csv_headers = "Label,Track,Frame,Centroid X,Centroid Y,Continuous Feature,Discrete Feature,Categorical Feature,File Path"
+sample_csv_headers = "ID,Track,Frame,Centroid X,Centroid Y,Continuous Feature,Discrete Feature,Categorical Feature,File Path"
 sample_csv_headers_alternate = "object_id,track,frame,centroid_x,centroid_y,continuous_feature,discrete_feature,categorical_feature,file_path"
 sample_csv_data = """0,1,0,50,50,0.5,0,A,./colorizer_data/tests/assets/basic_csv/frame_0.tiff
     1,1,1,55,60,0.6,1,B,./colorizer_data/tests/assets/basic_csv/frame_1.tiff

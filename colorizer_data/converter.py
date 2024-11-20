@@ -76,7 +76,7 @@ Notes:
 
 @dataclass
 class ConverterConfig(TypedDict):
-    object_id_column: str = "Label"
+    object_id_column: str = "ID"
     times_column: str = "Frame"
     track_column: str = "Track"
     image_column: str = "File Path"
@@ -223,9 +223,11 @@ def _write_features(
         )
 
 
-def _should_regenerate_frames(writer: ColorizerDatasetWriter, data: DataFrame) -> bool:
+def _should_regenerate_frames(
+    writer: ColorizerDatasetWriter, data: DataFrame, config: ConverterConfig
+) -> bool:
     # get object count and regenerate frames if it has changed
-    num_objects = data["Label"].nunique(False)
+    num_objects = data[config["object_id_column"]].nunique(False)
 
     if "frames" not in writer.manifest:
         logging.info("No frames found in dataset manifest. Regenerating all frames.")
@@ -263,7 +265,7 @@ def convert_colorizer_data(
     output_dir: Union[str, pathlib.Path],
     *,
     metadata: Optional[ColorizerMetadata] = None,
-    object_id_column: str = "Label",
+    object_id_column: str = "ID",
     times_column: str = "Frame",
     track_column: str = "Track",
     image_column: str = "File Path",
@@ -276,16 +278,93 @@ def convert_colorizer_data(
     backdrop_info: Optional[
         Dict[str, BackdropMetadata]
     ] = None,  # use this if backdrops are already stored somewhere
-    feature_column_names: Union[List[str], None] = None,  # Array of feature columns.
-    # If set, ONLY these columns will be parsed.
-    feature_info: Optional[
-        Dict[str, FeatureInfo]
-    ] = None,  # Map from string column name to FeatureInfo.
-    # Metadata will be applied to these features.
-    force_frame_generation=False,  # If false, frames will be regenerated only as needed.
+    feature_column_names: Union[List[str], None] = None,
+    feature_info: Optional[Dict[str, FeatureInfo]] = None,
+    force_frame_generation=False,
     use_json=False,
 ):
-    """ """
+    """
+    Converts a pandas DataFrame into a Timelapse Feature Explorer dataset.
+
+    Args:
+        data (pd.DataFrame): The DataFrame to parse. Each row should represent a single object at a single frame
+            number. Certain columns are required, such as object IDs ("ID"), frame number ("Frame"), and tracks
+            ("Track"). These default column names can be overridden using the keyword arguments below.
+        output_dir (str | pathlib.Path): The directory to write the dataset to. All dataset files will be placed
+            directly within this directory.
+
+        metadata (ColorizerMetadata | None): Metadata to include in the dataset's manifest, such as the dataset name,
+            author, dataset description, frame resolution, and time units. See `ColorizerMetadata` for more information.
+            Note that some information will be written automatically, such as a timestamp and revision number.
+        object_id_column (str): The name of the column containing object IDs. Defaults to "ID."
+        times_column (str): The name of the column containing time steps. Defaults to "Frame."
+        track_column (str): The name of the column containing track IDs. Defaults to "Track."
+        image_column (str): The name of the column containing filepaths to the segmentation images. Defaults to
+            "File Path." Images will be remapped and flattened along the Z-axis using a max projection if they are 3D.
+        centroid_x_column (str): The name of the column containing x-coordinates of object centroids, in pixels relative
+            to the frame image, where 0 is the left edge of the image. Defaults to "Centroid X."
+        centroid_y_column (str): The name of the column containing y-coordinates of object centroids, in pixels relative
+            to the frame image, where 0 is the top edge of the image. Defaults to "Centroid X.""
+        outlier_column (str): The name of the column containing outlier flags. 0 indicates a normal object, while 1
+            indicates an outlier. Outliers are excluded from min/max calculation for features. Defaults to "Outlier."
+        backdrop_columns (List[str] | None): A list of column names containing file paths to backdrop images. If set,
+            these images will be copied and included in the dataset as backdrops that can be toggled. Defaults to `None`.
+        feature_column_names (List[str] | None): An array of feature column names. If a value is provided, only the
+            provided column names will be parsed as features; otherwise, all columns that don't aren't specified as a
+            backdrop or a data column (e.g. object ID, time, track, etc.) will be parsed as features. Defaults to `None`.
+        feature_info (Dict[str, FeatureInfo] | None): A dictionary mapping column names to `FeatureInfo` metadata.
+            This includes the feature's type (continuous, discrete, or categorical), units, min/max value overrides,
+            descriptions, and categories for categorical features. If a feature's column name does not exist in the
+            dictionary (or the dictionary is `None`), the feature type will be inferred based on column values.
+            Defaults to `None`.
+        force_frame_generation (bool): If True, frames will be regenerated even if they already exist. If False (default),
+            frames will be regenerated only when changes are detected.
+        use_json (bool): If True, data will be written as JSON files instead of the default Parquet format. Defaults to
+            False.
+
+    Example:
+        ```python
+            import pandas as pd
+            from colorizer_data import convert_colorizer_data
+
+            # 1. Assuming CSV data has columns "ID", "Track", "Frame", and "File Path":
+            data = pd.read_csv("some/path/data.csv")
+            convert_colorizer_data(data, "dataset_dir/dataset_name")
+
+            # 2. If not, you can specify the column names:
+            convert_colorizer_data(
+                data,
+                "dataset_dir/dataset_name",
+                object_id_column="my_id_column",
+                times_column="my_frame_column",
+                track_column="my_track_column",
+                image_column="my_image_filepath_column",
+            )
+
+            # 3. You can also specify metadata for some or all features.
+            from colorizer_data import FeatureInfo, FeatureType
+            feature_info = {
+                "my_feature_column": FeatureInfo(
+                    label="Height",
+                    unit="µm",
+                    type=FeatureType.CONTINUOUS,
+                    description="Measured from the upper edge of the cell relative to the top of the glass slide.",
+                    min=0,
+                    max=10, # overrides min/max values calculated from data
+                ),
+                "my_other_feature_column": FeatureInfo(
+                    label="Cell Type",
+                    type=FeatureType.CATEGORICAL,
+                    categories=["Colony", "Migratory", "Apoptotic"],
+                ),
+            }
+            convert_colorizer_data(
+                data,
+                "dataset_dir/dataset_name",
+                feature_info=feature_info,
+            )
+        ```
+    """
     # TODO: Trim spaces from column names and data
     config = ConverterConfig(
         object_id_column=object_id_column,
@@ -310,7 +389,7 @@ def convert_colorizer_data(
     _write_features(data, writer, config)
     _write_backdrops(data, writer, config)
 
-    if force_frame_generation or _should_regenerate_frames(writer, data):
+    if force_frame_generation or _should_regenerate_frames(writer, data, config):
         # Group the data by time.
         reduced_dataset = data[
             [config["times_column"], config["image_column"], config["object_id_column"]]
