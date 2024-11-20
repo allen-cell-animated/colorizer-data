@@ -272,12 +272,13 @@ def convert_colorizer_data(
     centroid_x_column: str = "Centroid X",
     centroid_y_column: str = "Centroid Y",
     outlier_column: str = "Outlier",
-    backdrop_columns: Optional[
-        List[str]
-    ] = None,  # use this if backdrops are column -> paths to images
-    backdrop_info: Optional[
-        Dict[str, BackdropMetadata]
-    ] = None,  # use this if backdrops are already stored somewhere
+    # TODO: implement backdrop support
+    # backdrop_columns: Optional[
+    #     List[str]
+    # ] = None,  # use this if backdrops are column -> paths to images
+    # backdrop_info: Optional[
+    #     Dict[str, BackdropMetadata]
+    # ] = None,  # use this if backdrops are already stored somewhere
     feature_column_names: Union[List[str], None] = None,
     feature_info: Optional[Dict[str, FeatureInfo]] = None,
     force_frame_generation=False,
@@ -307,8 +308,6 @@ def convert_colorizer_data(
             to the frame image, where 0 is the top edge of the image. Defaults to "Centroid X.""
         outlier_column (str): The name of the column containing outlier flags. 0 indicates a normal object, while 1
             indicates an outlier. Outliers are excluded from min/max calculation for features. Defaults to "Outlier."
-        backdrop_columns (List[str] | None): A list of column names containing file paths to backdrop images. If set,
-            these images will be copied and included in the dataset as backdrops that can be toggled. Defaults to `None`.
         feature_column_names (List[str] | None): An array of feature column names. If a value is provided, only the
             provided column names will be parsed as features; otherwise, all columns that don't aren't specified as a
             backdrop or a data column (e.g. object ID, time, track, etc.) will be parsed as features. Defaults to `None`.
@@ -374,7 +373,7 @@ def convert_colorizer_data(
         centroid_x_column=centroid_x_column,
         centroid_y_column=centroid_y_column,
         outlier_column=outlier_column,
-        backdrop_columns=backdrop_columns,
+        # backdrop_columns=backdrop_columns,
         feature_column_names=feature_column_names,
         feature_info=feature_info,
         use_json=use_json,
