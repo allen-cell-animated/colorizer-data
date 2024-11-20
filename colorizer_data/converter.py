@@ -7,7 +7,7 @@ import time
 from typing import Dict, List, Optional, Sequence, TypedDict, Union
 
 from aicsimageio import AICSImage
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pandas import DataFrame
 from pandas.core.groupby.generic import DataFrameGroupBy
 import pandas as pd
@@ -27,16 +27,24 @@ from colorizer_data.utils import (
 )
 from colorizer_data.writer import ColorizerDatasetWriter
 
+DEFAULT_OBJECT_ID_COLUMN = "ID"
+DEFAULT_TIMES_COLUMN = "Frame"
+DEFAULT_TRACK_COLUMN = "Track"
+DEFAULT_IMAGE_COLUMN = "File Path"
+DEFAULT_CENTROID_X_COLUMN = "Centroid X"
+DEFAULT_CENTROID_Y_COLUMN = "Centroid Y"
+DEFAULT_OUTLIER_COLUMN = "Outlier"
+
 
 @dataclass
 class ConverterConfig(TypedDict):
-    object_id_column: str = "ID"
-    times_column: str = "Frame"
-    track_column: str = "Track"
-    image_column: str = "File Path"
-    centroid_x_column: str = "Centroid X"
-    centroid_y_column: str = "Centroid Y"
-    outlier_column: str = "Outlier"
+    object_id_column: str
+    times_column: str
+    track_column: str
+    image_column: str
+    centroid_x_column: str
+    centroid_y_column: str
+    outlier_column: str
     backdrop_columns: Optional[List[str]] = None
     backdrop_info: Optional[Dict[str, BackdropMetadata]] = None
     feature_column_names: Optional[List[str]] = None
@@ -219,13 +227,13 @@ def convert_colorizer_data(
     output_dir: Union[str, pathlib.Path],
     *,
     metadata: Optional[ColorizerMetadata] = None,
-    object_id_column: str = "ID",
-    times_column: str = "Frame",
-    track_column: str = "Track",
-    image_column: str = "File Path",
-    centroid_x_column: str = "Centroid X",
-    centroid_y_column: str = "Centroid Y",
-    outlier_column: str = "Outlier",
+    object_id_column: str = DEFAULT_OBJECT_ID_COLUMN,
+    times_column: str = DEFAULT_TIMES_COLUMN,
+    track_column: str = DEFAULT_TRACK_COLUMN,
+    image_column: str = DEFAULT_IMAGE_COLUMN,
+    centroid_x_column: str = DEFAULT_CENTROID_X_COLUMN,
+    centroid_y_column: str = DEFAULT_CENTROID_Y_COLUMN,
+    outlier_column: str = DEFAULT_OUTLIER_COLUMN,
     # TODO: implement backdrop support
     # backdrop_columns: Optional[
     #     List[str]
@@ -242,45 +250,54 @@ def convert_colorizer_data(
     Converts a pandas DataFrame into a Timelapse Feature Explorer dataset.
 
     Args:
-        data (pd.DataFrame): The DataFrame to parse. Each row should represent a single object at a single frame
-            number. Certain columns are required, such as object IDs ("ID"), frame number ("Frame"), and tracks
-            ("Track"). These default column names can be overridden using the keyword arguments below.
-        output_dir (str | pathlib.Path): The directory to write the dataset to. All dataset files will be placed
-            directly within this directory.
+        data (pd.DataFrame): The DataFrame to parse. Each row should represent a single object
+            at a single frame number. Certain columns are required, such as object IDs ("ID"),
+            frame number ("Frame"), and tracks ("Track"). These default column names can be
+            overridden using the keyword arguments below.
+        output_dir (str | pathlib.Path): The directory to write the dataset to. All dataset files
+            will be placed directly within this directory.
 
-        metadata (ColorizerMetadata | None): Metadata to include in the dataset's manifest, such as the dataset name,
-            author, dataset description, frame resolution, and time units. See `ColorizerMetadata` for more information.
-            Note that some information will be written automatically, such as a timestamp and revision number.
+        metadata (ColorizerMetadata | None): Metadata to include in the dataset's manifest, such
+            as the dataset name, author, dataset description, frame resolution, and time units.
+            See `ColorizerMetadata` for more information. Note that some information will be
+            written automatically, such as a timestamp and revision number.
         object_id_column (str): The name of the column containing object IDs. Defaults to "ID."
         times_column (str): The name of the column containing time steps. Defaults to "Frame."
         track_column (str): The name of the column containing track IDs. Defaults to "Track."
-        image_column (str): The name of the column containing filepaths to the segmentation images. Defaults to
-            "File Path." Images will be remapped and flattened along the Z-axis using a max projection if they are 3D.
-        centroid_x_column (str): The name of the column containing x-coordinates of object centroids, in pixels relative
-            to the frame image, where 0 is the left edge of the image. Defaults to "Centroid X."
-        centroid_y_column (str): The name of the column containing y-coordinates of object centroids, in pixels relative
-            to the frame image, where 0 is the top edge of the image. Defaults to "Centroid X.""
-        outlier_column (str): The name of the column containing outlier flags. 0 indicates a normal object, while 1
-            indicates an outlier. Outliers are excluded from min/max calculation for features. Defaults to "Outlier."
-        feature_column_names (List[str] | None): An array of feature column names. If a value is provided, only the
-            provided column names will be parsed as features; otherwise, all columns that don't aren't specified as a
-            backdrop or a data column (e.g. object ID, time, track, etc.) will be parsed as features. Defaults to `None`.
-        feature_info (Dict[str, FeatureInfo] | None): A dictionary mapping column names to `FeatureInfo` metadata.
-            This includes the feature's type (continuous, discrete, or categorical), units, min/max value overrides,
-            descriptions, and categories for categorical features. If a feature's column name does not exist in the
-            dictionary (or the dictionary is `None`), the feature type will be inferred based on column values.
+        image_column (str): The name of the column containing filepaths to the segmentation images.
+            Defaults to "File Path." Images will be remapped and flattened along the Z-axis using a
+            max projection if they are 3D.
+        centroid_x_column (str): The name of the column containing x-coordinates of object
+            centroids, in pixels relative to the frame image, where 0 is the left edge of the
+            image. Defaults to "Centroid X."
+        centroid_y_column (str): The name of the column containing y-coordinates of object
+            centroids, in pixels relative to the frame image, where 0 is the top edge of the image.
+            Defaults to "Centroid X.""
+        outlier_column (str): The name of the column containing outlier flags. 0 indicates a normal
+            object, while 1 indicates an outlier. Outliers are excluded from min/max calculation
+            for features. Defaults to "Outlier."
+        feature_column_names (List[str] | None): An array of feature column names. If a value is
+            provided, only the provided column names will be parsed as features; otherwise, all
+            columns that don't aren't specified as a backdrop or a data column (e.g. object ID,
+            time, track, etc.) will be parsed as features. Defaults to `None`.
+        feature_info (Dict[str, FeatureInfo] | None): A dictionary mapping column names to
+            `FeatureInfo` metadata. This includes the feature's type (continuous, discrete, or
+            categorical), units, min/max value overrides, descriptions, and categories for
+            categorical features. If a feature's column name does not exist in the dictionary (or
+            the dictionary is `None`), the feature type will be inferred based on column values.
             Defaults to `None`.
-        force_frame_generation (bool): If True, frames will be regenerated even if they already exist. If False (default),
-            frames will be regenerated only when changes are detected.
-        use_json (bool): If True, data will be written as JSON files instead of the default Parquet format. Defaults to
-            False.
+        force_frame_generation (bool): If True, frames will be regenerated even if they already
+            exist. If False (default), frames will be regenerated only when changes are detected.
+        use_json (bool): If True, data will be written as JSON files instead of the default Parquet
+            format. Defaults to False.
 
     Example:
         ```python
             import pandas as pd
             from colorizer_data import convert_colorizer_data
 
-            # 1. Assuming CSV data has columns "ID", "Track", "Frame", and "File Path":
+            # 1. Assuming CSV data has default columns "ID", "Track",
+            #    "Frame", and "File Path":
             data = pd.read_csv("some/path/data.csv")
             convert_colorizer_data(data, "dataset_dir/dataset_name")
 
@@ -301,7 +318,8 @@ def convert_colorizer_data(
                     label="Height",
                     unit="µm",
                     type=FeatureType.CONTINUOUS,
-                    description="Measured from the upper edge of the cell relative to the top of the glass slide.",
+                    description="Measured from the upper edge of the cell relative "
+                    + "to the top of the glass slide.",
                     min=0,
                     max=10, # overrides min/max values calculated from data
                 ),
