@@ -31,10 +31,10 @@ def validate_data(path: pathlib.Path, data: Union[List[int], List[float]]):
 
 sample_csv_headers = "ID,Track,Frame,Centroid X,Centroid Y,Continuous Feature,Discrete Feature,Categorical Feature,File Path"
 sample_csv_headers_alternate = "object_id,track,frame,centroid_x,centroid_y,continuous_feature,discrete_feature,categorical_feature,file_path"
-sample_csv_data = """0,1,0,50,50,0.5,0,A,./colorizer_data/tests/assets/basic_csv/frame_0.tiff
-    1,1,1,55,60,0.6,1,B,./colorizer_data/tests/assets/basic_csv/frame_1.tiff
-    2,2,0,60,70,0.7,2,C,./colorizer_data/tests/assets/basic_csv/frame_0.tiff
-    3,2,1,65,75,0.8,3,A,./colorizer_data/tests/assets/basic_csv/frame_1.tiff"""
+sample_csv_data = """0,1,0,50,50,0.5,0,A,./colorizer_data/tests/assets/test_csv/frame_0.tiff
+    1,1,1,55,60,0.6,1,B,./colorizer_data/tests/assets/test_csv/frame_1.tiff
+    2,2,0,60,70,0.7,2,C,./colorizer_data/tests/assets/test_csv/frame_0.tiff
+    3,2,1,65,75,0.8,3,A,./colorizer_data/tests/assets/test_csv/frame_1.tiff"""
 
 
 def test_handles_simple_csv(tmp_path):
@@ -107,22 +107,6 @@ def test_handles_simple_csv(tmp_path):
     assert os.path.exists(tmp_path / "dataset" / "times.json")
     validate_data(tmp_path / "dataset" / "times.json", [0, 1, 0, 1])
 
-
-# def test_handles_documentation_csv(tmp_path):
-#     csv_path = "colorizer_data/tests/assets/basic_csv/data.csv"
-#     data = pd.read_csv(csv_path)
-#     convert_colorizer_data(
-#         data,
-#         tmp_path / "dataset",
-#     )
-
-#     # Validate resulting dataset.
-#     expected_manifest = tmp_path / "dataset" / "manifest.json"
-#     assert os.path.exists(expected_manifest)
-
-#     # Check for existence of all data files
-
-#     # Check for existence of frames
 
 """
 TODO: Test additional edge cases
