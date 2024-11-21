@@ -1,18 +1,15 @@
 from io import StringIO
 import json
+import os
 import pathlib
 
-import pytest
 from colorizer_data import convert_colorizer_data
 from colorizer_data.types import FeatureMetadata
-import os
 import pandas as pd
+import pytest
 from typing import Dict, List, Union
 
-from colorizer_data.utils import configureLogging
 
-
-# TODO: Make CSV tiffs super tiny to speed up image processing in tests
 sample_csv_headers = "ID,Track,Frame,Centroid X,Centroid Y,Continuous Feature,Discrete Feature,Categorical Feature,File Path"
 sample_csv_headers_alternate = "object_id,track,frame,centroid_x,centroid_y,Continuous Feature,Discrete Feature,Categorical Feature,file_path"
 sample_csv_data = """0,1,0,50,50,0.5,0,A,./colorizer_data/tests/assets/test_csv/frame_0.tiff
@@ -159,14 +156,30 @@ def test_handles_default_csv_parquet(tmp_path):
 
 
 def test_fails_if_no_features_given(tmp_path):
-    pass
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+    # Delete all the columns that have feature data
+    csv_data = csv_data.drop(
+        ["Continuous Feature", "Discrete Feature", "Categorical Feature"], axis=1
+    )
+
+    with pytest.raises(Exception):
+        convert_colorizer_data(csv_data, tmp_path)
 
 
 def test_fails_if_no_objects_exist(tmp_path):
-    pass
+    csv_content = f"{sample_csv_headers}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+
+    with pytest.raises(Exception):
+        convert_colorizer_data(csv_data, tmp_path)
 
 
 def test_handles_missing_centroid_and_outlier_columns(tmp_path):
+    pass
+
+
+def test_uses_id_as_track_if_track_is_missing(tmp_path):
     pass
 
 
@@ -177,10 +190,10 @@ TODO: Test additional edge cases
   - [x] detects change in number of objects
   - [x] detects removal of frames
   - [x] does not regenerate frames if they already exist
-  - [ ] handles missing times data
+  - [x] handles missing times data
 - [x] Handles different data column names
 - [ ] Handles missing centroid, outliers, or bounds data
-- [ ] Keeps bounds data during frame regeneration
+- [x] Keeps bounds data during frame regeneration
 - [ ] Handles backdrop images via column
 - [ ] Handles backdrop images via dictionary
 """
@@ -202,11 +215,12 @@ def test_does_not_rewrite_existing_frames_or_bounds_data(existing_dataset):
     assert os.path.getmtime(existing_dataset / "frame_1.png") == frame_1_time
     assert os.path.getmtime(existing_dataset / "bounds.json") == bounds_time
 
-    # Reference to bounds data should still be present in the manifest
+    # Reference to frames and bounds data should still be present in the manifest
     manifest = {}
     with open(existing_dataset / "manifest.json", "r") as f:
         manifest = json.load(f)
         assert manifest["bounds"] == "bounds.json"
+        assert manifest["frames"] == ["frame_0.png", "frame_1.png"]
 
 
 def test_detects_missing_frames(existing_dataset):

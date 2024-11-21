@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import multiprocessing
 import os
 import pathlib
@@ -109,6 +110,12 @@ def _make_frames_parallel(
     """
     nframes = len(grouped_frames)
     total_objects = get_total_objects(grouped_frames)
+
+    if math.isnan(total_objects) or (total_objects < 1):
+        raise ValueError(
+            "No objects found in dataset (e.g., no rows were provided). At least one object is required."
+        )
+
     logging.info("Making {} frames...".format(nframes))
 
     with multiprocessing.Manager() as manager:
@@ -232,6 +239,13 @@ def _should_regenerate_frames(
             return True
 
     return False
+
+
+def _validate_manifest(writer: ColorizerDatasetWriter):
+    if len(writer.features) == 0:
+        raise ValueError(
+            "No features found in dataset. At least one feature is required."
+        )
 
 
 def convert_colorizer_data(
@@ -399,4 +413,5 @@ def convert_colorizer_data(
     max_frame = data[config["times_column"]].max()
     writer.set_frame_paths(generate_frame_paths(max_frame + 1))
 
+    _validate_manifest(writer)
     writer.write_manifest(metadata=metadata)
