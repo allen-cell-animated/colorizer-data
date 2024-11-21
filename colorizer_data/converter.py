@@ -199,14 +199,14 @@ def _should_regenerate_frames(
     else:
         # Check that all frames exist. If any are missing, frames should be regenerated.
         for frame in writer.manifest["frames"]:
-            if not os.path.exists(writer.outpath / frame):
+            if not os.path.exists(writer.outpath + "/" + frame):
                 logging.info(f"Frame {frame} is missing. Regenerating all frames.")
                 return True
 
     if writer.manifest["times"] is not None:
         # parse existing times to get object count and compare to new data
         # TODO: refactor this into a utility method for reading json/parquet data
-        times_path = writer.outpath / writer.manifest["times"]
+        times_path = writer.outpath + "/" + writer.manifest["times"]
         _times_filename, times_extension = os.path.splitext(times_path)
         with open(times_path, "r") as f:
             times_objects = 0
@@ -239,13 +239,12 @@ def convert_colorizer_data(
     centroid_x_column: str = "Centroid X",
     centroid_y_column: str = "Centroid Y",
     outlier_column: str = "Outlier",
-    # TODO: implement backdrop support
-    # backdrop_columns: Optional[
-    #     List[str]
-    # ] = None,  # use this if backdrops are column -> paths to images
-    # backdrop_info: Optional[
-    #     Dict[str, BackdropMetadata]
-    # ] = None,  # use this if backdrops are already stored somewhere
+    backdrop_columns: Optional[
+        List[str]
+    ] = None,  # use this if backdrops are column -> paths to images
+    backdrop_info: Optional[
+        Dict[str, BackdropMetadata]
+    ] = None,  # use this if backdrops are already stored somewhere
     feature_column_names: Union[List[str], None] = None,
     feature_info: Optional[Dict[str, FeatureInfo]] = None,
     force_frame_generation=False,
@@ -358,7 +357,8 @@ def convert_colorizer_data(
         centroid_x_column=centroid_x_column,
         centroid_y_column=centroid_y_column,
         outlier_column=outlier_column,
-        # backdrop_columns=backdrop_columns,
+        backdrop_columns=backdrop_columns,
+        backdrop_info=backdrop_info,
         feature_column_names=feature_column_names,
         feature_info=feature_info,
         use_json=use_json,
@@ -368,10 +368,6 @@ def convert_colorizer_data(
     dataset_name = pathlib.Path(output_dir).name
 
     writer = ColorizerDatasetWriter(parent_directory, dataset_name)
-
-    _write_data(data, writer, config)
-    _write_features(data, writer, config)
-    _write_backdrops(data, writer, config)
 
     if force_frame_generation or _should_regenerate_frames(writer, data, config):
         # Group the data by time, then run frame generation in parallel.
@@ -383,6 +379,10 @@ def convert_colorizer_data(
         grouped_frames = reduced_dataset.groupby(config["times_column"])
         # TODO: this should pass out the frame paths
         _make_frames_parallel(grouped_frames, 1.0, writer, config)
+
+    _write_data(data, writer, config)
+    _write_features(data, writer, config)
+    _write_backdrops(data, writer, config)
 
     # TODO: get accurate count of frames
     # TODO: throw error/warning if times are non-contiguous

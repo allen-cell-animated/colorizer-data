@@ -1,11 +1,33 @@
 from io import StringIO
 import json
 import pathlib
+
+import pytest
 from colorizer_data import convert_colorizer_data
 from colorizer_data.types import FeatureMetadata
 import os
 import pandas as pd
 from typing import Dict, List, Union
+
+from colorizer_data.utils import configureLogging
+
+# TODO: Make CSV tiffs super tiny to speed up image processing in tests
+sample_csv_headers = "ID,Track,Frame,Centroid X,Centroid Y,Continuous Feature,Discrete Feature,Categorical Feature,File Path"
+sample_csv_headers_alternate = "object_id,track,frame,centroid_x,centroid_y,continuous_feature,discrete_feature,categorical_feature,file_path"
+sample_csv_data = """0,1,0,50,50,0.5,0,A,./colorizer_data/tests/assets/test_csv/frame_0.tiff
+    1,1,1,55,60,0.6,1,B,./colorizer_data/tests/assets/test_csv/frame_1.tiff
+    2,2,0,60,70,0.7,2,C,./colorizer_data/tests/assets/test_csv/frame_0.tiff
+    3,2,1,65,75,0.8,3,A,./colorizer_data/tests/assets/test_csv/frame_1.tiff"""
+
+
+@pytest.fixture
+def existing_dataset(tmp_path) -> pathlib.Path:
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+    # TODO: Should I just write the relevant data files out without going through the image
+    # processing step?
+    convert_colorizer_data(csv_data, tmp_path, use_json=True)
+    return tmp_path
 
 
 def feature_array_to_dict(
@@ -27,14 +49,6 @@ def validate_data(path: pathlib.Path, data: Union[List[int], List[float]]):
     assert len(loaded_data) == len(data)
     for i, d in enumerate(data):
         assert abs(loaded_data[i] - d) < 1e-6
-
-
-sample_csv_headers = "ID,Track,Frame,Centroid X,Centroid Y,Continuous Feature,Discrete Feature,Categorical Feature,File Path"
-sample_csv_headers_alternate = "object_id,track,frame,centroid_x,centroid_y,continuous_feature,discrete_feature,categorical_feature,file_path"
-sample_csv_data = """0,1,0,50,50,0.5,0,A,./colorizer_data/tests/assets/test_csv/frame_0.tiff
-    1,1,1,55,60,0.6,1,B,./colorizer_data/tests/assets/test_csv/frame_1.tiff
-    2,2,0,60,70,0.7,2,C,./colorizer_data/tests/assets/test_csv/frame_0.tiff
-    3,2,1,65,75,0.8,3,A,./colorizer_data/tests/assets/test_csv/frame_1.tiff"""
 
 
 def test_handles_simple_csv(tmp_path):
@@ -110,14 +124,15 @@ def test_handles_simple_csv(tmp_path):
 
 """
 TODO: Test additional edge cases
-- Frame generation
-  - override switch works
-  - detects change in number of objects
-  - detects removal of frames
-  - does not regenerate frames if they already exist
-- Handles missing centroid, outliers, or bounds data
-- Handles backdrop images via column
-- Handles backdrop images via dictionary
+- [x] Frame generation
+  - [x] override switch works
+  - [x] detects change in number of objects
+  - [x] detects removal of frames
+  - [x] does not regenerate frames if they already exist
+- [ ] Handles missing centroid, outliers, or bounds data
+- [ ] Keeps bounds data during frame regeneration
+- [ ] Handles backdrop images via column
+- [ ] Handles backdrop images via dictionary
 """
 
 
@@ -125,13 +140,67 @@ def test_handles_renamed_columns(tmp_path):
     pass
 
 
-def test_detects_missing_frames(tmp_path):
-    pass
+def test_does_not_rewrite_existing_frames(existing_dataset):
+    # Record write time of both frames
+    frame_0_time = os.path.getmtime(existing_dataset / "frame_0.png")
+    frame_1_time = os.path.getmtime(existing_dataset / "frame_1.png")
+
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+    convert_colorizer_data(csv_data, existing_dataset, force_frame_generation=False)
+
+    # Frame 0 and 1 should both have newer write times
+    assert os.path.getmtime(existing_dataset / "frame_0.png") == frame_0_time
+    assert os.path.getmtime(existing_dataset / "frame_1.png") == frame_1_time
+
+
+def test_detects_missing_frames(existing_dataset):
+    # Record write time of both frames
+    frame_0_time = os.path.getmtime(existing_dataset / "frame_0.png")
+    frame_1_time = os.path.getmtime(existing_dataset / "frame_1.png")
+    # Delete one of the frames
+    os.remove(existing_dataset / "frame_0.png")
+
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+    convert_colorizer_data(csv_data, existing_dataset, force_frame_generation=False)
+
+    # Frames should be regenerated
+    assert os.path.exists(existing_dataset / "frame_0.png")
+    assert os.path.exists(existing_dataset / "frame_1.png")
+
+    # Frame 0 and 1 should both have newer write times
+    assert os.path.getmtime(existing_dataset / "frame_0.png") > frame_0_time
+    assert os.path.getmtime(existing_dataset / "frame_1.png") > frame_1_time
+
+
+def test_forces_image_overwrite(existing_dataset):
+    # Record write time of both frames
+    frame_0_time = os.path.getmtime(existing_dataset / "frame_0.png")
+    frame_1_time = os.path.getmtime(existing_dataset / "frame_1.png")
+
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+    convert_colorizer_data(csv_data, existing_dataset, force_frame_generation=True)
+
+    # Frame 0 and 1 should both have newer write times
+    assert os.path.getmtime(existing_dataset / "frame_0.png") > frame_0_time
+    assert os.path.getmtime(existing_dataset / "frame_1.png") > frame_1_time
+
+
+def test_rewrites_images_when_object_count_changes(existing_dataset):
+    # Record write time of both frames
+    frame_0_time = os.path.getmtime(existing_dataset / "frame_0.png")
+    frame_1_time = os.path.getmtime(existing_dataset / "frame_1.png")
+
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}\n4,3,1,70,80,0.9,4,D,./colorizer_data/tests/assets/test_csv/frame_1.tiff"
+    csv_data = pd.read_csv(StringIO(csv_content))
+    convert_colorizer_data(csv_data, existing_dataset, force_frame_generation=False)
+
+    # Frame 0 and 1 should both have newer write times
+    assert os.path.getmtime(existing_dataset / "frame_0.png") > frame_0_time
+    assert os.path.getmtime(existing_dataset / "frame_1.png") > frame_1_time
 
 
 def test_handles_missing_data_columns(tmp_path):
-    pass
-
-
-def test_handles_missing_frames(tmp_path):
     pass
