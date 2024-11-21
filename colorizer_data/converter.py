@@ -121,7 +121,9 @@ def _make_frames_parallel(
                     for _group_name, frame in grouped_frames
                 ],
             )
-        writer.write_data(bounds=np.array(bounds_arr, dtype=np.uint32))
+        writer.write_data(
+            bounds=np.array(bounds_arr, dtype=np.uint32), write_json=config["use_json"]
+        )
 
 
 def _get_data_or_none(
@@ -190,8 +192,6 @@ def _write_features(
 def _should_regenerate_frames(
     writer: ColorizerDatasetWriter, data: DataFrame, config: ConverterConfig
 ) -> bool:
-    # get object count and regenerate frames if it has changed
-    num_objects = data[config["object_id_column"]].nunique(False)
 
     if "frames" not in writer.manifest:
         logging.info("No frames found in dataset manifest. Regenerating all frames.")
@@ -202,25 +202,35 @@ def _should_regenerate_frames(
             if not os.path.exists(writer.outpath + "/" + frame):
                 logging.info(f"Frame {frame} is missing. Regenerating all frames.")
                 return True
-
+    # get object count and regenerate frames if it has changed
+    num_objects = data[config["object_id_column"]].nunique()
     if writer.manifest["times"] is not None:
         # parse existing times to get object count and compare to new data
         # TODO: refactor this into a utility method for reading json/parquet data
         times_path = writer.outpath + "/" + writer.manifest["times"]
         _times_filename, times_extension = os.path.splitext(times_path)
-        with open(times_path, "r") as f:
+
+        try:
             times_objects = 0
             if times_extension == ".json":
-                times_json_content = json.load(f)
-                times_objects = len(times_json_content["data"])
+                with open(times_path, "r") as f:
+                    times_json_content = json.load(f)
+                    times_objects = len(times_json_content["data"])
             elif times_extension == ".parquet":
                 times_df = pd.read_parquet(times_path)
                 times_objects = len(times_df["data"])
-        if times_objects != num_objects:
+
+            if times_objects != num_objects:
+                logging.info(
+                    f"Number of objects has changed (old: {times_objects}, new: {num_objects}). Regenerating all frames."
+                )
+                return True
+        except Exception as e:
             logging.info(
-                f"Number of objects has changed. Regenerating all frames. Old: {times_objects}, New: {num_objects}"
+                f"The existing times data file could not be read, which may indicate a corrupted dataset: {e}. Regenerating all frames."
             )
             return True
+
     return False
 
 
