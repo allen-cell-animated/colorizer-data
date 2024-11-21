@@ -147,12 +147,24 @@ def _write_data(
     writer: ColorizerDatasetWriter,
     config: ConverterConfig,
 ):
+    outliers_data = _get_data_or_none(dataset, config["outlier_column"])
+    if outliers_data is not None:
+        outliers_data = outliers_data.astype(bool)
+        if outliers_data.all():
+            raise ValueError(
+                "All objects are marked as outliers. At least one object must not be an outlier."
+            )
+
+    tracks_data = _get_data_or_none(dataset, config["track_column"])
+    if tracks_data is None:
+        tracks_data = _get_data_or_none(dataset, config["object_id_column"])
+
     writer.write_data(
-        tracks=_get_data_or_none(dataset, config["track_column"]),
+        tracks=tracks_data,
         times=_get_data_or_none(dataset, config["times_column"]),
         centroids_x=_get_data_or_none(dataset, config["centroid_x_column"]),
         centroids_y=_get_data_or_none(dataset, config["centroid_y_column"]),
-        outliers=_get_data_or_none(dataset, config["outlier_column"]),
+        outliers=outliers_data,
         write_json=config["use_json"],
     )
 
@@ -177,7 +189,10 @@ def _write_features(
         logging.info(
             f"No feature columns specified. The following columns will be used as features: {feature_columns}"
         )
+
     outliers = _get_data_or_none(dataset, config["outlier_column"])
+    if outliers is not None:
+        outliers = outliers.astype(bool)
 
     for feature_column in feature_columns:
         # Get the feature data
@@ -387,6 +402,8 @@ def convert_colorizer_data(
         feature_info=feature_info,
         use_json=use_json,
     )
+
+    # Validate config
 
     parent_directory = pathlib.Path(output_dir).parent
     dataset_name = pathlib.Path(output_dir).name

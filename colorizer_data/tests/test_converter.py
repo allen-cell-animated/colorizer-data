@@ -10,12 +10,12 @@ import pytest
 from typing import Dict, List, Union
 
 
-sample_csv_headers = "ID,Track,Frame,Centroid X,Centroid Y,Continuous Feature,Discrete Feature,Categorical Feature,File Path"
-sample_csv_headers_alternate = "object_id,track,frame,centroid_x,centroid_y,Continuous Feature,Discrete Feature,Categorical Feature,file_path"
-sample_csv_data = """0,1,0,50,50,0.5,0,A,./colorizer_data/tests/assets/test_csv/frame_0.tiff
-    1,1,1,55,60,0.6,1,B,./colorizer_data/tests/assets/test_csv/frame_1.tiff
-    2,2,0,60,70,0.7,2,C,./colorizer_data/tests/assets/test_csv/frame_0.tiff
-    3,2,1,65,75,0.8,3,A,./colorizer_data/tests/assets/test_csv/frame_1.tiff"""
+sample_csv_headers = "ID,Track,Frame,Centroid X,Centroid Y,Continuous Feature,Discrete Feature,Categorical Feature,Outlier,File Path"
+sample_csv_headers_alternate = "object_id,track,frame,centroid_x,centroid_y,Continuous Feature,Discrete Feature,Categorical Feature,outlier,file_path"
+sample_csv_data = """0,1,0,50,50,0.5,0,A,0,./colorizer_data/tests/assets/test_csv/frame_0.tiff
+    1,1,1,55,60,0.6,1,B,0,./colorizer_data/tests/assets/test_csv/frame_1.tiff
+    2,2,0,60,70,0.7,2,C,0,./colorizer_data/tests/assets/test_csv/frame_0.tiff
+    3,2,1,65,75,0.8,3,A,1,./colorizer_data/tests/assets/test_csv/frame_1.tiff"""
 
 # ///////////////////////// METHODS /////////////////////////
 
@@ -68,7 +68,7 @@ def validate_default_dataset(dataset_dir: pathlib.Path, filetype="json"):
             "description": "",
             "unit": "",
             "min": 0.5,
-            "max": 0.8,
+            "max": 0.7,
             "data": f"feature_0.{filetype}",
         },
         {
@@ -78,7 +78,7 @@ def validate_default_dataset(dataset_dir: pathlib.Path, filetype="json"):
             "description": "",
             "unit": "",
             "min": 0,
-            "max": 3,
+            "max": 2,
             "data": f"feature_1.{filetype}",
         },
         {
@@ -118,6 +118,10 @@ def validate_default_dataset(dataset_dir: pathlib.Path, filetype="json"):
     assert os.path.exists(dataset_dir / f"times.{filetype}")
     validate_data(dataset_dir / f"times.{filetype}", [0, 1, 0, 1])
 
+    assert manifest["outliers"] == f"outliers.{filetype}"
+    assert os.path.exists(dataset_dir / f"outliers.{filetype}")
+    validate_data(dataset_dir / f"outliers.{filetype}", [0, 0, 0, 1])
+
 
 # ///////////////////////// PARSING TESTS /////////////////////////
 
@@ -141,6 +145,7 @@ def test_handles_renamed_columns(tmp_path):
         centroid_x_column="centroid_x",
         centroid_y_column="centroid_y",
         image_column="file_path",
+        outlier_column="outlier",
         use_json=True,
     )
     validate_default_dataset(
@@ -162,7 +167,6 @@ def test_fails_if_no_features_given(tmp_path):
     csv_data = csv_data.drop(
         ["Continuous Feature", "Discrete Feature", "Categorical Feature"], axis=1
     )
-
     with pytest.raises(Exception):
         convert_colorizer_data(csv_data, tmp_path)
 
@@ -176,11 +180,43 @@ def test_fails_if_no_objects_exist(tmp_path):
 
 
 def test_handles_missing_centroid_and_outlier_columns(tmp_path):
-    pass
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+    csv_data = csv_data.drop(["Centroid X", "Centroid Y", "Outlier"], axis=1)
+    convert_colorizer_data(csv_data, tmp_path, use_json=True)
+
+    # Outliers and centroids should not be written
+    assert not os.path.exists(tmp_path / "outliers.json")
+    assert not os.path.exists(tmp_path / "centroids.json")
+    # Data should not be in manifest
+    manifest = {}
+    with open(tmp_path / "manifest.json", "r") as f:
+        manifest = json.load(f)
+        assert "outliers" not in manifest
+        assert "centroids" not in manifest
+
+
+def test_throws_error_if_all_values_are_outliers(tmp_path):
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+    csv_data["Outlier"] = 1
+    with pytest.raises(Exception):
+        convert_colorizer_data(csv_data, tmp_path)
 
 
 def test_uses_id_as_track_if_track_is_missing(tmp_path):
-    pass
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+    csv_data = csv_data.drop(["Track"], axis=1)
+    convert_colorizer_data(csv_data, tmp_path, use_json=True)
+
+    manifest = {}
+    with open(tmp_path / "manifest.json", "r") as f:
+        manifest = json.load(f)
+        print(manifest)
+        assert manifest["tracks"] == "tracks.json"
+        # Uses IDs as track IDs
+        validate_data(tmp_path / "tracks.json", [0, 1, 2, 3])
 
 
 """
@@ -261,7 +297,7 @@ def test_rewrites_images_when_object_count_changes(existing_dataset):
     frame_0_time = os.path.getmtime(existing_dataset / "frame_0.png")
     frame_1_time = os.path.getmtime(existing_dataset / "frame_1.png")
 
-    csv_content = f"{sample_csv_headers}\n{sample_csv_data}\n4,3,1,70,80,0.9,4,D,./colorizer_data/tests/assets/test_csv/frame_1.tiff"
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}\n4,3,1,70,80,0.9,4,D,1,./colorizer_data/tests/assets/test_csv/frame_1.tiff"
     csv_data = pd.read_csv(StringIO(csv_content))
     convert_colorizer_data(csv_data, existing_dataset, force_frame_generation=False)
 
