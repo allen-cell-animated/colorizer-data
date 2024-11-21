@@ -13,7 +13,7 @@ from colorizer_data.utils import configureLogging
 
 # TODO: Make CSV tiffs super tiny to speed up image processing in tests
 sample_csv_headers = "ID,Track,Frame,Centroid X,Centroid Y,Continuous Feature,Discrete Feature,Categorical Feature,File Path"
-sample_csv_headers_alternate = "object_id,track,frame,centroid_x,centroid_y,continuous_feature,discrete_feature,categorical_feature,file_path"
+sample_csv_headers_alternate = "object_id,track,frame,centroid_x,centroid_y,Continuous Feature,Discrete Feature,Categorical Feature,file_path"
 sample_csv_data = """0,1,0,50,50,0.5,0,A,./colorizer_data/tests/assets/test_csv/frame_0.tiff
     1,1,1,55,60,0.6,1,B,./colorizer_data/tests/assets/test_csv/frame_1.tiff
     2,2,0,60,70,0.7,2,C,./colorizer_data/tests/assets/test_csv/frame_0.tiff
@@ -38,26 +38,23 @@ def feature_array_to_dict(
 
 def validate_data(path: pathlib.Path, data: Union[List[int], List[float]]):
     loaded_data = []
-    with open(path, "r") as f:
-        if path.suffix == ".json":
+    if path.suffix == ".json":
+        with open(path, "r") as f:
             feature_data = json.load(f)
             loaded_data = feature_data["data"]
-        else:
-            feature_data = pd.read_parquet(f)
-            loaded_data = feature_data["data"]
+    else:
+        feature_data = pd.read_parquet(path)
+        loaded_data = feature_data["data"]
 
     assert len(loaded_data) == len(data)
     for i, d in enumerate(data):
         assert abs(loaded_data[i] - d) < 1e-6
 
 
-def test_handles_simple_csv(tmp_path):
-    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
-    csv_data = pd.read_csv(StringIO(csv_content))
-    convert_colorizer_data(csv_data, tmp_path / "dataset", use_json=True)
-
-    expected_manifest = tmp_path / "dataset" / "manifest.json"
+def validate_default_dataset(dataset_dir: pathlib.Path, filetype="json"):
+    expected_manifest = dataset_dir / "manifest.json"
     assert os.path.exists(expected_manifest)
+
     manifest = {}
     with open(expected_manifest, "r") as f:
         manifest = json.load(f)
@@ -72,7 +69,7 @@ def test_handles_simple_csv(tmp_path):
             "unit": "",
             "min": 0.5,
             "max": 0.8,
-            "data": "feature_0.json",
+            "data": f"feature_0.{filetype}",
         },
         {
             "name": "Discrete Feature",
@@ -82,7 +79,7 @@ def test_handles_simple_csv(tmp_path):
             "unit": "",
             "min": 0,
             "max": 3,
-            "data": "feature_1.json",
+            "data": f"feature_1.{filetype}",
         },
         {
             "name": "Categorical Feature",
@@ -93,33 +90,67 @@ def test_handles_simple_csv(tmp_path):
             "min": 0,
             "max": 2,
             "categories": ["A", "B", "C"],
-            "data": "feature_2.json",
+            "data": f"feature_2.{filetype}",
         },
     ]
-    assert os.path.exists(tmp_path / "dataset" / "feature_0.json")
-    assert os.path.exists(tmp_path / "dataset" / "feature_1.json")
-    assert os.path.exists(tmp_path / "dataset" / "feature_2.json")
-    validate_data(tmp_path / "dataset" / "feature_0.json", [0.5, 0.6, 0.7, 0.8])
-    validate_data(tmp_path / "dataset" / "feature_1.json", [0, 1, 2, 3])
-    validate_data(tmp_path / "dataset" / "feature_2.json", [0, 1, 2, 0])
+    assert os.path.exists(dataset_dir / f"feature_0.{filetype}")
+    assert os.path.exists(dataset_dir / f"feature_1.{filetype}")
+    assert os.path.exists(dataset_dir / f"feature_2.{filetype}")
+    validate_data(dataset_dir / f"feature_0.{filetype}", [0.5, 0.6, 0.7, 0.8])
+    validate_data(dataset_dir / f"feature_1.{filetype}", [0, 1, 2, 3])
+    validate_data(dataset_dir / f"feature_2.{filetype}", [0, 1, 2, 0])
 
     assert manifest["frames"] == ["frame_0.png", "frame_1.png"]
-    assert os.path.exists(tmp_path / "dataset" / "frame_0.png")
-    assert os.path.exists(tmp_path / "dataset" / "frame_1.png")
+    assert os.path.exists(dataset_dir / "frame_0.png")
+    assert os.path.exists(dataset_dir / "frame_1.png")
 
-    assert manifest["tracks"] == "tracks.json"
-    assert os.path.exists(tmp_path / "dataset" / "tracks.json")
-    validate_data(tmp_path / "dataset" / "tracks.json", [1, 1, 2, 2])
+    assert manifest["tracks"] == f"tracks.{filetype}"
+    assert os.path.exists(dataset_dir / f"tracks.{filetype}")
+    validate_data(dataset_dir / f"tracks.{filetype}", [1, 1, 2, 2])
 
-    assert manifest["centroids"] == "centroids.json"
-    assert os.path.exists(tmp_path / "dataset" / "centroids.json")
+    assert manifest["centroids"] == f"centroids.{filetype}"
+    assert os.path.exists(dataset_dir / f"centroids.{filetype}")
     validate_data(
-        tmp_path / "dataset" / "centroids.json", [50, 50, 55, 60, 60, 70, 65, 75]
+        dataset_dir / f"centroids.{filetype}", [50, 50, 55, 60, 60, 70, 65, 75]
     )
 
-    assert manifest["times"] == "times.json"
-    assert os.path.exists(tmp_path / "dataset" / "times.json")
-    validate_data(tmp_path / "dataset" / "times.json", [0, 1, 0, 1])
+    assert manifest["times"] == f"times.{filetype}"
+    assert os.path.exists(dataset_dir / f"times.{filetype}")
+    validate_data(dataset_dir / f"times.{filetype}", [0, 1, 0, 1])
+
+
+def test_handles_simple_csv(tmp_path):
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+    convert_colorizer_data(csv_data, tmp_path / "dataset", use_json=True)
+    validate_default_dataset(tmp_path / "dataset")
+
+
+def test_handles_renamed_columns(tmp_path):
+    csv_content = f"{sample_csv_headers_alternate}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+
+    convert_colorizer_data(
+        csv_data,
+        tmp_path / "dataset",
+        object_id_column="object_id",
+        track_column="track",
+        times_column="frame",
+        centroid_x_column="centroid_x",
+        centroid_y_column="centroid_y",
+        image_column="file_path",
+        use_json=True,
+    )
+    validate_default_dataset(
+        tmp_path / "dataset",
+    )
+
+
+def test_handles_default_csv_parquet(tmp_path):
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+    convert_colorizer_data(csv_data, tmp_path / "dataset", use_json=False)
+    validate_default_dataset(tmp_path / "dataset", "parquet")
 
 
 """
@@ -129,15 +160,12 @@ TODO: Test additional edge cases
   - [x] detects change in number of objects
   - [x] detects removal of frames
   - [x] does not regenerate frames if they already exist
+- [x] Handles different data column names
 - [ ] Handles missing centroid, outliers, or bounds data
 - [ ] Keeps bounds data during frame regeneration
 - [ ] Handles backdrop images via column
 - [ ] Handles backdrop images via dictionary
 """
-
-
-def test_handles_renamed_columns(tmp_path):
-    pass
 
 
 def test_does_not_rewrite_existing_frames(existing_dataset):
