@@ -54,7 +54,7 @@ class ColorizerDatasetWriter:
     more details.)
     """
 
-    outpath: Union[str, pathlib.Path]
+    outpath: str
     default_dataset_name: str
     manifest: DatasetManifest
     metadata: ColorizerMetadata

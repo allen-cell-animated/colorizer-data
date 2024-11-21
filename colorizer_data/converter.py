@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import multiprocessing
 import os
 import pathlib
@@ -109,6 +110,12 @@ def _make_frames_parallel(
     """
     nframes = len(grouped_frames)
     total_objects = get_total_objects(grouped_frames)
+
+    if math.isnan(total_objects) or (total_objects < 1):
+        raise ValueError(
+            "No objects found in dataset (e.g., no rows were provided). At least one object is required."
+        )
+
     logging.info("Making {} frames...".format(nframes))
 
     with multiprocessing.Manager() as manager:
@@ -121,7 +128,9 @@ def _make_frames_parallel(
                     for _group_name, frame in grouped_frames
                 ],
             )
-        writer.write_data(bounds=np.array(bounds_arr, dtype=np.uint32))
+        writer.write_data(
+            bounds=np.array(bounds_arr, dtype=np.uint32), write_json=config["use_json"]
+        )
 
 
 def _get_data_or_none(
@@ -138,12 +147,24 @@ def _write_data(
     writer: ColorizerDatasetWriter,
     config: ConverterConfig,
 ):
+    outliers_data = _get_data_or_none(dataset, config["outlier_column"])
+    if outliers_data is not None:
+        outliers_data = outliers_data.astype(bool)
+        if outliers_data.all():
+            raise ValueError(
+                "All objects are marked as outliers. At least one object must not be an outlier."
+            )
+
+    tracks_data = _get_data_or_none(dataset, config["track_column"])
+    if tracks_data is None:
+        tracks_data = _get_data_or_none(dataset, config["object_id_column"])
+
     writer.write_data(
-        tracks=_get_data_or_none(dataset, config["track_column"]),
+        tracks=tracks_data,
         times=_get_data_or_none(dataset, config["times_column"]),
         centroids_x=_get_data_or_none(dataset, config["centroid_x_column"]),
         centroids_y=_get_data_or_none(dataset, config["centroid_y_column"]),
-        outliers=_get_data_or_none(dataset, config["outlier_column"]),
+        outliers=outliers_data,
         write_json=config["use_json"],
     )
 
@@ -168,7 +189,10 @@ def _write_features(
         logging.info(
             f"No feature columns specified. The following columns will be used as features: {feature_columns}"
         )
+
     outliers = _get_data_or_none(dataset, config["outlier_column"])
+    if outliers is not None:
+        outliers = outliers.astype(bool)
 
     for feature_column in feature_columns:
         # Get the feature data
@@ -190,8 +214,6 @@ def _write_features(
 def _should_regenerate_frames(
     writer: ColorizerDatasetWriter, data: DataFrame, config: ConverterConfig
 ) -> bool:
-    # get object count and regenerate frames if it has changed
-    num_objects = data[config["object_id_column"]].nunique(False)
 
     if "frames" not in writer.manifest:
         logging.info("No frames found in dataset manifest. Regenerating all frames.")
@@ -199,29 +221,46 @@ def _should_regenerate_frames(
     else:
         # Check that all frames exist. If any are missing, frames should be regenerated.
         for frame in writer.manifest["frames"]:
-            if not os.path.exists(writer.outpath / frame):
+            if not os.path.exists(writer.outpath + "/" + frame):
                 logging.info(f"Frame {frame} is missing. Regenerating all frames.")
                 return True
-
+    # get object count and regenerate frames if it has changed
+    num_objects = data[config["object_id_column"]].nunique()
     if writer.manifest["times"] is not None:
         # parse existing times to get object count and compare to new data
         # TODO: refactor this into a utility method for reading json/parquet data
-        times_path = writer.outpath / writer.manifest["times"]
+        times_path = writer.outpath + "/" + writer.manifest["times"]
         _times_filename, times_extension = os.path.splitext(times_path)
-        with open(times_path, "r") as f:
+
+        try:
             times_objects = 0
             if times_extension == ".json":
-                times_json_content = json.load(f)
-                times_objects = len(times_json_content["data"])
+                with open(times_path, "r") as f:
+                    times_json_content = json.load(f)
+                    times_objects = len(times_json_content["data"])
             elif times_extension == ".parquet":
                 times_df = pd.read_parquet(times_path)
                 times_objects = len(times_df["data"])
-        if times_objects != num_objects:
+
+            if times_objects != num_objects:
+                logging.info(
+                    f"Number of objects has changed (old: {times_objects}, new: {num_objects}). Regenerating all frames."
+                )
+                return True
+        except Exception as e:
             logging.info(
-                f"Number of objects has changed. Regenerating all frames. Old: {times_objects}, New: {num_objects}"
+                f"The existing times data file could not be read, which may indicate a corrupted dataset: {e}. Regenerating all frames."
             )
             return True
+
     return False
+
+
+def _validate_manifest(writer: ColorizerDatasetWriter):
+    if len(writer.features) == 0:
+        raise ValueError(
+            "No features found in dataset. At least one feature is required."
+        )
 
 
 def convert_colorizer_data(
@@ -239,7 +278,6 @@ def convert_colorizer_data(
     centroid_x_column: str = "Centroid X",
     centroid_y_column: str = "Centroid Y",
     outlier_column: str = "Outlier",
-    # TODO: implement backdrop support
     # backdrop_columns: Optional[
     #     List[str]
     # ] = None,  # use this if backdrops are column -> paths to images
@@ -359,6 +397,7 @@ def convert_colorizer_data(
         centroid_y_column=centroid_y_column,
         outlier_column=outlier_column,
         # backdrop_columns=backdrop_columns,
+        # backdrop_info=backdrop_info,
         feature_column_names=feature_column_names,
         feature_info=feature_info,
         use_json=use_json,
@@ -368,10 +407,6 @@ def convert_colorizer_data(
     dataset_name = pathlib.Path(output_dir).name
 
     writer = ColorizerDatasetWriter(parent_directory, dataset_name)
-
-    _write_data(data, writer, config)
-    _write_features(data, writer, config)
-    _write_backdrops(data, writer, config)
 
     if force_frame_generation or _should_regenerate_frames(writer, data, config):
         # Group the data by time, then run frame generation in parallel.
@@ -384,9 +419,14 @@ def convert_colorizer_data(
         # TODO: this should pass out the frame paths
         _make_frames_parallel(grouped_frames, 1.0, writer, config)
 
+    _write_data(data, writer, config)
+    _write_features(data, writer, config)
+    _write_backdrops(data, writer, config)
+
     # TODO: get accurate count of frames
     # TODO: throw error/warning if times are non-contiguous
     max_frame = data[config["times_column"]].max()
     writer.set_frame_paths(generate_frame_paths(max_frame + 1))
 
+    _validate_manifest(writer)
     writer.write_manifest(metadata=metadata)
