@@ -25,7 +25,7 @@ def existing_dataset(tmp_path) -> pathlib.Path:
     csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
     csv_data = pd.read_csv(StringIO(csv_content))
     # TODO: Should I just write the relevant data files out without going through the image
-    # processing step?
+    # processing step? Multiprocessing seems to make this very slow.
     convert_colorizer_data(csv_data, tmp_path, use_json=True)
     return tmp_path
 
@@ -228,7 +228,7 @@ TODO: Test additional edge cases
   - [x] does not regenerate frames if they already exist
   - [x] handles missing times data
 - [x] Handles different data column names
-- [ ] Handles missing centroid, outliers, or bounds data
+- [x] Handles missing centroid, outliers, or bounds data
 - [x] Keeps bounds data during frame regeneration
 - [ ] Handles backdrop images via column
 - [ ] Handles backdrop images via dictionary
