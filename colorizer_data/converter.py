@@ -272,7 +272,7 @@ def convert_colorizer_data(
             image. Defaults to "Centroid X."
         centroid_y_column (str): The name of the column containing y-coordinates of object
             centroids, in pixels relative to the frame image, where 0 is the top edge of the image.
-            Defaults to "Centroid X.""
+            Defaults to "Centroid Y.""
         outlier_column (str): The name of the column containing outlier flags. 0/False indicates a
             normal object, while 1/True indicates an outlier. Outliers are excluded from min/max
             calculation for features. Defaults to "Outlier."
