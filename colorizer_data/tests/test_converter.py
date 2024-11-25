@@ -4,7 +4,8 @@ import os
 import pathlib
 
 from colorizer_data import convert_colorizer_data
-from colorizer_data.types import FeatureMetadata
+from colorizer_data.types import DataFileType, FeatureMetadata
+import os
 import pandas as pd
 import pytest
 from typing import Dict, List, Union
@@ -26,7 +27,7 @@ def existing_dataset(tmp_path) -> pathlib.Path:
     csv_data = pd.read_csv(StringIO(csv_content))
     # TODO: Should I just write the relevant data files out without going through the image
     # processing step? Multiprocessing seems to make this very slow.
-    convert_colorizer_data(csv_data, tmp_path, use_json=True)
+    convert_colorizer_data(csv_data, tmp_path, output_format=DataFileType.JSON)
     return tmp_path
 
 
@@ -129,7 +130,9 @@ def validate_default_dataset(dataset_dir: pathlib.Path, filetype="json"):
 def test_handles_simple_csv(tmp_path):
     csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
     csv_data = pd.read_csv(StringIO(csv_content))
-    convert_colorizer_data(csv_data, tmp_path / "dataset", use_json=True)
+    convert_colorizer_data(
+        csv_data, tmp_path / "dataset", output_format=DataFileType.JSON
+    )
     validate_default_dataset(tmp_path / "dataset")
 
 
@@ -146,7 +149,7 @@ def test_handles_renamed_columns(tmp_path):
         centroid_y_column="centroid_y",
         image_column="file_path",
         outlier_column="outlier",
-        use_json=True,
+        output_format=DataFileType.JSON,
     )
     validate_default_dataset(
         tmp_path / "dataset",
@@ -156,7 +159,9 @@ def test_handles_renamed_columns(tmp_path):
 def test_handles_default_csv_parquet(tmp_path):
     csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
     csv_data = pd.read_csv(StringIO(csv_content))
-    convert_colorizer_data(csv_data, tmp_path / "dataset", use_json=False)
+    convert_colorizer_data(
+        csv_data, tmp_path / "dataset", output_format=DataFileType.PARQUET
+    )
     validate_default_dataset(tmp_path / "dataset", "parquet")
 
 
@@ -183,7 +188,7 @@ def test_handles_missing_centroid_and_outlier_columns(tmp_path):
     csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
     csv_data = pd.read_csv(StringIO(csv_content))
     csv_data = csv_data.drop(["Centroid X", "Centroid Y", "Outlier"], axis=1)
-    convert_colorizer_data(csv_data, tmp_path, use_json=True)
+    convert_colorizer_data(csv_data, tmp_path, output_format=DataFileType.JSON)
 
     # Outliers and centroids should not be written
     assert not os.path.exists(tmp_path / "outliers.json")
@@ -208,7 +213,7 @@ def test_uses_id_as_track_if_track_is_missing(tmp_path):
     csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
     csv_data = pd.read_csv(StringIO(csv_content))
     csv_data = csv_data.drop(["Track"], axis=1)
-    convert_colorizer_data(csv_data, tmp_path, use_json=True)
+    convert_colorizer_data(csv_data, tmp_path, output_format=DataFileType.JSON)
 
     manifest = {}
     with open(tmp_path / "manifest.json", "r") as f:
