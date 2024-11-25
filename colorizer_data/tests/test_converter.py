@@ -47,7 +47,9 @@ def validate_data(path: pathlib.Path, data: Union[List[int], List[float]]):
         assert abs(loaded_data[i] - d) < 1e-6
 
 
-def validate_default_dataset(dataset_dir: pathlib.Path, filetype="json"):
+def validate_default_dataset(
+    dataset_dir: pathlib.Path, filetype: DataFileType = DataFileType.JSON
+):
     expected_manifest = dataset_dir / "manifest.json"
     assert os.path.exists(expected_manifest)
 
@@ -65,7 +67,7 @@ def validate_default_dataset(dataset_dir: pathlib.Path, filetype="json"):
             "unit": "",
             "min": 0.5,
             "max": 0.7,
-            "data": f"feature_0.{filetype}",
+            "data": f"feature_0.{filetype.value}",
         },
         {
             "name": "Discrete Feature",
@@ -75,7 +77,7 @@ def validate_default_dataset(dataset_dir: pathlib.Path, filetype="json"):
             "unit": "",
             "min": 0,
             "max": 2,
-            "data": f"feature_1.{filetype}",
+            "data": f"feature_1.{filetype.value}",
         },
         {
             "name": "Categorical Feature",
@@ -86,37 +88,37 @@ def validate_default_dataset(dataset_dir: pathlib.Path, filetype="json"):
             "min": 0,
             "max": 2,
             "categories": ["A", "B", "C"],
-            "data": f"feature_2.{filetype}",
+            "data": f"feature_2.{filetype.value}",
         },
     ]
-    assert os.path.exists(dataset_dir / f"feature_0.{filetype}")
-    assert os.path.exists(dataset_dir / f"feature_1.{filetype}")
-    assert os.path.exists(dataset_dir / f"feature_2.{filetype}")
-    validate_data(dataset_dir / f"feature_0.{filetype}", [0.5, 0.6, 0.7, 0.8])
-    validate_data(dataset_dir / f"feature_1.{filetype}", [0, 1, 2, 3])
-    validate_data(dataset_dir / f"feature_2.{filetype}", [0, 1, 2, 0])
+    assert os.path.exists(dataset_dir / f"feature_0.{filetype.value}")
+    assert os.path.exists(dataset_dir / f"feature_1.{filetype.value}")
+    assert os.path.exists(dataset_dir / f"feature_2.{filetype.value}")
+    validate_data(dataset_dir / f"feature_0.{filetype.value}", [0.5, 0.6, 0.7, 0.8])
+    validate_data(dataset_dir / f"feature_1.{filetype.value}", [0, 1, 2, 3])
+    validate_data(dataset_dir / f"feature_2.{filetype.value}", [0, 1, 2, 0])
 
     assert manifest["frames"] == ["frame_0.png", "frame_1.png"]
     assert os.path.exists(dataset_dir / "frame_0.png")
     assert os.path.exists(dataset_dir / "frame_1.png")
 
-    assert manifest["tracks"] == f"tracks.{filetype}"
-    assert os.path.exists(dataset_dir / f"tracks.{filetype}")
-    validate_data(dataset_dir / f"tracks.{filetype}", [1, 1, 2, 2])
+    assert manifest["tracks"] == f"tracks.{filetype.value}"
+    assert os.path.exists(dataset_dir / f"tracks.{filetype.value}")
+    validate_data(dataset_dir / f"tracks.{filetype.value}", [1, 1, 2, 2])
 
-    assert manifest["centroids"] == f"centroids.{filetype}"
-    assert os.path.exists(dataset_dir / f"centroids.{filetype}")
+    assert manifest["centroids"] == f"centroids.{filetype.value}"
+    assert os.path.exists(dataset_dir / f"centroids.{filetype.value}")
     validate_data(
-        dataset_dir / f"centroids.{filetype}", [50, 50, 55, 60, 60, 70, 65, 75]
+        dataset_dir / f"centroids.{filetype.value}", [50, 50, 55, 60, 60, 70, 65, 75]
     )
 
-    assert manifest["times"] == f"times.{filetype}"
-    assert os.path.exists(dataset_dir / f"times.{filetype}")
-    validate_data(dataset_dir / f"times.{filetype}", [0, 1, 0, 1])
+    assert manifest["times"] == f"times.{filetype.value}"
+    assert os.path.exists(dataset_dir / f"times.{filetype.value}")
+    validate_data(dataset_dir / f"times.{filetype.value}", [0, 1, 0, 1])
 
-    assert manifest["outliers"] == f"outliers.{filetype}"
-    assert os.path.exists(dataset_dir / f"outliers.{filetype}")
-    validate_data(dataset_dir / f"outliers.{filetype}", [0, 0, 0, 1])
+    assert manifest["outliers"] == f"outliers.{filetype.value}"
+    assert os.path.exists(dataset_dir / f"outliers.{filetype.value}")
+    validate_data(dataset_dir / f"outliers.{filetype.value}", [0, 0, 0, 1])
 
 
 # ///////////////////////// PARSING TESTS /////////////////////////
@@ -157,7 +159,7 @@ def test_handles_default_csv_parquet(tmp_path):
     convert_colorizer_data(
         csv_data, tmp_path / "dataset", output_format=DataFileType.PARQUET
     )
-    validate_default_dataset(tmp_path / "dataset", "parquet")
+    validate_default_dataset(tmp_path / "dataset", DataFileType.PARQUET)
 
 
 def test_fails_if_no_features_given(tmp_path):
