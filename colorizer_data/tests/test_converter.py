@@ -10,6 +10,8 @@ import pandas as pd
 import pytest
 from typing import Dict, List, Union
 
+from colorizer_data.utils import read_data_array_file
+
 
 sample_csv_headers = "ID,Track,Frame,Centroid X,Centroid Y,Continuous Feature,Discrete Feature,Categorical Feature,Outlier,File Path"
 sample_csv_headers_alternate = "object_id,track,frame,centroid_x,centroid_y,Continuous Feature,Discrete Feature,Categorical Feature,outlier,file_path"
@@ -38,14 +40,7 @@ def feature_array_to_dict(
 
 
 def validate_data(path: pathlib.Path, data: Union[List[int], List[float]]):
-    loaded_data = []
-    if path.suffix == ".json":
-        with open(path, "r") as f:
-            feature_data = json.load(f)
-            loaded_data = feature_data["data"]
-    else:
-        feature_data = pd.read_parquet(path)
-        loaded_data = feature_data["data"]
+    loaded_data = read_data_array_file(path)
 
     assert len(loaded_data) == len(data)
     for i, d in enumerate(data):

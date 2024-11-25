@@ -25,6 +25,7 @@ from colorizer_data.utils import (
     INITIAL_INDEX_COLUMN,
     generate_frame_paths,
     get_total_objects,
+    read_data_array_file,
     remap_segmented_image,
     sanitize_key_name,
     sanitize_path_by_platform,
@@ -35,7 +36,7 @@ from colorizer_data.writer import ColorizerDatasetWriter
 
 
 @dataclass
-class ConverterConfig(TypedDict):
+class ConverterConfig:
     object_id_column: str
     times_column: str
     track_column: str
@@ -51,7 +52,7 @@ class ConverterConfig(TypedDict):
 
 
 def _get_image_from_row(row: pd.DataFrame, config: ConverterConfig) -> BioImage:
-    zstackpath = row[config["image_column"]]
+    zstackpath = row[config.image_column]
     zstackpath = sanitize_path_by_platform(zstackpath)
     return BioImage(zstackpath)
 
@@ -68,7 +69,7 @@ def _make_frame(
     # Get the path to the segmented zstack image frame from the first row (should be the same for
     # all rows in this group, since they are all on the same frame).
     row = frame.iloc[0]
-    frame_number = row[config["times_column"]]
+    frame_number = row[config.times_column]
     # Flatten the z-stack to a 2D image.
     segmentation_image = _get_image_from_row(row, config)
     zstack = segmentation_image.get_image_data("YX", S=0, T=0, C=0)
@@ -83,7 +84,7 @@ def _make_frame(
     seg_remapped, lut = remap_segmented_image(
         seg2d,
         frame,
-        config["object_id_column"],
+        config.object_id_column,
     )
 
     writer.write_image(seg_remapped, frame_number)
@@ -126,7 +127,7 @@ def _make_frames_parallel(
             )
         writer.write_data(
             bounds=np.array(bounds_arr, dtype=np.uint32),
-            write_json=config["output_format"] == DataFileType.JSON,
+            write_json=config.output_format == DataFileType.JSON,
         )
 
 
@@ -144,7 +145,7 @@ def _write_data(
     writer: ColorizerDatasetWriter,
     config: ConverterConfig,
 ):
-    outliers_data = _get_data_or_none(dataset, config["outlier_column"])
+    outliers_data = _get_data_or_none(dataset, config.outlier_column)
     if outliers_data is not None:
         outliers_data = outliers_data.astype(bool)
         if outliers_data.all():
@@ -152,17 +153,17 @@ def _write_data(
                 "All objects are marked as outliers. At least one object must not be an outlier."
             )
 
-    tracks_data = _get_data_or_none(dataset, config["track_column"])
+    tracks_data = _get_data_or_none(dataset, config.track_column)
     if tracks_data is None:
-        tracks_data = _get_data_or_none(dataset, config["object_id_column"])
+        tracks_data = _get_data_or_none(dataset, config.object_id_column)
 
     writer.write_data(
         tracks=tracks_data,
-        times=_get_data_or_none(dataset, config["times_column"]),
-        centroids_x=_get_data_or_none(dataset, config["centroid_x_column"]),
-        centroids_y=_get_data_or_none(dataset, config["centroid_y_column"]),
+        times=_get_data_or_none(dataset, config.times_column),
+        centroids_x=_get_data_or_none(dataset, config.centroid_x_column),
+        centroids_y=_get_data_or_none(dataset, config.centroid_y_column),
         outliers=outliers_data,
-        write_json=config["output_format"] == DataFileType.JSON,
+        write_json=config.output_format == DataFileType.JSON,
     )
 
 
@@ -174,20 +175,41 @@ def _write_backdrops(
     pass
 
 
+def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
+    reserved_columns = [
+        config.object_id_column,
+        config.times_column,
+        config.track_column,
+        config.image_column,
+        config.centroid_x_column,
+        config.centroid_y_column,
+        config.outlier_column,
+    ]
+    # TODO: Revisit this when backdrop handling is implemented
+    if config.backdrop_columns is not None:
+        reserved_columns += config.backdrop_columns
+    elif config.backdrop_info is not None:
+        reserved_columns += list(config.backdrop_info.keys())
+    return reserved_columns
+
+
 def _write_features(
     dataset: pd.DataFrame,
     writer: ColorizerDatasetWriter,
     config: ConverterConfig,
 ):
     # Detect all features
-    feature_columns = config["feature_column_names"]
-    if config["feature_column_names"] is None:
-        feature_columns = [col for col in dataset.columns if col not in config.values()]
+    feature_columns = config.feature_column_names
+    if config.feature_column_names is None:
+        reserved_columns = _get_reserved_column_names(config)
+        feature_columns = [
+            col for col in dataset.columns if col not in reserved_columns
+        ]
         logging.info(
             f"No feature columns specified. The following columns will be used as features: {feature_columns}"
         )
 
-    outliers = _get_data_or_none(dataset, config["outlier_column"])
+    outliers = _get_data_or_none(dataset, config.outlier_column)
     if outliers is not None:
         outliers = outliers.astype(bool)
 
@@ -199,15 +221,15 @@ def _write_features(
             label=feature_column,
             key=sanitize_key_name(feature_column),
         )
-        if (config["feature_info"] is not None) and (
-            feature_column in config["feature_info"]
+        if (config.feature_info is not None) and (
+            feature_column in config.feature_info
         ):
-            feature_info = config["feature_info"].get(feature_column)
+            feature_info = config.feature_info.get(feature_column)
         writer.write_feature(
             feature_data,
             feature_info,
             outliers=outliers,
-            write_json=config["output_format"] == DataFileType.JSON,
+            write_json=config.output_format == DataFileType.JSON,
         )
 
 
@@ -225,26 +247,21 @@ def _should_regenerate_frames(
                 logging.info(f"Frame {frame} is missing. Regenerating all frames.")
                 return True
     # get object count and regenerate frames if it has changed
-    num_objects = data[config["object_id_column"]].nunique()
+    num_objects = data[config.object_id_column].nunique()
     if writer.manifest["times"] is not None:
         # parse existing times to get object count and compare to new data
-        # TODO: refactor this into a utility method for reading json/parquet data
         times_path = writer.outpath + "/" + writer.manifest["times"]
-        _times_filename, times_extension = os.path.splitext(times_path)
 
         try:
-            times_objects = 0
-            if times_extension == ".json":
-                with open(times_path, "r") as f:
-                    times_json_content = json.load(f)
-                    times_objects = len(times_json_content["data"])
-            elif times_extension == ".parquet":
-                times_df = pd.read_parquet(times_path)
-                times_objects = len(times_df["data"])
-
-            if times_objects != num_objects:
+            times_data = read_data_array_file(times_path)
+            if times_data is None:
                 logging.info(
-                    f"Number of objects has changed (old: {times_objects}, new: {num_objects}). Regenerating all frames."
+                    "Existing times data file could not be parsed. Regenerating all frames."
+                )
+                return True
+            elif len(times_data) != num_objects:
+                logging.info(
+                    f"Number of objects has changed (old: {len(times_data)}, new: {num_objects}). Regenerating all frames."
                 )
                 return True
         except Exception as e:
@@ -408,11 +425,11 @@ def convert_colorizer_data(
     if force_frame_generation or _should_regenerate_frames(writer, data, config):
         # Group the data by time, then run frame generation in parallel.
         reduced_dataset = data[
-            [config["times_column"], config["image_column"], config["object_id_column"]]
+            [config.times_column, config.image_column, config.object_id_column]
         ]
         reduced_dataset = reduced_dataset.reset_index(drop=True)
         reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
-        grouped_frames = reduced_dataset.groupby(config["times_column"])
+        grouped_frames = reduced_dataset.groupby(config.times_column)
         # TODO: this should pass out the frame paths
         _make_frames_parallel(grouped_frames, 1.0, writer, config)
 
@@ -422,7 +439,7 @@ def convert_colorizer_data(
 
     # TODO: get accurate count of frames
     # TODO: throw error/warning if times are non-contiguous
-    max_frame = data[config["times_column"]].max()
+    max_frame = data[config.times_column].max()
     writer.set_frame_paths(generate_frame_paths(max_frame + 1))
 
     _validate_manifest(writer)

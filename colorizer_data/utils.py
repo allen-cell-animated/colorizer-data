@@ -313,6 +313,20 @@ def write_data_array(
         return filename
 
 
+def read_data_array_file(path: str | pathlib.Path) -> Optional[np.array]:
+    """Reads a data array from a JSON or Parquet file, returning the data array or None if the file does not exist."""
+    path = pathlib.Path(sanitize_path_by_platform(str(path)))
+    if not path.exists():
+        return None
+    if path.suffix == ".json":
+        with open(path, "r") as f:
+            data_json = json.load(f)
+            return np.array(data_json["data"])
+    elif path.suffix == ".parquet":
+        df = pd.read_parquet(path)
+        return np.array(df["data"].values)
+
+
 def get_total_objects(dataframe: pd.DataFrame) -> int:
     """
     Get the total number of object IDs in the dataset.
