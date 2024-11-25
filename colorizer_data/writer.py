@@ -250,6 +250,7 @@ class ColorizerDatasetWriter:
         if key == "":
             # Use label, formatting as needed
             key = sanitize_key_name(info.label)
+
         metadata: FeatureMetadata = {
             "name": info.label,
             "data": filename,
@@ -401,7 +402,7 @@ class ColorizerDatasetWriter:
         # then opened, scaled, and saved out again.
 
         # Make sanitized version of name as key
-        if key is None:
+        if key is None or key == "":
             key = sanitize_key_name(name)
 
         if subdir_name is None:
@@ -444,7 +445,7 @@ class ColorizerDatasetWriter:
             key (str): The key of the backdrop set. If not provided, a sanitized version of the name will be used.
         """
         # Make sanitized version of name as key if not provided
-        if key is None:
+        if key is None or key == "":
             key = sanitize_key_name(name)
         if self.backdrops.get(key):
             logging.warning(
@@ -481,7 +482,7 @@ class ColorizerDatasetWriter:
         [documentation](https://github.com/allen-cell-animated/colorizer-data/blob/main/documentation/DATA_FORMAT.md#Dataset)
         """
 
-        if num_frames is not None and self.manifest["frames"] is None:
+        if num_frames is not None and "frames" not in self.manifest:
             logging.warning(
                 "ColorizerDatasetWriter: The argument `num_frames` on `write_manifest` is deprecated and will be removed in the future! Please call `set_frame_paths(generate_frame_paths(num_frames))` instead."
             )
@@ -538,7 +539,7 @@ class ColorizerDatasetWriter:
           segmentation that occupies that pixel.
           frame_num (int): The frame number.
 
-        Positional args:
+        Keyword args:
           frame_prefix (str): The prefix of the file to be written. This can include subdirectory paths. By default, this is `frame_`.
           frame_suffix (str); The suffix of the file to be written. By default, this is `.png`.
 
@@ -589,7 +590,7 @@ class ColorizerDatasetWriter:
             backdrop_keys = [backdrop["key"] for backdrop in self.manifest["backdrops"]]
             self.__check_for_duplicate_keys(backdrop_keys, "backdrop")
 
-        if self.manifest["frames"] is None:
+        if "frames" not in self.manifest:
             logging.warning(
                 "No frames are provided! Did you forget to call `set_frame_paths` on the writer?"
             )

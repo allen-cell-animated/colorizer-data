@@ -287,3 +287,8 @@ class CollectionManifest(TypedDict):
 
     datasets: List[CollectionDatasetEntry]
     metadata: CollectionMetadata
+
+
+class DataFileType(Enum):
+    JSON = "json"
+    PARQUET = "parquet"
