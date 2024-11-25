@@ -243,14 +243,14 @@ def _should_regenerate_frames(
     else:
         # Check that all frames exist. If any are missing, frames should be regenerated.
         for frame in writer.manifest["frames"]:
-            if not os.path.exists(writer.outpath + "/" + frame):
+            if not os.path.exists(writer.outpath / frame):
                 logging.info(f"Frame {frame} is missing. Regenerating all frames.")
                 return True
     # get object count and regenerate frames if it has changed
     num_objects = data[config.object_id_column].nunique()
     if writer.manifest["times"] is not None:
         # parse existing times to get object count and compare to new data
-        times_path = writer.outpath + "/" + writer.manifest["times"]
+        times_path = writer.outpath / writer.manifest["times"]
 
         try:
             times_data = read_data_array_file(times_path)

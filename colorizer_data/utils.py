@@ -261,7 +261,7 @@ def update_collection(
 
 def write_data_array(
     data: np.ndarray,
-    outpath: str,
+    outpath: pathlib.Path,
     filename: str,
     *,
     min: Union[float, int, None] = None,
@@ -275,7 +275,7 @@ def write_data_array(
 
     Args:
         data (`np.ndarray[int | float]`): The numpy array to write.
-        outpath (`str`): The directory to write the file to.
+        outpath (`pathlib.Path`): The directory to write the file to.
         filename (`str`): The base filename to write to. The resulting file will be named `{filename}.parquet`
             or `{filename}.json`.
 
@@ -293,7 +293,7 @@ def write_data_array(
     if write_json:
         data_json = {"data": data.tolist(), "min": min, "max": max}
         filename = "{}.json".format(filename)
-        with open(outpath + "/" + filename, "w") as f:
+        with open(outpath / filename, "w") as f:
             json.dump(data_json, f)
         return filename
     else:
@@ -306,7 +306,7 @@ def write_data_array(
         # dictionary encoding can double the file size for some float features with highly unique values.
         pq.write_table(
             data_arrow,
-            outpath + "/" + filename,
+            outpath / filename,
             compression=parquet_compression,
             use_dictionary=parquet_use_dict,
         )
