@@ -1,0 +1,21 @@
+name: Run static checks
+run-name: ✅ Checking '${{'#'}}${{github.ref_name}}' on branch '${{github.head_ref}}'
+on: pull_request
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code #4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Python # v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: "3.11.4"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -e '.[dev]'
+
+      - name: Run tests
+        run: pytest
