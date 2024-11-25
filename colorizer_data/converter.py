@@ -14,7 +14,12 @@ import pandas as pd
 import numpy as np
 
 
-from colorizer_data.types import BackdropMetadata, ColorizerMetadata, FeatureInfo
+from colorizer_data.types import (
+    BackdropMetadata,
+    ColorizerMetadata,
+    DataFileType,
+    FeatureInfo,
+)
 from colorizer_data.utils import (
     INITIAL_INDEX_COLUMN,
     generate_frame_paths,
@@ -26,16 +31,6 @@ from colorizer_data.utils import (
     update_bounding_box_data,
 )
 from colorizer_data.writer import ColorizerDatasetWriter
-
-# If updating these constants, ensure they match the default column names in
-# the `convert_colorizer_data` function signature.
-DEFAULT_OBJECT_ID_COLUMN = "ID"
-DEFAULT_TIMES_COLUMN = "Frame"
-DEFAULT_TRACK_COLUMN = "Track"
-DEFAULT_IMAGE_COLUMN = "File Path"
-DEFAULT_CENTROID_X_COLUMN = "Centroid X"
-DEFAULT_CENTROID_Y_COLUMN = "Centroid Y"
-DEFAULT_OUTLIER_COLUMN = "Outlier"
 
 
 @dataclass
@@ -51,7 +46,7 @@ class ConverterConfig(TypedDict):
     backdrop_info: Optional[Dict[str, BackdropMetadata]] = None
     feature_column_names: Optional[List[str]] = None
     feature_info: Optional[Dict[str, FeatureInfo]] = None
-    use_json: bool = False
+    output_format: DataFileType = DataFileType.PARQUET
 
 
 def _get_image_from_row(row: pd.DataFrame, config: ConverterConfig) -> AICSImage:
@@ -144,7 +139,7 @@ def _write_data(
         centroids_x=_get_data_or_none(dataset, config["centroid_x_column"]),
         centroids_y=_get_data_or_none(dataset, config["centroid_y_column"]),
         outliers=_get_data_or_none(dataset, config["outlier_column"]),
-        write_json=config["use_json"],
+        write_json=config["output_format"] == DataFileType.JSON,
     )
 
 
@@ -183,7 +178,10 @@ def _write_features(
         ):
             feature_info = config["feature_info"].get(feature_column)
         writer.write_feature(
-            feature_data, feature_info, outliers=outliers, write_json=config["use_json"]
+            feature_data,
+            feature_info,
+            outliers=outliers,
+            write_json=config["output_format"] == DataFileType.JSON,
         )
 
 
@@ -229,9 +227,6 @@ def convert_colorizer_data(
     output_dir: Union[str, pathlib.Path],
     *,
     metadata: Optional[ColorizerMetadata] = None,
-    # Note: These are redundant with the named constants, but make the function
-    # signature more readable. If updating, ensure these match the DEFAULT_*_COLUMN
-    # constants at the start of this file.
     object_id_column: str = "ID",
     times_column: str = "Frame",
     track_column: str = "Track",
@@ -249,7 +244,7 @@ def convert_colorizer_data(
     feature_column_names: Union[List[str], None] = None,
     feature_info: Optional[Dict[str, FeatureInfo]] = None,
     force_frame_generation=False,
-    use_json=False,
+    output_format=DataFileType.PARQUET,
 ):
     """
     Converts a pandas DataFrame into a Timelapse Feature Explorer dataset.
@@ -301,8 +296,8 @@ def convert_colorizer_data(
             on column values. Defaults to `None`.
         force_frame_generation (bool): If True, frames will be regenerated even if they already
             exist. If False (default), frames will be regenerated only when changes are detected.
-        use_json (bool): If True, data will be written as JSON files instead of the default Parquet
-            format. Defaults to False.
+        output_format (DataFileType): Enum value, either `DataFileType.PARQUET` or `DataFileType.JSON`.
+            Determines the format of the output data files. Defaults to `DataFileType.PARQUET`.
 
     Example:
         ```python
@@ -361,7 +356,7 @@ def convert_colorizer_data(
         # backdrop_columns=backdrop_columns,
         feature_column_names=feature_column_names,
         feature_info=feature_info,
-        use_json=use_json,
+        output_format=output_format,
     )
 
     parent_directory = pathlib.Path(output_dir).parent
