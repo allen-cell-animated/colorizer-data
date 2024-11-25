@@ -6,7 +6,7 @@ import pathlib
 import time
 from typing import Dict, List, Optional, Sequence, TypedDict, Union
 
-from aicsimageio import AICSImage
+from bioio import BioImage
 from dataclasses import dataclass
 from pandas import DataFrame
 from pandas.core.groupby.generic import DataFrameGroupBy
@@ -49,10 +49,10 @@ class ConverterConfig(TypedDict):
     output_format: DataFileType = DataFileType.PARQUET
 
 
-def _get_image_from_row(row: pd.DataFrame, config: ConverterConfig) -> AICSImage:
+def _get_image_from_row(row: pd.DataFrame, config: ConverterConfig) -> BioImage:
     zstackpath = row[config["image_column"]]
     zstackpath = sanitize_path_by_platform(zstackpath)
-    return AICSImage(zstackpath)
+    return BioImage(zstackpath)
 
 
 def _make_frame(
@@ -69,9 +69,10 @@ def _make_frame(
     row = frame.iloc[0]
     frame_number = row[config["times_column"]]
     # Flatten the z-stack to a 2D image.
-    aics_image = _get_image_from_row(row, config)
-    zstack = aics_image.get_image_data("ZYX", S=0, T=0, C=0)
-    seg2d = zstack.max(axis=0)
+    segmentation_image = _get_image_from_row(row, config)
+    zstack = segmentation_image.get_image_data("YX", S=0, T=0, C=0)
+    seg2d = zstack
+    # seg2d = zstack.max(axis=0)
 
     # Scale the image and format as integers.
     seg2d = scale_image(seg2d, scale)

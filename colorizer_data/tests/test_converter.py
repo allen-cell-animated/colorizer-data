@@ -2,7 +2,7 @@ from io import StringIO
 import json
 import pathlib
 from colorizer_data import convert_colorizer_data
-from colorizer_data.types import FeatureMetadata
+from colorizer_data.types import DataFileType, FeatureMetadata
 import os
 import pandas as pd
 from typing import Dict, List, Union
@@ -40,7 +40,9 @@ sample_csv_data = """0,1,0,50,50,0.5,0,A,./colorizer_data/tests/assets/test_csv/
 def test_handles_simple_csv(tmp_path):
     csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
     csv_data = pd.read_csv(StringIO(csv_content))
-    convert_colorizer_data(csv_data, tmp_path / "dataset", use_json=True)
+    convert_colorizer_data(
+        csv_data, tmp_path / "dataset", output_format=DataFileType.JSON
+    )
 
     expected_manifest = tmp_path / "dataset" / "manifest.json"
     assert os.path.exists(expected_manifest)

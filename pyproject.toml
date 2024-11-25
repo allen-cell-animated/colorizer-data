@@ -17,7 +17,7 @@ authors = [
     {name = "", email = "danielt@alleninstitute.org"},
     {name = "", email = "peyton.lee@alleninstitute.org"},
 ]
-description = "Utilities to convert data for viewing in Timelapse Colorizer"
+description = "Utilities to convert data for viewing in Timelapse Feature Explorer"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "BSD-3-Clause"}
@@ -25,6 +25,10 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
+    "bioio >= 1.0.2",
+    "bioio-ome-tiff >= 1.0.0",
+    "bioio-tifffile",
+    "bioio-ome-zarr",
     "dataclasses-json",
     "numpy",
     "pandas",
@@ -37,7 +41,7 @@ dependencies = [
 [project.optional-dependencies]
 # To install, run `pip install -e '.[dev]'`
 dev = [  
-    'pytest',
+    'pytest-xdist',
     'bump-my-version', 
 ]
 
