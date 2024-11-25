@@ -258,11 +258,11 @@ def test_cast_feature_to_info_type_infers_categories():
 def test_cast_feature_to_info_type_handles_none_and_nan_values_in_categorical_data():
     # Safely ignores None values during auto-casting
     empty_info = FeatureInfo(type=FeatureType.INDETERMINATE)
-    data = np.array([None, None, "a", None, "b", np.NaN], dtype=object)
+    data = np.array([None, None, "a", None, "b", np.nan], dtype=object)
 
     data, info = cast_feature_to_info_type(data, empty_info)
     assert info.type == FeatureType.CATEGORICAL
-    assert np.array_equal(data, [np.nan, np.nan, 0, np.nan, 1, np.NaN], True)
+    assert np.array_equal(data, [np.nan, np.nan, 0, np.nan, 1, np.nan], True)
     assert info.categories == ["a", "b"]
 
 
