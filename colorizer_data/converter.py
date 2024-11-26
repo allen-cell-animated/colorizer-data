@@ -175,7 +175,7 @@ def _get_raw_backdrop_paths(
     backdrop_paths = []
     for _group_name, frame in grouped_frames:
         row = frame.iloc[0]
-        if row[column_name] is None:
+        if column_name not in row or row[column_name] is None:
             backdrop_paths.append(None)
         else:
             backdrop_paths.append(row[column_name])
@@ -203,12 +203,17 @@ def _write_backdrop_column(
     # the dataset directory, copying the file into the dataset dir if necessary.
     updated_frame_paths = []
     for frame_number, raw_backdrop_image_path in enumerate(backdrop_metadata["frames"]):
+        if raw_backdrop_image_path is None:
+            updated_frame_paths.append(None)
+            continue
         backdrop_image_path = pathlib.Path(
             sanitize_path_by_platform(raw_backdrop_image_path)
         )
-        if backdrop_image_path is None or not os.path.exists(backdrop_image_path):
-            updated_frame_paths.append("")
-        elif writer.outpath in backdrop_image_path.parents:
+        if not os.path.exists(backdrop_image_path):
+            raise FileNotFoundError(
+                f"Backdrop image '{backdrop_image_path}' does not exist. Please check the path and try again."
+            )
+        if writer.outpath in backdrop_image_path.parents:
             # Path exists and is already in the dataset directory.
             relative_path = backdrop_image_path.relative_to(writer.outpath)
             updated_frame_paths.append(relative_path.as_posix())

@@ -574,5 +574,22 @@ class TestBackdropWriting:
         # backdrop metadata should be unchanged
         assert manifest["backdrops"] == [backdrop_info_1, backdrop_info_2]
 
-    def test_handles_none_backdrop(self):
-        pass
+    def test_handles_none_backdrop(self, tmp_path):
+        csv_data = pd.read_csv(StringIO(sample_csv_headers + "\n" + sample_csv_data))
+        convert_colorizer_data(
+            csv_data,
+            tmp_path,
+            backdrop_column_names=["Backdrop Image 3"],
+            output_format=DataFileType.JSON,
+        )
+        manifest = {}
+        with open(tmp_path / "manifest.json", "r") as f:
+            manifest = json.load(f)
+
+        assert manifest["backdrops"] == [
+            {
+                "name": "Backdrop Image 3",
+                "key": "backdrop_image_3",
+                "frames": [None, None],
+            }
+        ]
