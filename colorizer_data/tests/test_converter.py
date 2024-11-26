@@ -231,8 +231,12 @@ TODO: Test additional edge cases
 - [x] Handles different data column names
 - [x] Handles missing centroid, outliers, or bounds data
 - [x] Keeps bounds data during frame regeneration
-- [ ] Handles backdrop images via column
-- [ ] Handles backdrop images via dictionary
+- [ ] Backdrop images
+  - [ ] Handles backdrop images given via column name
+  - [ ] Does not copy backdrop images already in dataset directory
+  - [ ] Copies images not in dataset directory
+  - [ ] Override can just override name and key without changing frame paths
+  - [ ] Override can change frame paths
 """
 
 # ///////////////////////// FRAME GENERATION TESTS /////////////////////////

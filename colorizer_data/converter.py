@@ -4,6 +4,7 @@ import math
 import multiprocessing
 import os
 import pathlib
+import shutil
 import time
 from typing import Dict, List, Optional, Sequence, TypedDict, Union
 
@@ -25,6 +26,7 @@ from colorizer_data.utils import (
     INITIAL_INDEX_COLUMN,
     generate_frame_paths,
     get_total_objects,
+    merge_dictionaries,
     read_data_array_file,
     remap_segmented_image,
     sanitize_key_name,
@@ -44,7 +46,7 @@ class ConverterConfig:
     centroid_x_column: str
     centroid_y_column: str
     outlier_column: str
-    backdrop_columns: Optional[List[str]] = None
+    backdrop_column_names: Optional[List[str]] = None
     backdrop_info: Optional[Dict[str, BackdropMetadata]] = None
     feature_column_names: Optional[List[str]] = None
     feature_info: Optional[Dict[str, FeatureInfo]] = None
@@ -172,7 +174,59 @@ def _write_backdrops(
     writer: ColorizerDatasetWriter,
     config: ConverterConfig,
 ):
-    pass
+    if config.backdrop_column_names is None or len(config.backdrop_column_names) == 0:
+        return
+    # group frames by time
+    grouped_frames = dataset.groupby(config.times_column)
+
+    for backdrop_column in config.backdrop_column_names:
+        backdrop_metadata = BackdropMetadata(
+            frames=[],
+            name=backdrop_column,
+            key=sanitize_key_name(backdrop_column),
+        )
+        # TODO: this FOR loop is not robust for frames where data is missing.
+        # This and the frame generation step should be refactored to handle
+        # missing data.
+        for _group_name, frame in grouped_frames:
+            row = frame.iloc[0]
+            # frame_number = row[config.times_column]
+            backdrop_metadata.frames.append(row[backdrop_column])
+
+        # Override metadata if provided
+        if config.backdrop_info is not None and backdrop_column in config.backdrop_info:
+            override_metadata = config.backdrop_info.get(backdrop_column)
+            backdrop_metadata = merge_dictionaries(backdrop_metadata, override_metadata)
+
+        # Iterate over all the backdrop paths and rewrite them to be relative to
+        # the dataset directory, copying the file into the dataset dir if necessary.
+        updated_frame_paths = []
+        for frame_number, raw_backdrop_image_path in enumerate(
+            backdrop_metadata.frames
+        ):
+            backdrop_image_path = pathlib.Path(
+                sanitize_path_by_platform(raw_backdrop_image_path)
+            )
+            if backdrop_image_path is None or not os.path.exists(backdrop_image_path):
+                updated_frame_paths.append("")
+            elif writer.outpath in backdrop_image_path.parents:
+                # Path exists and is already in the dataset directory.
+                relative_path = backdrop_image_path.relative_to(writer.outpath)
+                updated_frame_paths.append(relative_path)
+            else:
+                # Path exists but is not in the dataset directory. Copy it.
+                # TODO: sanitize backdrop column name
+                folder = writer.outpath / "backdrops" / backdrop_metadata.key
+                folder.mkdir(parents=True, exist_ok=True)
+                dst_path = folder / backdrop_image_path.name
+                shutil.copy(backdrop_image_path, dst_path)
+                relative_path = dst_path.relative_to(writer.outpath)
+                updated_frame_paths.append(relative_path)
+
+        # Write the backdrop
+        writer.add_backdrops(
+            backdrop_metadata.name, updated_frame_paths, backdrop_metadata.key
+        )
 
 
 def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
@@ -292,13 +346,8 @@ def convert_colorizer_data(
     centroid_x_column: str = "Centroid X",
     centroid_y_column: str = "Centroid Y",
     outlier_column: str = "Outlier",
-    # TODO: implement backdrop support
-    # backdrop_columns: Optional[
-    #     List[str]
-    # ] = None,  # use this if backdrops are column -> paths to images
-    # backdrop_info: Optional[
-    #     Dict[str, BackdropMetadata]
-    # ] = None,  # use this if backdrops are already stored somewhere
+    backdrop_column_names: Optional[List[str]] = None,
+    backdrop_info: Optional[Dict[str, BackdropMetadata]] = None,
     feature_column_names: Union[List[str], None] = None,
     feature_info: Optional[Dict[str, FeatureInfo]] = None,
     force_frame_generation=False,
@@ -330,18 +379,18 @@ def convert_colorizer_data(
             image. Defaults to "Centroid X."
         centroid_y_column (str): The name of the column containing y-coordinates of object
             centroids, in pixels relative to the frame image, where 0 is the top edge of the image.
-            Defaults to "Centroid Y.""
+            Defaults to "Centroid Y."
         outlier_column (str): The name of the column containing outlier flags. 0/False indicates a
             normal object, while 1/True indicates an outlier. Outliers are excluded from min/max
             calculation for features. Defaults to "Outlier."
-        backdrop_columns (List[str] | None): A list of column names containing file paths to
-            backdrop images. If set, these images will be copied and included in the dataset as
-            backdrops that can be toggled. Defaults to `None`.
-        backdrop_info (Dict[str, BackdropMetadata] | None): A dictionary mapping column names to
-            `BackdropMetadata` metadata. This includes the backdrop's name, description, and
-            file paths. If the files do not exist in the dataset directory, the files
-            will be copied to it and the paths updated to be relative to the manifest. Defaults to
-            `None`.
+        backdrop_column_names (List[str] | None): A list of column names containing file paths to
+            backdrop images. If the images are not already inside the output directory,
+            they will be copied into it. Defaults to `None`.
+        backdrop_info (Dict[str, BackdropMetadata] | None): A dictionary mapping backdrop names to
+            `BackdropMetadata`. This includes the backdrop's name and description text, and
+            optionally paths to the frames. If the name matches a backdrop column name, any defined
+            fields will override the default metadata for that column. If not, a new backdrop will
+            be created with the provided metadata. Defaults to `None`.
         feature_column_names (List[str] | None): An array of feature column names. If a value is
             provided, ONLY the provided column names will be parsed as features; otherwise, ALL
             columns that aren't specified as a backdrop or a data column (e.g. object ID, time,
@@ -411,8 +460,8 @@ def convert_colorizer_data(
         centroid_x_column=centroid_x_column,
         centroid_y_column=centroid_y_column,
         outlier_column=outlier_column,
-        # backdrop_columns=backdrop_columns,
-        # backdrop_info=backdrop_info,
+        backdrop_column_names=backdrop_column_names,
+        backdrop_info=backdrop_info,
         feature_column_names=feature_column_names,
         feature_info=feature_info,
         output_format=output_format,
