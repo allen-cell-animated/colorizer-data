@@ -292,6 +292,7 @@ def convert_colorizer_data(
     centroid_x_column: str = "Centroid X",
     centroid_y_column: str = "Centroid Y",
     outlier_column: str = "Outlier",
+    # TODO: implement backdrop support
     # backdrop_columns: Optional[
     #     List[str]
     # ] = None,  # use this if backdrops are column -> paths to images

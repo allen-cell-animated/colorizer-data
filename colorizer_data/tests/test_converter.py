@@ -3,14 +3,13 @@ import json
 import os
 import pathlib
 
-from colorizer_data import convert_colorizer_data
-from colorizer_data.types import DataFileType, FeatureMetadata
-import os
 import pandas as pd
 import pytest
-from typing import Dict, List, Union
 
+from colorizer_data import convert_colorizer_data
+from colorizer_data.types import DataFileType, FeatureMetadata
 from colorizer_data.utils import read_data_array_file
+from typing import Dict, List, Union
 
 
 sample_csv_headers = "ID,Track,Frame,Centroid X,Centroid Y,Continuous Feature,Discrete Feature,Categorical Feature,Outlier,File Path"
