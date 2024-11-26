@@ -54,7 +54,7 @@ class ColorizerDatasetWriter:
     more details.)
     """
 
-    outpath: Union[str, pathlib.Path]
+    outpath: pathlib.Path
     default_dataset_name: str
     manifest: DatasetManifest
     metadata: ColorizerMetadata
@@ -69,12 +69,12 @@ class ColorizerDatasetWriter:
         scale: float = 1,
         force_overwrite: bool = False,
     ):
-        self.outpath = os.path.join(output_dir, dataset)
+        self.outpath = pathlib.Path(os.path.join(output_dir, dataset))
         os.makedirs(self.outpath, exist_ok=True)
         self.scale = scale
 
         # Check for existence of manifest file in expected path
-        manifest_path = self.outpath + "/manifest.json"
+        manifest_path = self.outpath / "manifest.json"
         if os.path.exists(manifest_path) and not force_overwrite:
             # Load in the existing file
             try:
@@ -503,7 +503,7 @@ class ColorizerDatasetWriter:
 
         self.validate_dataset()
 
-        with open(self.outpath + "/manifest.json", "w") as f:
+        with open(self.outpath / "manifest.json", "w") as f:
             json.dump(self.manifest, f, indent=2)
 
         logging.info("Finished writing dataset.")
@@ -562,7 +562,7 @@ class ColorizerDatasetWriter:
         img = Image.fromarray(seg_rgba)  # new("RGBA", (xres, yres), seg2d)
         # TODO: Automatically create subdirectories if `frame_prefix` contains them.
         relative_image_path = frame_prefix + str(frame_num) + frame_suffix
-        img.save(self.outpath + "/" + relative_image_path)
+        img.save(self.outpath / relative_image_path)
         return relative_image_path
 
     def validate_dataset(
@@ -573,7 +573,7 @@ class ColorizerDatasetWriter:
         """
         if self.manifest["times"] is None:
             logging.warning("No times JSON information provided!")
-        if not os.path.isfile(self.outpath + "/" + self.manifest["times"]):
+        if not os.path.isfile(self.outpath / self.manifest["times"]):
             logging.warning(
                 "Times JSON file does not exist at expected path '{}'".format(
                     self.manifest["times"]
@@ -599,7 +599,7 @@ class ColorizerDatasetWriter:
             missing_frames = []
             for i in range(len(self.manifest["frames"])):
                 path = self.manifest["frames"][i]
-                if not os.path.isfile(self.outpath + "/" + path):
+                if not os.path.isfile(self.outpath / path):
                     missing_frames.append([i, path])
             if len(missing_frames) > 0:
                 logging.warning(
