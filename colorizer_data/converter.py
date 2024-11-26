@@ -1,4 +1,3 @@
-import json
 import logging
 import math
 import multiprocessing
@@ -6,7 +5,7 @@ import os
 import pathlib
 import shutil
 import time
-from typing import Dict, List, Optional, Sequence, TypedDict, Union
+from typing import Dict, List, Optional, Sequence, Union
 
 from bioio import BioImage
 from dataclasses import dataclass
@@ -169,6 +168,20 @@ def _write_data(
     )
 
 
+def _get_raw_backdrop_paths(
+    grouped_frames: DataFrameGroupBy, column_name: str
+) -> List[str | None]:
+    # Get the backdrop paths from the first row of each group.
+    backdrop_paths = []
+    for _group_name, frame in grouped_frames:
+        row = frame.iloc[0]
+        if row[column_name] is None:
+            backdrop_paths.append(None)
+        else:
+            backdrop_paths.append(row[column_name])
+    return backdrop_paths
+
+
 def _write_backdrops(
     dataset: pd.DataFrame,
     writer: ColorizerDatasetWriter,
@@ -181,17 +194,10 @@ def _write_backdrops(
 
     for backdrop_column in config.backdrop_column_names:
         backdrop_metadata = BackdropMetadata(
-            frames=[],
+            frames=_get_raw_backdrop_paths(grouped_frames, backdrop_column),
             name=backdrop_column,
             key=sanitize_key_name(backdrop_column),
         )
-        # TODO: this FOR loop is not robust for frames where data is missing.
-        # This and the frame generation step should be refactored to handle
-        # missing data.
-        for _group_name, frame in grouped_frames:
-            row = frame.iloc[0]
-            # frame_number = row[config.times_column]
-            backdrop_metadata.frames.append(row[backdrop_column])
 
         # Override metadata if provided
         if config.backdrop_info is not None and backdrop_column in config.backdrop_info:
@@ -218,7 +224,7 @@ def _write_backdrops(
                 # TODO: sanitize backdrop column name
                 folder = writer.outpath / "backdrops" / backdrop_metadata.key
                 folder.mkdir(parents=True, exist_ok=True)
-                dst_path = folder / backdrop_image_path.name
+                dst_path = folder / f"image_{frame_number}.png"
                 shutil.copy(backdrop_image_path, dst_path)
                 relative_path = dst_path.relative_to(writer.outpath)
                 updated_frame_paths.append(relative_path)
@@ -240,8 +246,8 @@ def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
         config.outlier_column,
     ]
     # TODO: Revisit this when backdrop handling is implemented
-    if config.backdrop_columns is not None:
-        reserved_columns += config.backdrop_columns
+    if config.backdrop_column_names is not None:
+        reserved_columns += config.backdrop_column_names
     elif config.backdrop_info is not None:
         reserved_columns += list(config.backdrop_info.keys())
     return reserved_columns

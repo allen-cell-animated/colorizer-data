@@ -11,13 +11,18 @@ from colorizer_data.types import DataFileType, FeatureMetadata
 from colorizer_data.utils import read_data_array_file
 from typing import Dict, List, Union
 
+asset_path = pathlib.Path(__file__).parent / "assets"
 
 sample_csv_headers = "ID,Track,Frame,Centroid X,Centroid Y,Continuous Feature,Discrete Feature,Categorical Feature,Outlier,File Path"
 sample_csv_headers_alternate = "object_id,track,frame,centroid_x,centroid_y,Continuous Feature,Discrete Feature,Categorical Feature,outlier,file_path"
-sample_csv_data = """0,1,0,50,50,0.5,0,A,0,./colorizer_data/tests/assets/test_csv/frame_0.tiff
-    1,1,1,55,60,0.6,1,B,0,./colorizer_data/tests/assets/test_csv/frame_1.tiff
-    2,2,0,60,70,0.7,2,C,0,./colorizer_data/tests/assets/test_csv/frame_0.tiff
-    3,2,1,65,75,0.8,3,A,1,./colorizer_data/tests/assets/test_csv/frame_1.tiff"""
+raw_sample_csv_data = [
+    f"0,1,0,50,50,0.5,0,A,0,{str(asset_path)}/test_csv/frame_0.tiff",
+    f"1,1,1,55,60,0.6,1,B,0,{str(asset_path)}/test_csv/frame_1.tiff",
+    f"2,2,0,60,70,0.7,2,C,0,{str(asset_path)}/test_csv/frame_0.tiff",
+    f"3,2,1,65,75,0.8,3,A,1,{str(asset_path)}/test_csv/frame_1.tiff",
+]
+
+sample_csv_data = "\n".join(raw_sample_csv_data)
 
 # ///////////////////////// METHODS /////////////////////////
 
@@ -220,25 +225,6 @@ def test_uses_id_as_track_if_track_is_missing(tmp_path):
         validate_data(tmp_path / "tracks.json", [0, 1, 2, 3])
 
 
-"""
-TODO: Test additional edge cases
-- [x] Frame generation
-  - [x] override switch works
-  - [x] detects change in number of objects
-  - [x] detects removal of frames
-  - [x] does not regenerate frames if they already exist
-  - [x] handles missing times data
-- [x] Handles different data column names
-- [x] Handles missing centroid, outliers, or bounds data
-- [x] Keeps bounds data during frame regeneration
-- [ ] Backdrop images
-  - [ ] Handles backdrop images given via column name
-  - [ ] Does not copy backdrop images already in dataset directory
-  - [ ] Copies images not in dataset directory
-  - [ ] Override can just override name and key without changing frame paths
-  - [ ] Override can change frame paths
-"""
-
 # ///////////////////////// FRAME GENERATION TESTS /////////////////////////
 
 
@@ -326,3 +312,58 @@ def test_regenerates_frames_if_missing_times_file(existing_dataset):
     # Frame 0 and 1 should both have newer write times
     assert os.path.getmtime(existing_dataset / "frame_0.png") > frame_0_time
     assert os.path.getmtime(existing_dataset / "frame_1.png") > frame_1_time
+
+
+# ///////////////////////// BACKDROP TESTS /////////////////////////
+
+"""
+TODO: Test additional edge cases
+- [x] Frame generation
+  - [x] override switch works
+  - [x] detects change in number of objects
+  - [x] detects removal of frames
+  - [x] does not regenerate frames if they already exist
+  - [x] handles missing times data
+- [x] Handles different data column names
+- [x] Handles missing centroid, outliers, or bounds data
+- [x] Keeps bounds data during frame regeneration
+- [ ] Backdrop images
+  - [ ] Handles backdrop images given via column name
+  - [ ] Does not copy backdrop images already in dataset directory
+  - [ ] Copies images not in dataset directory
+  - [ ] Override can just override name and key without changing frame paths
+  - [ ] Override can change frame paths
+"""
+
+
+class TestBackdropWriting:
+    backdrop_headers = sample_csv_headers + ",Backdrop Image 1,Backdrop Image 2"
+    raw_backdrop_csv_data = [
+        raw_sample_csv_data[0]
+        + f",{str(asset_path)}/backdrop-light/image_0.png,{str(asset_path)}/backdrop-dark/image_0.png",
+        raw_sample_csv_data[1]
+        + f",{str(asset_path)}/backdrop-light/image_1.png,{str(asset_path)}/backdrop-dark/image_1.png",
+        raw_sample_csv_data[2]
+        + f",{str(asset_path)}/backdrop-light/image_0.png,{str(asset_path)}/backdrop-dark/image_0.png",
+        raw_sample_csv_data[3]
+        + f",{str(asset_path)}/backdrop-light/image_1.png,{str(asset_path)}/backdrop-dark/image_1.png",
+    ]
+    backdrop_csv_data = "\n".join(raw_backdrop_csv_data)
+
+    def test_writes_backdrop_images_using_column_names(self):
+        pass
+
+    def test_does_not_rewrite_existing_backdrop_images(self):
+        pass
+
+    def test_copies_new_backdrop_images(self):
+        pass
+
+    def test_override_backdrop_metadata(self):
+        pass
+
+    def test_override_backdrop_paths(self):
+        pass
+
+    def test_writes_backdrops_that_are_not_in_column_names(self):
+        pass
