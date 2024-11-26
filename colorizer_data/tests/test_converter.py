@@ -530,19 +530,19 @@ class TestBackdropWriting:
 
         csv_data = pd.read_csv(StringIO(sample_csv_headers + "\n" + sample_csv_data))
         backdrop_info_1 = {
-            "name": "New Backdrop Name",
-            "key": "new_backdrop",
+            "name": "Backdrop 1",
+            "key": "new_backdrop_1",
             "frames": [
-                "backdrop-light/image_0.png",
-                "backdrop-light/image_1.png",
+                f"{asset_path}/backdrop-light/image_0.png",
+                f"{asset_path}/backdrop-light/image_1.png",
             ],
         }
         backdrop_info_2 = {
-            "name": "New Backdrop Name 2",
-            "key": "other_new_backdrop",
+            "name": "Backdrop 2",
+            "key": "new_backdrop_2",
             "frames": [
-                "path/doesnt/exist/image_0.png",
-                "path/doesnt/exist/image_1.png",
+                f"{asset_path}/backdrop-dark/image_0.png",
+                f"{asset_path}/backdrop-dark/image_1.png",
             ],
         }
         backdrop_info = {
@@ -557,18 +557,84 @@ class TestBackdropWriting:
             output_format=DataFileType.JSON,
         )
 
-        # File paths should not be copied and should be used as-is. None of these
-        # files should be copied.
-        assert not os.path.exists(tmp_path / "new_backdrop" / "image_0.png")
-        assert not os.path.exists(tmp_path / "new_backdrop" / "image_1.png")
-        assert not os.path.exists(tmp_path / "other_new_backdrop" / "image_0.png")
-        assert not os.path.exists(tmp_path / "other_new_backdrop" / "image_1.png")
+        # File paths should be copied
+        assert os.path.exists(tmp_path / "new_backdrop_1" / "image_0.png")
+        assert os.path.exists(tmp_path / "new_backdrop_1" / "image_1.png")
+        assert os.path.exists(tmp_path / "new_backdrop_2" / "image_0.png")
+        assert os.path.exists(tmp_path / "new_backdrop_2" / "image_1.png")
 
         manifest = {}
         with open(tmp_path / "manifest.json", "r") as f:
             manifest = json.load(f)
-        # backdrop metadata should be unchanged
-        assert manifest["backdrops"] == [backdrop_info_1, backdrop_info_2]
+        # Paths should be relative
+        assert manifest["backdrops"] == [
+            {
+                "name": "Backdrop 1",
+                "key": "new_backdrop_1",
+                "frames": [
+                    "new_backdrop_1/image_0.png",
+                    "new_backdrop_1/image_1.png",
+                ],
+            },
+            {
+                "name": "Backdrop 2",
+                "key": "new_backdrop_2",
+                "frames": [
+                    "new_backdrop_2/image_0.png",
+                    "new_backdrop_2/image_1.png",
+                ],
+            },
+        ]
+
+    def test_throws_error_if_backdrop_does_not_exist(self, tmp_path):
+        csv_data = pd.read_csv(StringIO(sample_csv_headers + "\n" + sample_csv_data))
+        backdrop_info = {
+            "backdrop": {
+                "name": "Backdrop 1",
+                "key": "new_backdrop_1",
+                "frames": [
+                    "path/does/not/exist/image_0.png",
+                    "path/does/not/exist/image_1.png",
+                ],
+            }
+        }
+        with pytest.raises(Exception):
+            convert_colorizer_data(
+                csv_data,
+                tmp_path,
+                backdrop_info=backdrop_info,
+            )
+
+    def test_sanitizes_backdrop_key_names(self, tmp_path):
+        csv_data = pd.read_csv(StringIO(sample_csv_headers + "\n" + sample_csv_data))
+        backdrop_info = {
+            "backdrop": {
+                "name": "Backdrop",
+                "key": "!!!BAD KEY NAME!!!",
+                "frames": [
+                    f"{asset_path}/backdrop-light/image_0.png",
+                    f"{asset_path}/backdrop-light/image_1.png",
+                ],
+            }
+        }
+        convert_colorizer_data(
+            csv_data,
+            tmp_path,
+            backdrop_info=backdrop_info,
+        )
+        manifest = {}
+        with open(tmp_path / "manifest.json", "r") as f:
+            manifest = json.load(f)
+        assert manifest["backdrops"] == [
+            {
+                "name": "Backdrop",
+                "key": "bad_key_name",
+                "frames": [
+                    "bad_key_name/image_0.png",
+                    "bad_key_name/image_1.png",
+                ],
+            },
+        ]
 
     def test_handles_none_backdrop(self, tmp_path):
         csv_data = pd.read_csv(StringIO(sample_csv_headers + "\n" + sample_csv_data))

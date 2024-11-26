@@ -241,24 +241,16 @@ def _write_backdrops(
 ):
     grouped_frames = dataset.groupby(config.times_column)
 
-    # Write named backdrop columns
-    if config.backdrop_column_names is not None:
-        for backdrop_column in config.backdrop_column_names:
-            _write_backdrop_from_column(backdrop_column, grouped_frames, writer, config)
-
-    # Write any backdrop info that wasn't a column
+    # Get all backdrop column names. (Don't use set here
+    # to preserve ordering)
+    all_backdrop_names = config.backdrop_column_names or []
     if config.backdrop_info is not None:
-        for backdrop_name, backdrop_metadata in config.backdrop_info.items():
-            if (
-                config.backdrop_column_names is None
-                or backdrop_name not in config.backdrop_column_names
-            ):
-                # Write metadata directly without copying files or editing filepaths.
-                writer.add_backdrops(
-                    backdrop_metadata["name"],
-                    backdrop_metadata["frames"],
-                    backdrop_metadata["key"],
-                )
+        for backdrop_name in config.backdrop_info.keys():
+            if backdrop_name not in all_backdrop_names:
+                all_backdrop_names.append(backdrop_name)
+
+    for backdrop_column in all_backdrop_names:
+        _write_backdrop_from_column(backdrop_column, grouped_frames, writer, config)
 
 
 def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
@@ -422,14 +414,12 @@ def convert_colorizer_data(
             `BackdropMetadata` overrides. This includes the backdrop's name, key, and optionally
             relative paths to the frames. Defaults to `None`.
             - If the name matches a backdrop column name in `data`, any defined fields will
-            override the default metadata for that column (e.g. `key` or `name`). If the `frame`
-            field is provided, those paths will be used instead of the original column values
-            when fetching or copying files. Frame paths will be edited to be relative to the
+            override the default metadata for that column (e.g. `key` or `name`).
+            - If the name does not match a backdrop column name, a new backdrop will be added
+            with the provided metadata.
+            In either case, if the `frame` field is provided, those paths will be used instead of
+            the original column values. Frame paths will be edited to be relative to the
             dataset directory, and copied into the directory if they are not already subfiles.
-            - If the name does not match a backdrop column name, a new backdrop will be directly
-            added with the provided metadata. Frame paths will NOT be edited, and no files will
-            be copied. (This should only be done if the files are already in the output directory,
-            and the paths are already relative to the directory.)
         feature_column_names (List[str] | None): An array of feature column names. If a value is
             provided, ONLY the provided column names will be parsed as features; otherwise, ALL
             columns that aren't specified as a backdrop or a data column (e.g. object ID, time,
