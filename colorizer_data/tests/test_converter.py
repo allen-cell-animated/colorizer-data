@@ -317,24 +317,6 @@ def test_regenerates_frames_if_missing_times_file(existing_dataset):
 
 # ///////////////////////// BACKDROP TESTS /////////////////////////
 
-"""
-TODO: Test additional edge cases
-- [x] Frame generation
-  - [x] override switch works
-  - [x] detects change in number of objects
-  - [x] detects removal of frames
-  - [x] does not regenerate frames if they already exist
-  - [x] handles missing times data
-- [x] Handles different data column names
-- [x] Handles missing centroid, outliers, or bounds data
-- [x] Keeps bounds data during frame regeneration
-- [ ] Backdrop images
-  - [x] Handles backdrop images given via column name
-  - [x] Does not copy backdrop images already in dataset directory
-  - [ ] Override can just override name and key without changing frame paths
-  - [ ] Override can change frame paths
-"""
-
 
 class TestBackdropWriting:
     backdrop_headers = sample_csv_headers + ",Backdrop Image 1,Backdrop Image 2"
@@ -398,6 +380,8 @@ class TestBackdropWriting:
         # The paths should still be modified to be relative to the manifest, though.
         shutil.copytree(asset_path / "backdrop-light", tmp_path / "backdrop-light")
         shutil.copytree(asset_path / "backdrop-dark", tmp_path / "backdrop-dark")
+        write_time = os.path.getmtime(tmp_path / "backdrop-light" / "image_0.png")
+
         local_raw_backdrop_csv_data = [
             raw_sample_csv_data[0]
             + f",{tmp_path}/backdrop-light/image_0.png,{tmp_path}/backdrop-dark/image_0.png",
@@ -410,7 +394,6 @@ class TestBackdropWriting:
         ]
         local_backdrop_csv_data = "\n".join(local_raw_backdrop_csv_data)
 
-        write_time = os.path.getmtime(tmp_path / "backdrop-light" / "image_0.png")
         csv_data = pd.read_csv(
             StringIO(self.backdrop_headers + "\n" + local_backdrop_csv_data)
         )
@@ -511,9 +494,11 @@ class TestBackdropWriting:
             StringIO(self.backdrop_headers + "\n" + self.backdrop_csv_data)
         )
         backdrop_info = {
-            "Backdrop Image 1": {
-                "name": "New Backdrop Name",
-                "key": "new_backdrop_key",
+            "Backdrop Image 2": {
+                "frames": [
+                    f"{asset_path}/backdrop-light/image_0.png",
+                    f"{asset_path}/backdrop-light/image_1.png",
+                ]
             }
         }
         convert_colorizer_data(
@@ -524,10 +509,20 @@ class TestBackdropWriting:
             output_format=DataFileType.JSON,
         )
 
-        assert os.path.exists(tmp_path / "new_backdrop_key" / "image_0.png")
-        assert os.path.exists(tmp_path / "new_backdrop_key" / "image_1.png")
+        assert os.path.exists(tmp_path / "backdrop_image_1" / "image_0.png")
+        assert os.path.exists(tmp_path / "backdrop_image_1" / "image_1.png")
         assert os.path.exists(tmp_path / "backdrop_image_2" / "image_0.png")
         assert os.path.exists(tmp_path / "backdrop_image_2" / "image_1.png")
+
+        # Files should be the same because they both pulled from the same source
+        assert (
+            open(tmp_path / "backdrop_image_1" / "image_0.png", "rb").read()
+            == open(tmp_path / "backdrop_image_2" / "image_0.png", "rb").read()
+        )
+        assert (
+            open(tmp_path / "backdrop_image_1" / "image_1.png", "rb").read()
+            == open(tmp_path / "backdrop_image_2" / "image_1.png", "rb").read()
+        )
 
     def test_writes_backdrops_that_are_not_in_column_names(self, tmp_path):
         # Copy the backdrop images to the dataset directory
@@ -551,6 +546,7 @@ class TestBackdropWriting:
             ],
         }
         backdrop_info = {
+            # Keys are arbitrary here
             "A backdrop": backdrop_info_1,
             "Some other backdrop": backdrop_info_2,
         }
@@ -579,7 +575,7 @@ class TestBackdropWriting:
         convert_colorizer_data(
             csv_data,
             tmp_path,
-            backdrop_column_names=["Backdrop Image 3"],
+            backdrop_column_names=["Nonexistent Backdrop"],
             output_format=DataFileType.JSON,
         )
         manifest = {}
@@ -588,8 +584,8 @@ class TestBackdropWriting:
 
         assert manifest["backdrops"] == [
             {
-                "name": "Backdrop Image 3",
-                "key": "backdrop_image_3",
+                "name": "Nonexistent Backdrop",
+                "key": "nonexistent_backdrop",
                 "frames": [None, None],
             }
         ]

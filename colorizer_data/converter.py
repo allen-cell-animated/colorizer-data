@@ -171,7 +171,7 @@ def _write_data(
 def _get_raw_backdrop_paths(
     grouped_frames: DataFrameGroupBy, column_name: str
 ) -> List[str | None]:
-    # Get the backdrop paths from the first row of each group.
+    # Get the backdrop paths for each frame.
     backdrop_paths = []
     for _group_name, frame in grouped_frames:
         row = frame.iloc[0]
@@ -182,7 +182,7 @@ def _get_raw_backdrop_paths(
     return backdrop_paths
 
 
-def _write_backdrop_column(
+def _write_backdrop_from_column(
     backdrop_column: str,
     grouped_frames: DataFrameGroupBy,
     writer: ColorizerDatasetWriter,
@@ -198,6 +198,8 @@ def _write_backdrop_column(
     if config.backdrop_info is not None and backdrop_column in config.backdrop_info:
         override_metadata = config.backdrop_info.get(backdrop_column)
         backdrop_metadata = merge_dictionaries(backdrop_metadata, override_metadata)
+        # Just to be safe, sanitize the key
+        backdrop_metadata["key"] = sanitize_key_name(backdrop_metadata["key"])
 
     # Iterate over all the backdrop paths and rewrite them to be relative to
     # the dataset directory, copying the file into the dataset dir if necessary.
@@ -219,7 +221,6 @@ def _write_backdrop_column(
             updated_frame_paths.append(relative_path.as_posix())
         else:
             # Path exists but is not in the dataset directory. Copy it.
-            # TODO: sanitize backdrop column name
             folder = writer.outpath / backdrop_metadata["key"]
             folder.mkdir(parents=True, exist_ok=True)
             dst_path = folder / f"image_{frame_number}.png"
@@ -243,7 +244,7 @@ def _write_backdrops(
     # Write named backdrop columns
     if config.backdrop_column_names is not None:
         for backdrop_column in config.backdrop_column_names:
-            _write_backdrop_column(backdrop_column, grouped_frames, writer, config)
+            _write_backdrop_from_column(backdrop_column, grouped_frames, writer, config)
 
     # Write any backdrop info that wasn't a column
     if config.backdrop_info is not None:
@@ -252,7 +253,7 @@ def _write_backdrops(
                 config.backdrop_column_names is None
                 or backdrop_name not in config.backdrop_column_names
             ):
-                # Write metadata directly
+                # Write metadata directly without copying files or editing filepaths.
                 writer.add_backdrops(
                     backdrop_metadata["name"],
                     backdrop_metadata["frames"],
@@ -424,7 +425,7 @@ def convert_colorizer_data(
             override the default metadata for that column (e.g. `key` or `name`). If the `frame`
             field is provided, those paths will be used instead of the original column values
             when fetching or copying files. Frame paths will be edited to be relative to the
-            dataset directory.
+            dataset directory, and copied into the directory if they are not already subfiles.
             - If the name does not match a backdrop column name, a new backdrop will be directly
             added with the provided metadata. Frame paths will NOT be edited, and no files will
             be copied. (This should only be done if the files are already in the output directory,
