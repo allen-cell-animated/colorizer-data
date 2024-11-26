@@ -208,7 +208,7 @@ def _write_backdrops(
         # the dataset directory, copying the file into the dataset dir if necessary.
         updated_frame_paths = []
         for frame_number, raw_backdrop_image_path in enumerate(
-            backdrop_metadata.frames
+            backdrop_metadata["frames"]
         ):
             backdrop_image_path = pathlib.Path(
                 sanitize_path_by_platform(raw_backdrop_image_path)
@@ -218,20 +218,20 @@ def _write_backdrops(
             elif writer.outpath in backdrop_image_path.parents:
                 # Path exists and is already in the dataset directory.
                 relative_path = backdrop_image_path.relative_to(writer.outpath)
-                updated_frame_paths.append(relative_path)
+                updated_frame_paths.append(relative_path.as_posix())
             else:
                 # Path exists but is not in the dataset directory. Copy it.
                 # TODO: sanitize backdrop column name
-                folder = writer.outpath / "backdrops" / backdrop_metadata.key
+                folder = writer.outpath / backdrop_metadata["key"]
                 folder.mkdir(parents=True, exist_ok=True)
                 dst_path = folder / f"image_{frame_number}.png"
                 shutil.copy(backdrop_image_path, dst_path)
                 relative_path = dst_path.relative_to(writer.outpath)
-                updated_frame_paths.append(relative_path)
+                updated_frame_paths.append(relative_path.as_posix())
 
         # Write the backdrop
         writer.add_backdrops(
-            backdrop_metadata.name, updated_frame_paths, backdrop_metadata.key
+            backdrop_metadata["name"], updated_frame_paths, backdrop_metadata["key"]
         )
 
 
