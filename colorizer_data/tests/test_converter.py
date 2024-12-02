@@ -211,6 +211,14 @@ def test_throws_error_if_all_values_are_outliers(tmp_path):
         convert_colorizer_data(csv_data, tmp_path)
 
 
+def test_throws_error_if_times_column_is_missing(tmp_path):
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+    csv_data = csv_data.drop(["Frame"], axis=1)
+    with pytest.raises(Exception):
+        convert_colorizer_data(csv_data, tmp_path)
+
+
 def test_uses_id_as_track_if_track_is_missing(tmp_path):
     csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
     csv_data = pd.read_csv(StringIO(csv_content))
