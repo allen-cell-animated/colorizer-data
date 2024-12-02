@@ -23,6 +23,7 @@ from colorizer_data.types import (
 )
 from colorizer_data.utils import (
     INITIAL_INDEX_COLUMN,
+    configureLogging,
     generate_frame_paths,
     get_total_objects,
     merge_dictionaries,
@@ -498,6 +499,8 @@ def convert_colorizer_data(
     parent_directory = pathlib.Path(output_dir).parent
     dataset_name = pathlib.Path(output_dir).name
 
+    configureLogging(output_dir=output_dir, log_name="debug.log")
+
     writer = ColorizerDatasetWriter(parent_directory, dataset_name)
 
     if force_frame_generation or _should_regenerate_frames(writer, data, config):
@@ -510,6 +513,10 @@ def convert_colorizer_data(
         grouped_frames = reduced_dataset.groupby(config.times_column)
         # TODO: this should pass out the frame paths
         _make_frames_parallel(grouped_frames, 1.0, writer, config)
+    else:
+        logging.info(
+            "Frames already exist and no changes were detected. Skipping frame generation."
+        )
 
     _write_data(data, writer, config)
     _write_features(data, writer, config)
