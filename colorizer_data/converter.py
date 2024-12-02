@@ -150,16 +150,25 @@ def _write_data(
         outliers_data = outliers_data.astype(bool)
         if outliers_data.all():
             raise ValueError(
-                "All objects are marked as outliers. At least one object must not be an outlier."
+                f"All objects are marked as outliers in column '{config.outlier_column}'. At least one object must not be an outlier."
             )
 
     tracks_data = _get_data_or_none(dataset, config.track_column)
     if tracks_data is None:
+        logging.warning(
+            f"No track data found in the dataset for column name '{config.track_column}'. Object IDs will be used as a fallback instead."
+        )
         tracks_data = _get_data_or_none(dataset, config.object_id_column)
+
+    times_data = _get_data_or_none(dataset, config.times_column)
+    if times_data is None:
+        raise ValueError(
+            f"No times data found in the dataset for column name '{config.times_column}'. The time/frame number must be provided as a column."
+        )
 
     writer.write_data(
         tracks=tracks_data,
-        times=_get_data_or_none(dataset, config.times_column),
+        times=times_data,
         centroids_x=_get_data_or_none(dataset, config.centroid_x_column),
         centroids_y=_get_data_or_none(dataset, config.centroid_y_column),
         outliers=outliers_data,
