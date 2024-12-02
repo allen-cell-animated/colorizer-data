@@ -106,9 +106,9 @@ def _make_frames_parallel(
     Generate the images and bounding boxes for each time step in the dataset.
     """
     nframes = len(grouped_frames)
-    total_objects = get_total_objects(grouped_frames)
+    total_objects_in_dataset = get_total_objects(grouped_frames)
 
-    if math.isnan(total_objects) or (total_objects < 1):
+    if math.isnan(total_objects_in_dataset) or (total_objects_in_dataset < 1):
         raise ValueError(
             "No objects found in dataset (e.g., no rows were provided). At least one object is required."
         )
@@ -116,7 +116,7 @@ def _make_frames_parallel(
     logging.info("Making {} frames...".format(nframes))
 
     with multiprocessing.Manager() as manager:
-        bounds_arr = manager.Array("i", [0] * int(total_objects * 4))
+        bounds_arr = manager.Array("i", [0] * int(total_objects_in_dataset * 4))
         with multiprocessing.Pool() as pool:
             pool.starmap(
                 _make_frame,
