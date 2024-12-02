@@ -290,9 +290,8 @@ def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
         config.centroid_y_column,
         config.outlier_column,
     ]
-    # TODO: Revisit this when backdrop handling is implemented
-    if config.backdrop_columns is not None:
-        reserved_columns += config.backdrop_columns
+    if config.backdrop_column_names is not None:
+        reserved_columns += config.backdrop_column_names
     elif config.backdrop_info is not None:
         reserved_columns += list(config.backdrop_info.keys())
     return reserved_columns
