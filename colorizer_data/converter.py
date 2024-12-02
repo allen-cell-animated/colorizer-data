@@ -280,6 +280,24 @@ def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
     return reserved_columns
 
 
+def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
+    reserved_columns = [
+        config.object_id_column,
+        config.times_column,
+        config.track_column,
+        config.image_column,
+        config.centroid_x_column,
+        config.centroid_y_column,
+        config.outlier_column,
+    ]
+    # TODO: Revisit this when backdrop handling is implemented
+    if config.backdrop_columns is not None:
+        reserved_columns += config.backdrop_columns
+    elif config.backdrop_info is not None:
+        reserved_columns += list(config.backdrop_info.keys())
+    return reserved_columns
+
+
 def _write_features(
     dataset: pd.DataFrame,
     writer: ColorizerDatasetWriter,

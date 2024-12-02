@@ -38,6 +38,26 @@ def existing_dataset(tmp_path_factory) -> pathlib.Path:
     return tmp_path
 
 
+sample_csv_headers = "ID,Track,Frame,Centroid X,Centroid Y,Continuous Feature,Discrete Feature,Categorical Feature,Outlier,File Path"
+sample_csv_headers_alternate = "object_id,track,frame,centroid_x,centroid_y,Continuous Feature,Discrete Feature,Categorical Feature,outlier,file_path"
+sample_csv_data = """0,1,0,50,50,0.5,0,A,0,./colorizer_data/tests/assets/test_csv/frame_0.tiff
+    1,1,1,55,60,0.6,1,B,0,./colorizer_data/tests/assets/test_csv/frame_1.tiff
+    2,2,0,60,70,0.7,2,C,0,./colorizer_data/tests/assets/test_csv/frame_0.tiff
+    3,2,1,65,75,0.8,3,A,1,./colorizer_data/tests/assets/test_csv/frame_1.tiff"""
+
+# ///////////////////////// METHODS /////////////////////////
+
+
+@pytest.fixture
+def existing_dataset(tmp_path) -> pathlib.Path:
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+    # TODO: Should I just write the relevant data files out without going through the image
+    # processing step? Multiprocessing seems to make this very slow.
+    convert_colorizer_data(csv_data, tmp_path, output_format=DataFileType.JSON)
+    return tmp_path
+
+
 def feature_array_to_dict(
     feature_array: List[FeatureMetadata],
 ) -> Dict[str, FeatureMetadata]:
