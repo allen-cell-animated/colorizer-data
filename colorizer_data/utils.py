@@ -70,8 +70,9 @@ class NumpyValuesEncoder(json.JSONEncoder):
 # TODO: snake_case
 def configureLogging(output_dir: Union[str, pathlib.Path], log_name="debug.log"):
     # Set up logging so logs are written to a file in the output directory
-    os.makedirs(output_dir, exist_ok=True)
-    debug_file = output_dir + log_name
+    output_dir_path = pathlib.Path(output_dir)
+    os.makedirs(output_dir_path, exist_ok=True)
+    debug_file = output_dir_path / log_name
     open(debug_file, "w").close()  # clear debug file if it exists
     logging.basicConfig(
         level=logging.INFO,
