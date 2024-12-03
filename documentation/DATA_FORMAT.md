@@ -1,6 +1,6 @@
 # Timelapse Feature Explorer - Data Format
 
-Last release: v1.4.2
+Last release: v1.5.0
 
 Timelapse Feature Explorer can only load datasets that follow the defined data specification.
 
