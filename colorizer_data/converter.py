@@ -525,16 +525,15 @@ def convert_colorizer_data(
         output_format=output_format,
     )
 
-    parent_directory = pathlib.Path(output_dir).parent
+    parent_directory = pathlib.Path(output_dir).parent.absolute()
     dataset_name = pathlib.Path(output_dir).name
+    if source_dir is None:
+        source_dir = pathlib.Path.cwd()
+    original_cwd = pathlib.Path.cwd()
 
     configureLogging(output_dir=output_dir, log_name="debug.log")
 
     writer = ColorizerDatasetWriter(parent_directory, dataset_name)
-
-    if source_dir is None:
-        source_dir = pathlib.Path.cwd()
-    original_cwd = pathlib.Path.cwd()
 
     try:
         # Change source directory for evaluating relative paths
