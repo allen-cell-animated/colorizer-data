@@ -74,9 +74,8 @@ def _make_frame(
     frame_number = row[config.times_column]
     # Flatten the z-stack to a 2D image.
     segmentation_image = _get_image_from_row(row, config)
-    zstack = segmentation_image.get_image_data("YX", S=0, T=0, C=0)
-    seg2d = zstack
-    # seg2d = zstack.max(axis=0)
+    zstack = segmentation_image.get_image_data("ZYX", S=0, T=0, C=0)
+    seg2d = zstack.max(axis=0)
 
     # Scale the image and format as integers.
     seg2d = scale_image(seg2d, scale)
