@@ -5,7 +5,7 @@ from colorizer_data import convert_colorizer_data
 To test, run the following commands:
 ```
 cd documentation/getting_started_guide/raw_dataset
-python ../../../colorizer_data/tests/test_api.py
+python ../../../colorizer_data/tests/check_conversion_api.py
 ```
 
 """
