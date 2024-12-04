@@ -23,7 +23,6 @@ raw_sample_csv_data = [
     f"3,2,1,65,75,0.8,3,A,1,{str(asset_path)}/test_csv/frame_1.tiff",
 ]
 
-
 sample_csv_data = "\n".join(raw_sample_csv_data)
 
 sample_csv_data_relative_paths = "\n".join(

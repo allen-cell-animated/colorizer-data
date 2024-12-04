@@ -206,9 +206,9 @@ def _write_backdrop_from_column(
     # Override metadata if provided
     if config.backdrop_info is not None and backdrop_column in config.backdrop_info:
         override_metadata = config.backdrop_info.get(backdrop_column)
-        backdrop_metadata = merge_dictionaries(backdrop_metadata, override_metadata)
-        # Just to be safe, sanitize the key
-        backdrop_metadata["key"] = sanitize_key_name(backdrop_metadata["key"])
+        if override_metadata is not None:
+            backdrop_metadata = merge_dictionaries(backdrop_metadata, override_metadata)
+            backdrop_metadata["key"] = sanitize_key_name(backdrop_metadata["key"])
 
     # Iterate over all the backdrop paths and rewrite them to be relative to
     # the dataset directory, copying the file into the dataset dir if necessary.
@@ -237,7 +237,7 @@ def _write_backdrop_from_column(
             relative_path = dst_path.relative_to(writer.outpath)
             updated_frame_paths.append(relative_path.as_posix())
 
-    # Write the backdrop
+    # Write the list of backdrop paths to the dataset
     writer.add_backdrops(
         backdrop_metadata["name"], updated_frame_paths, backdrop_metadata["key"]
     )
@@ -328,6 +328,7 @@ def _write_features(
             feature_column in config.feature_info
         ):
             feature_info = config.feature_info.get(feature_column)
+            feature_info.key = sanitize_key_name(feature_info.key)
         writer.write_feature(
             feature_data,
             feature_info,
@@ -530,6 +531,8 @@ def convert_colorizer_data(
     if source_dir is None:
         source_dir = pathlib.Path.cwd()
     original_cwd = pathlib.Path.cwd()
+
+    configureLogging(output_dir=output_dir, log_name="debug.log")
 
     configureLogging(output_dir=output_dir, log_name="debug.log")
 
