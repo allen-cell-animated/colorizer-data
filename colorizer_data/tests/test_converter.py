@@ -2,6 +2,7 @@ from io import StringIO
 import json
 import os
 import pathlib
+import shutil
 
 import pandas as pd
 import pytest
@@ -11,13 +12,31 @@ from colorizer_data.types import DataFileType, FeatureMetadata
 from colorizer_data.utils import read_data_array_file
 from typing import Dict, List, Union
 
+asset_path = pathlib.Path(__file__).parent / "assets"
 
 sample_csv_headers = "ID,Track,Frame,Centroid X,Centroid Y,Continuous Feature,Discrete Feature,Categorical Feature,Outlier,File Path"
 sample_csv_headers_alternate = "object_id,track,frame,centroid_x,centroid_y,Continuous Feature,Discrete Feature,Categorical Feature,outlier,file_path"
-sample_csv_data = """0,1,0,50,50,0.5,0,A,0,./colorizer_data/tests/assets/test_csv/frame_0.tiff
-    1,1,1,55,60,0.6,1,B,0,./colorizer_data/tests/assets/test_csv/frame_1.tiff
-    2,2,0,60,70,0.7,2,C,0,./colorizer_data/tests/assets/test_csv/frame_0.tiff
-    3,2,1,65,75,0.8,3,A,1,./colorizer_data/tests/assets/test_csv/frame_1.tiff"""
+raw_sample_csv_data = [
+    f"0,1,0,50,50,0.5,0,A,0,{str(asset_path)}/test_csv/frame_0.tiff",
+    f"1,1,1,55,60,0.6,1,B,0,{str(asset_path)}/test_csv/frame_1.tiff",
+    f"2,2,0,60,70,0.7,2,C,0,{str(asset_path)}/test_csv/frame_0.tiff",
+    f"3,2,1,65,75,0.8,3,A,1,{str(asset_path)}/test_csv/frame_1.tiff",
+]
+
+sample_csv_data = "\n".join(raw_sample_csv_data)
+
+# ///////////////////////// METHODS /////////////////////////
+
+
+# Computes once per test session.
+@pytest.fixture(scope="session")
+def existing_dataset(tmp_path_factory) -> pathlib.Path:
+    tmp_path = tmp_path_factory.mktemp("dataset")
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+    convert_colorizer_data(csv_data, tmp_path, output_format=DataFileType.JSON)
+    return tmp_path
+
 
 # ///////////////////////// METHODS /////////////////////////
 
@@ -228,12 +247,6 @@ def test_uses_id_as_track_if_track_is_missing(tmp_path):
         validate_data(tmp_path / "tracks.json", [0, 1, 2, 3])
 
 
-"""
-TODO: Test additional edge cases
-- [ ] Handles backdrop images via column
-- [ ] Handles backdrop images via dictionary
-"""
-
 # ///////////////////////// FRAME GENERATION TESTS /////////////////////////
 
 
@@ -321,3 +334,345 @@ def test_regenerates_frames_if_missing_times_file(existing_dataset):
     # Frame 0 and 1 should both have newer write times
     assert os.path.getmtime(existing_dataset / "frame_0.png") > frame_0_time
     assert os.path.getmtime(existing_dataset / "frame_1.png") > frame_1_time
+
+
+# ///////////////////////// BACKDROP TESTS /////////////////////////
+
+
+class TestBackdropWriting:
+    backdrop_headers = sample_csv_headers + ",Backdrop Image 1,Backdrop Image 2"
+    raw_backdrop_csv_data = [
+        raw_sample_csv_data[0]
+        + f",{str(asset_path)}/backdrop-light/image_0.png,{str(asset_path)}/backdrop-dark/image_0.png",
+        raw_sample_csv_data[1]
+        + f",{str(asset_path)}/backdrop-light/image_1.png,{str(asset_path)}/backdrop-dark/image_1.png",
+        raw_sample_csv_data[2]
+        + f",{str(asset_path)}/backdrop-light/image_0.png,{str(asset_path)}/backdrop-dark/image_0.png",
+        raw_sample_csv_data[3]
+        + f",{str(asset_path)}/backdrop-light/image_1.png,{str(asset_path)}/backdrop-dark/image_1.png",
+    ]
+    backdrop_csv_data = "\n".join(raw_backdrop_csv_data)
+
+    def test_writes_backdrop_images_using_column_names(self, tmp_path):
+        csv_data = pd.read_csv(
+            StringIO(self.backdrop_headers + "\n" + self.backdrop_csv_data)
+        )
+
+        convert_colorizer_data(
+            csv_data,
+            tmp_path,
+            backdrop_column_names=["Backdrop Image 1", "Backdrop Image 2"],
+            output_format=DataFileType.JSON,
+        )
+
+        assert os.path.exists(tmp_path / "backdrop_image_1" / "image_0.png")
+        assert os.path.exists(tmp_path / "backdrop_image_1" / "image_1.png")
+        assert os.path.exists(tmp_path / "backdrop_image_2" / "image_0.png")
+        assert os.path.exists(tmp_path / "backdrop_image_2" / "image_1.png")
+
+        # Load manifest, check that paths exist and are relative
+        manifest = {}
+        with open(tmp_path / "manifest.json", "r") as f:
+            manifest = json.load(f)
+        assert manifest["backdrops"] == [
+            {
+                "name": "Backdrop Image 1",
+                "key": "backdrop_image_1",
+                "frames": [
+                    "backdrop_image_1/image_0.png",
+                    "backdrop_image_1/image_1.png",
+                ],
+            },
+            {
+                "name": "Backdrop Image 2",
+                "key": "backdrop_image_2",
+                "frames": [
+                    "backdrop_image_2/image_0.png",
+                    "backdrop_image_2/image_1.png",
+                ],
+            },
+        ]
+        # Features should not have changed.
+        validate_default_dataset(tmp_path, DataFileType.JSON)
+
+    def test_does_not_rewrite_existing_backdrop_images(self, tmp_path):
+        # Copy backdrop images to dataset directory so they already exist.
+        # Because they're local, the images should not be copied or modified.
+        # The paths should still be modified to be relative to the manifest, though.
+        shutil.copytree(asset_path / "backdrop-light", tmp_path / "backdrop-light")
+        shutil.copytree(asset_path / "backdrop-dark", tmp_path / "backdrop-dark")
+        write_time = os.path.getmtime(tmp_path / "backdrop-light" / "image_0.png")
+
+        local_raw_backdrop_csv_data = [
+            raw_sample_csv_data[0]
+            + f",{tmp_path}/backdrop-light/image_0.png,{tmp_path}/backdrop-dark/image_0.png",
+            raw_sample_csv_data[1]
+            + f",{tmp_path}/backdrop-light/image_1.png,{tmp_path}/backdrop-dark/image_1.png",
+            raw_sample_csv_data[2]
+            + f",{tmp_path}/backdrop-light/image_0.png,{tmp_path}/backdrop-dark/image_0.png",
+            raw_sample_csv_data[3]
+            + f",{tmp_path}/backdrop-light/image_1.png,{tmp_path}/backdrop-dark/image_1.png",
+        ]
+        local_backdrop_csv_data = "\n".join(local_raw_backdrop_csv_data)
+
+        csv_data = pd.read_csv(
+            StringIO(self.backdrop_headers + "\n" + local_backdrop_csv_data)
+        )
+        convert_colorizer_data(
+            csv_data,
+            tmp_path,
+            backdrop_column_names=["Backdrop Image 1", "Backdrop Image 2"],
+            output_format=DataFileType.JSON,
+        )
+
+        # Should not rename or rewrite images
+        assert not os.path.exists(tmp_path / "backdrop_image_1" / "image_0.png")
+        assert not os.path.exists(tmp_path / "backdrop_image_1" / "image_1.png")
+        assert not os.path.exists(tmp_path / "backdrop_image_2" / "image_0.png")
+        assert not os.path.exists(tmp_path / "backdrop_image_2" / "image_1.png")
+
+        assert os.path.exists(tmp_path / "backdrop-light" / "image_0.png")
+        assert os.path.exists(tmp_path / "backdrop-light" / "image_1.png")
+        assert os.path.exists(tmp_path / "backdrop-dark" / "image_0.png")
+        assert os.path.exists(tmp_path / "backdrop-dark" / "image_1.png")
+
+        # Images should not be modified
+        assert (
+            os.path.getmtime(tmp_path / "backdrop-light" / "image_0.png") == write_time
+        )
+
+        # Load manifest, check that paths exist and are relative
+        manifest = {}
+        with open(tmp_path / "manifest.json", "r") as f:
+            manifest = json.load(f)
+        assert manifest["backdrops"] == [
+            {
+                "name": "Backdrop Image 1",
+                "key": "backdrop_image_1",
+                "frames": [
+                    "backdrop-light/image_0.png",
+                    "backdrop-light/image_1.png",
+                ],
+            },
+            {
+                "name": "Backdrop Image 2",
+                "key": "backdrop_image_2",
+                "frames": [
+                    "backdrop-dark/image_0.png",
+                    "backdrop-dark/image_1.png",
+                ],
+            },
+        ]
+
+    def test_override_some_backdrop_metadata(self, tmp_path):
+        csv_data = pd.read_csv(
+            StringIO(self.backdrop_headers + "\n" + self.backdrop_csv_data)
+        )
+        backdrop_info = {
+            "Backdrop Image 1": {
+                "name": "New Backdrop Name",
+                "key": "new_backdrop_key",
+            }
+        }
+        convert_colorizer_data(
+            csv_data,
+            tmp_path,
+            backdrop_column_names=["Backdrop Image 1", "Backdrop Image 2"],
+            backdrop_info=backdrop_info,
+            output_format=DataFileType.JSON,
+        )
+
+        assert os.path.exists(tmp_path / "new_backdrop_key" / "image_0.png")
+        assert os.path.exists(tmp_path / "new_backdrop_key" / "image_1.png")
+        assert os.path.exists(tmp_path / "backdrop_image_2" / "image_0.png")
+        assert os.path.exists(tmp_path / "backdrop_image_2" / "image_1.png")
+
+        # Load manifest, check that paths exist and are relative
+        manifest = {}
+        with open(tmp_path / "manifest.json", "r") as f:
+            manifest = json.load(f)
+        assert manifest["backdrops"] == [
+            {
+                "name": "New Backdrop Name",
+                "key": "new_backdrop_key",
+                "frames": [
+                    "new_backdrop_key/image_0.png",
+                    "new_backdrop_key/image_1.png",
+                ],
+            },
+            {
+                "name": "Backdrop Image 2",
+                "key": "backdrop_image_2",
+                "frames": [
+                    "backdrop_image_2/image_0.png",
+                    "backdrop_image_2/image_1.png",
+                ],
+            },
+        ]
+
+    def test_override_backdrop_paths(self, tmp_path):
+        csv_data = pd.read_csv(
+            StringIO(self.backdrop_headers + "\n" + self.backdrop_csv_data)
+        )
+        backdrop_info = {
+            "Backdrop Image 2": {
+                "frames": [
+                    f"{asset_path}/backdrop-light/image_0.png",
+                    f"{asset_path}/backdrop-light/image_1.png",
+                ]
+            }
+        }
+        convert_colorizer_data(
+            csv_data,
+            tmp_path,
+            backdrop_column_names=["Backdrop Image 1", "Backdrop Image 2"],
+            backdrop_info=backdrop_info,
+            output_format=DataFileType.JSON,
+        )
+
+        assert os.path.exists(tmp_path / "backdrop_image_1" / "image_0.png")
+        assert os.path.exists(tmp_path / "backdrop_image_1" / "image_1.png")
+        assert os.path.exists(tmp_path / "backdrop_image_2" / "image_0.png")
+        assert os.path.exists(tmp_path / "backdrop_image_2" / "image_1.png")
+
+        # Files should be the same because they both pulled from the same source
+        assert (
+            open(tmp_path / "backdrop_image_1" / "image_0.png", "rb").read()
+            == open(tmp_path / "backdrop_image_2" / "image_0.png", "rb").read()
+        )
+        assert (
+            open(tmp_path / "backdrop_image_1" / "image_1.png", "rb").read()
+            == open(tmp_path / "backdrop_image_2" / "image_1.png", "rb").read()
+        )
+
+    def test_writes_backdrops_that_are_not_in_column_names(self, tmp_path):
+        # Copy the backdrop images to the dataset directory
+        shutil.copytree(asset_path / "backdrop-light", tmp_path / "backdrop-light")
+
+        csv_data = pd.read_csv(StringIO(sample_csv_headers + "\n" + sample_csv_data))
+        backdrop_info_1 = {
+            "name": "Backdrop 1",
+            "key": "new_backdrop_1",
+            "frames": [
+                f"{asset_path}/backdrop-light/image_0.png",
+                f"{asset_path}/backdrop-light/image_1.png",
+            ],
+        }
+        backdrop_info_2 = {
+            "name": "Backdrop 2",
+            "key": "new_backdrop_2",
+            "frames": [
+                f"{asset_path}/backdrop-dark/image_0.png",
+                f"{asset_path}/backdrop-dark/image_1.png",
+            ],
+        }
+        backdrop_info = {
+            # Keys are arbitrary here
+            "A backdrop": backdrop_info_1,
+            "Some other backdrop": backdrop_info_2,
+        }
+        convert_colorizer_data(
+            csv_data,
+            tmp_path,
+            backdrop_info=backdrop_info,
+            output_format=DataFileType.JSON,
+        )
+
+        # File paths should be copied
+        assert os.path.exists(tmp_path / "new_backdrop_1" / "image_0.png")
+        assert os.path.exists(tmp_path / "new_backdrop_1" / "image_1.png")
+        assert os.path.exists(tmp_path / "new_backdrop_2" / "image_0.png")
+        assert os.path.exists(tmp_path / "new_backdrop_2" / "image_1.png")
+
+        manifest = {}
+        with open(tmp_path / "manifest.json", "r") as f:
+            manifest = json.load(f)
+        # Paths should be relative
+        assert manifest["backdrops"] == [
+            {
+                "name": "Backdrop 1",
+                "key": "new_backdrop_1",
+                "frames": [
+                    "new_backdrop_1/image_0.png",
+                    "new_backdrop_1/image_1.png",
+                ],
+            },
+            {
+                "name": "Backdrop 2",
+                "key": "new_backdrop_2",
+                "frames": [
+                    "new_backdrop_2/image_0.png",
+                    "new_backdrop_2/image_1.png",
+                ],
+            },
+        ]
+
+    def test_throws_error_if_backdrop_does_not_exist(self, tmp_path):
+        csv_data = pd.read_csv(StringIO(sample_csv_headers + "\n" + sample_csv_data))
+        backdrop_info = {
+            "backdrop": {
+                "name": "Backdrop 1",
+                "key": "new_backdrop_1",
+                "frames": [
+                    "path/does/not/exist/image_0.png",
+                    "path/does/not/exist/image_1.png",
+                ],
+            }
+        }
+        with pytest.raises(Exception):
+            convert_colorizer_data(
+                csv_data,
+                tmp_path,
+                backdrop_info=backdrop_info,
+            )
+
+    def test_sanitizes_backdrop_key_names(self, tmp_path):
+        csv_data = pd.read_csv(StringIO(sample_csv_headers + "\n" + sample_csv_data))
+        backdrop_info = {
+            "backdrop": {
+                "name": "Backdrop",
+                "key": "!!!BAD KEY NAME!!!",
+                "frames": [
+                    f"{asset_path}/backdrop-light/image_0.png",
+                    f"{asset_path}/backdrop-light/image_1.png",
+                ],
+            }
+        }
+        convert_colorizer_data(
+            csv_data,
+            tmp_path,
+            backdrop_info=backdrop_info,
+        )
+        manifest = {}
+        with open(tmp_path / "manifest.json", "r") as f:
+            manifest = json.load(f)
+        assert manifest["backdrops"] == [
+            {
+                "name": "Backdrop",
+                "key": "bad_key_name",
+                "frames": [
+                    "bad_key_name/image_0.png",
+                    "bad_key_name/image_1.png",
+                ],
+            },
+        ]
+
+    def test_handles_none_backdrop(self, tmp_path):
+        csv_data = pd.read_csv(StringIO(sample_csv_headers + "\n" + sample_csv_data))
+        convert_colorizer_data(
+            csv_data,
+            tmp_path,
+            backdrop_column_names=["Nonexistent Backdrop"],
+            output_format=DataFileType.JSON,
+        )
+        manifest = {}
+        with open(tmp_path / "manifest.json", "r") as f:
+            manifest = json.load(f)
+
+        assert manifest["backdrops"] == [
+            {
+                "name": "Nonexistent Backdrop",
+                "key": "nonexistent_backdrop",
+                "frames": [None, None],
+            }
+        ]
