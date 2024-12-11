@@ -1,16 +1,17 @@
+import pathlib
 import pandas as pd
 from colorizer_data import convert_colorizer_data
 
 """
-To test, run the following commands:
+To test, run the following commands from the root directory.
 ```
-cd documentation/getting_started_guide/raw_dataset
-python ../../../colorizer_data/bin/example_scripts/check_conversion_api.py
+python documentation/bin/example_scripts/check_conversion_api.py
 ```
 
 """
 
 if __name__ == "__main__":
+    source_dir = pathlib.Path("./documentation/getting_started_guide/raw_dataset")
     data = pd.read_csv("data.csv")
     convert_colorizer_data(
         data,
