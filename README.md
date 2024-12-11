@@ -51,7 +51,6 @@ source_dir = Path("some/source/directory")
 data: pd.DataFrame = pd.read_csv(StringIO(csv))
 output_dir = Path("some/directory/my-dataset")
 
-# Convert the dataset and write the files to the `data`
 convert_colorizer_data(
     data,
     output_dir,
@@ -67,7 +66,24 @@ convert_colorizer_data(
 )
 ```
 
-Advanced usage is described in the [Getting Started tutorial (`GETTING_STARTED.ipynb`)](./documentation/getting_started_guide/GETTING_STARTED.ipynb).
+A file structure like the following will be created in the specified output directory. Once uploaded to an HTTPS-accessible location, the Timelapse Feature Explorer can be pointed to the `manifest.json` file to load the dataset.
+
+```txt
+📂 some/directory/my-dataset/
+  - 📄 manifest.json
+  - 📄 outliers.parquet
+  - 📄 tracks.parquet
+  - 📄 times.parquet
+  - 📄 centroids.parquet
+  - 📄 bounds.parquet
+  - 📕 feature_0.parquet  // Continuous Feature
+  - 📗 feature_1.parquet  // Discrete Feature
+  - 📘 feature_2.parquet  // Categorical Feature
+  - 📷 frame_0.png
+  - 📷 frame_1.png
+```
+
+Instructions on loading local files and advanced conversion configuration is described in the [Getting Started tutorial (`GETTING_STARTED.ipynb`)](./documentation/getting_started_guide/GETTING_STARTED.ipynb).
 
 ## Developers
 
