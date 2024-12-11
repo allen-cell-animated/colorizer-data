@@ -2,9 +2,9 @@
 
 _**Python utilities to prepare data for the [Timelapse Feature Explorer](https://github.com/allen-cell-animated/timelapse-colorizer)**_
 
-[Timelapse Feature Explorer](https://github.com/allen-cell-animated/timelapse-colorizer) is a browser-based web app for viewing tracked segmented data.
+[Timelapse Feature Explorer](https://github.com/allen-cell-animated/timelapse-colorizer) is a browser-based web app for viewing tracked segmented data. This package provides utilities to convert time-series data to the Timelapse Feature Explorer's format.
 
-Utilities are included in this repository to convert time-series data to the Timelapse Feature Explorer's format. Follow our tutorial to get started: [`GETTING_STARTED.ipynb`](./documentation/getting_started_guide/GETTING_STARTED.ipynb)
+**To start converting your own data, [follow our Gettingtutorial (`GETTING_STARTED.ipynb`)](./documentation/getting_started_guide/GETTING_STARTED.ipynb) to get started!**
 
 You can read more about the data format specification here: [`DATA_FORMAT.md`](./documentation/DATA_FORMAT.md)
 
@@ -26,77 +26,47 @@ To install a different version, replace the end of the URL with a specific versi
 
 ## Example Usage
 
-See the [Getting Started tutorial](./documentation/getting_started_guide/GETTING_STARTED.ipynb) for a detailed walkthrough on how to get your datasets
+See the [Getting Started tutorial (`GETTING_STARTED.ipynb`)](./documentation/getting_started_guide/GETTING_STARTED.ipynb) for a detailed walkthrough on how to get your datasets
 into the correct format for the Timelapse Feature Explorer.
 
 ```python
 import pandas as pd
-from colorizer_data.writer import (
-    ColorizerDatasetWriter,
-    ColorizerMetadata,
-    FeatureInfo,
-    FeatureType,
-)
-from colorizer_data.utils import (
-    configureLogging,
-    generate_frame_paths,
-    remap_segmented_image,
-    make_bounding_box_array,
+from io import StringIO
+from colorizer_data import (
+    convert_colorizer_data,
 )
 
-# Open a dataset
-data: pd.DataFrame = pd.read_csv("dataset.csv")
-output_dir = "./data"
+from pathlib import Path
 
-configureLogging(output_dir)
-writer = ColorizerDatasetWriter(output_dir, data)
+# Open an example CSV dataset:
+csv = """ID,Track,Time,X,Y,Continuous Feature,Discrete Feature,Categorical Feature,Outlier,Segmentation Image Path
+0,1,0,50,50,0.5,0,A,0,frame_0.tiff
+1,1,1,55,60,0.6,1,B,0,frame_1.tiff
+2,2,0,60,70,0.7,2,C,0,frame_0.tiff
+3,2,1,65,75,0.8,3,A,1,frame_1.tiff
+"""
+source_dir = Path("some/source/directory")
+data: pd.DataFrame = pd.read_csv(StringIO(csv))
+output_dir = Path("some/directory/my-dataset")
 
-# Write data and features from the dataset
-writer.write_data(
-    tracks=data["tracks"],
-    times=data["times"],
-    outliers=data["outliers"],
-    centroids_x=data["centroids x"],
-    centroids_y=data["centroids y"]
+# Convert the dataset and write the files to the `data`
+convert_colorizer_data(
+    data,
+    output_dir,
+    source_dir=source_dir,
+    object_id_column="ID",
+    track_column="Track",
+    times_column="Time",
+    centroid_x_column="X",
+    centroid_y_column="Y",
+    image_column="Segmentation File Path",
 )
-writer.write_feature(
-    data["feature1"].to_numpy(),
-    FeatureInfo(label="My Feature", type=FeatureType.CONTINUOUS)
-)
-writer.write_feature(
-    data["feature2"].to_numpy(),
-    FeatureInfo(label="My Other Feature", type=FeatureType.CATEGORICAL, categories=["A", "B", "C"])
-)
 
-# Write frames and bounding boxes
-grouped_data = data.groupby("time")
-bounds_arr = make_bounding_box_array(grouped_data)
-for group_name, frame in grouped_data:
-    row = frame.iloc[0]
-    frame_number = row["time"]
-    # Get segmentations as a 2D array
-    seg2d: np.ndarray = row["2d-segmentation-image"]
-
-    # Remap the 2D array and write to the dataset as an image
-    seg_remapped, lut = remap_segmented_image(
-        seg2d,
-        frame,
-        "object-ids",
-    )
-    writer.write_image(seg_remapped, frame_number)
-    update_bounding_box_data(bounds_arr, seg_remapped)
-
-writer.write_data(bounds=bound_arr)
-writer.set_frame_paths(generate_frame_paths(len(grouped_data)))
-
-# Write manifest and finish
-metadata = ColorizerMetadata(
-    frame_width=400,
-    frame_height=300,
-    frame_units="µm"
-    frame_duration_sec=5,
-)
-writer.write_manifest(metadata=metadata)
+# The final dataset will be saved in the `data` directory!
+# Continuous Feature, Discrete Feature, and Categorical Feature are automatically detected
+# and parsed as features.
+# Relative file paths (like the `Segmentation Image Path` column) will be evaluated
+# relative to the `src_dir` directory.
 ```
 
 ## Developers
