@@ -16,6 +16,7 @@ if __name__ == "__main__":
     convert_colorizer_data(
         data,
         "converted_data",
+        source_dir=source_dir,
         object_id_column="object_id",
         track_column="track_id",
         times_column="time",

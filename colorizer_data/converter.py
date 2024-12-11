@@ -417,7 +417,8 @@ def convert_colorizer_data(
 
         source_dir (str | pathlib.Path | None): The directory containing the source data. Any
             relative paths in the `data` DataFrame will be resolved relative to this directory.
-            If `None`, the current working directory will be used.
+            Absolute paths will not be affected by this value. If `None`, the current working
+            directory (`.`) will be used.
         metadata (ColorizerMetadata | None): Metadata to include in the dataset's manifest, such
             as the dataset name, author, dataset description, frame resolution, and time units.
             See `ColorizerMetadata` for more information. Note that some information will be
