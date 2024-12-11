@@ -4,7 +4,7 @@ _**Python utilities to prepare data for the [Timelapse Feature Explorer](https:/
 
 [Timelapse Feature Explorer](https://github.com/allen-cell-animated/timelapse-colorizer) is a browser-based web app for viewing tracked segmented data. This package provides utilities to convert time-series data to the Timelapse Feature Explorer's format.
 
-**To start converting your own data, [follow our Gettingtutorial (`GETTING_STARTED.ipynb`)](./documentation/getting_started_guide/GETTING_STARTED.ipynb) to get started!**
+**To start converting your own data, [follow our tutorial (`GETTING_STARTED.ipynb`)](./documentation/getting_started_guide/GETTING_STARTED.ipynb) to get started!**
 
 You can read more about the data format specification here: [`DATA_FORMAT.md`](./documentation/DATA_FORMAT.md)
 
@@ -45,6 +45,8 @@ csv = """ID,Track,Time,X,Y,Continuous Feature,Discrete Feature,Categorical Featu
 2,2,0,60,70,0.7,2,C,0,frame_0.tiff
 3,2,1,65,75,0.8,3,A,1,frame_1.tiff
 """
+# Relative paths will be evaluated relative to the `source_dir` directory.
+# So `frame_0.tiff` becomes `some/source/directory/frame_0.tiff`.
 source_dir = Path("some/source/directory")
 data: pd.DataFrame = pd.read_csv(StringIO(csv))
 output_dir = Path("some/directory/my-dataset")
@@ -60,14 +62,12 @@ convert_colorizer_data(
     centroid_x_column="X",
     centroid_y_column="Y",
     image_column="Segmentation File Path",
+    # Columns that aren't specified are automatically parsed as features,
+    #  e.g. `Continuous Feature`, `Discrete Feature` and `Categorical Feature`.
 )
-
-# The final dataset will be saved in the `data` directory!
-# Continuous Feature, Discrete Feature, and Categorical Feature are automatically detected
-# and parsed as features.
-# Relative file paths (like the `Segmentation Image Path` column) will be evaluated
-# relative to the `src_dir` directory.
 ```
+
+Advanced usage is described in the [Getting Started tutorial (`GETTING_STARTED.ipynb`)](./documentation/getting_started_guide/GETTING_STARTED.ipynb).
 
 ## Developers
 
