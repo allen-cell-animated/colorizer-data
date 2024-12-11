@@ -16,14 +16,23 @@ asset_path = pathlib.Path(__file__).parent / "assets"
 
 sample_csv_headers = "ID,Track,Frame,Centroid X,Centroid Y,Continuous Feature,Discrete Feature,Categorical Feature,Outlier,File Path"
 sample_csv_headers_alternate = "object_id,track,frame,centroid_x,centroid_y,Continuous Feature,Discrete Feature,Categorical Feature,outlier,file_path"
+
 raw_sample_csv_data = [
     f"0,1,0,50,50,0.5,0,A,0,{str(asset_path)}/test_csv/frame_0.tiff",
     f"1,1,1,55,60,0.6,1,B,0,{str(asset_path)}/test_csv/frame_1.tiff",
     f"2,2,0,60,70,0.7,2,C,0,{str(asset_path)}/test_csv/frame_0.tiff",
     f"3,2,1,65,75,0.8,3,A,1,{str(asset_path)}/test_csv/frame_1.tiff",
 ]
-
 sample_csv_data = "\n".join(raw_sample_csv_data)
+
+sample_csv_data_relative_paths = "\n".join(
+    [
+        "0,1,0,50,50,0.5,0,A,0,test_csv/frame_0.tiff",
+        "1,1,1,55,60,0.6,1,B,0,test_csv/frame_1.tiff",
+        "2,2,0,60,70,0.7,2,C,0,test_csv/frame_0.tiff",
+        "3,2,1,65,75,0.8,3,A,1,test_csv/frame_1.tiff",
+    ]
+)
 
 # ///////////////////////// METHODS /////////////////////////
 
@@ -245,6 +254,32 @@ def test_uses_id_as_track_if_track_is_missing(tmp_path):
         assert manifest["tracks"] == "tracks.json"
         # Uses IDs as track IDs
         validate_data(tmp_path / "tracks.json", [0, 1, 2, 3])
+
+
+def test_uses_source_dir_to_evaluate_relative_paths(tmp_path):
+    # Use CSV with relative paths
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data_relative_paths}"
+    data = pd.read_csv(StringIO(csv_content))
+
+    original_cwd = os.getcwd()
+    os.chdir(tmp_path)
+
+    # Check that conversion fails if no source directory is provided
+    with pytest.raises(Exception):
+        convert_colorizer_data(
+            data,
+            tmp_path,
+        )
+
+    # Current working directory is tmp_path, but all the assets are in
+    # the asset_path directory.
+    convert_colorizer_data(
+        data,
+        tmp_path,
+        source_dir=asset_path,
+    )
+    validate_default_dataset(tmp_path, DataFileType.PARQUET)
+    os.chdir(original_cwd)
 
 
 # ///////////////////////// FRAME GENERATION TESTS /////////////////////////

@@ -388,6 +388,7 @@ def convert_colorizer_data(
     data: DataFrame,
     output_dir: Union[str, pathlib.Path],
     *,
+    source_dir: Optional[Union[str, pathlib.Path]] = None,
     metadata: Optional[ColorizerMetadata] = None,
     object_id_column: str = "ID",
     times_column: str = "Frame",
@@ -414,6 +415,9 @@ def convert_colorizer_data(
         output_dir (str | pathlib.Path): The directory to write the dataset to. All dataset files
             will be placed directly within this directory.
 
+        source_dir (str | pathlib.Path | None): The directory containing the source data. Any
+            relative paths in the `data` DataFrame will be resolved relative to this directory.
+            If `None`, the current working directory will be used.
         metadata (ColorizerMetadata | None): Metadata to include in the dataset's manifest, such
             as the dataset name, author, dataset description, frame resolution, and time units.
             See `ColorizerMetadata` for more information. Note that some information will be
@@ -438,7 +442,7 @@ def convert_colorizer_data(
             they will be copied into it. Defaults to `None`.
         backdrop_info (Dict[str, BackdropMetadata] | None): A dictionary mapping backdrop names to
             `BackdropMetadata` overrides. This includes the backdrop's name, key, and optionally
-            relative paths to the frames. Defaults to `None`.
+            relative paths from `source_dir` to the frame images. Defaults to `None`.
             - If the name matches a backdrop column name in `data`, any defined fields will
             override the default metadata for that column (e.g. `key` or `name`).
             - If the name does not match a backdrop column name, a new backdrop will be added
@@ -522,36 +526,51 @@ def convert_colorizer_data(
         output_format=output_format,
     )
 
-    parent_directory = pathlib.Path(output_dir).parent
+    parent_directory = pathlib.Path(output_dir).parent.absolute()
     dataset_name = pathlib.Path(output_dir).name
+    if source_dir is None:
+        source_dir = pathlib.Path.cwd()
+    original_cwd = pathlib.Path.cwd()
+
+    configureLogging(output_dir=output_dir, log_name="debug.log")
 
     configureLogging(output_dir=output_dir, log_name="debug.log")
 
     writer = ColorizerDatasetWriter(parent_directory, dataset_name)
 
-    if force_frame_generation or _should_regenerate_frames(writer, data, config):
-        # Group the data by time, then run frame generation in parallel.
-        reduced_dataset = data[
-            [config.times_column, config.image_column, config.object_id_column]
-        ]
-        reduced_dataset = reduced_dataset.reset_index(drop=True)
-        reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
-        grouped_frames = reduced_dataset.groupby(config.times_column)
-        # TODO: this should pass out the frame paths
-        _make_frames_parallel(grouped_frames, 1.0, writer, config)
-    else:
-        logging.info(
-            "Frames already exist and no changes were detected. Skipping frame generation."
-        )
+    try:
+        # Change source directory for evaluating relative paths
+        os.chdir(source_dir)
 
-    _write_data(data, writer, config)
-    _write_features(data, writer, config)
-    _write_backdrops(data, writer, config)
+        if force_frame_generation or _should_regenerate_frames(writer, data, config):
+            # Group the data by time, then run frame generation in parallel.
+            reduced_dataset = data[
+                [config.times_column, config.image_column, config.object_id_column]
+            ]
+            reduced_dataset = reduced_dataset.reset_index(drop=True)
+            reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
+            grouped_frames = reduced_dataset.groupby(config.times_column)
+            # TODO: this should pass out the frame paths
+            _make_frames_parallel(grouped_frames, 1.0, writer, config)
+        else:
+            logging.info(
+                "Frames already exist and no changes were detected. Skipping frame generation."
+            )
 
-    # TODO: get accurate count of frames
-    # TODO: throw error/warning if times are non-contiguous
-    max_frame = data[config.times_column].max()
-    writer.set_frame_paths(generate_frame_paths(max_frame + 1))
+        _write_data(data, writer, config)
+        _write_features(data, writer, config)
+        _write_backdrops(data, writer, config)
 
-    _validate_manifest(writer)
-    writer.write_manifest(metadata=metadata)
+        # TODO: get accurate count of frames
+        # TODO: throw error/warning if times are non-contiguous
+        max_frame = data[config.times_column].max()
+        writer.set_frame_paths(generate_frame_paths(max_frame + 1))
+
+        _validate_manifest(writer)
+        writer.write_manifest(metadata=metadata)
+        logging.info("Dataset conversion completed successfully.")
+    except Exception as e:
+        raise e
+    finally:
+        # Restore working directory
+        os.chdir(original_cwd)
