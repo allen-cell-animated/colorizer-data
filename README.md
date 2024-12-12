@@ -4,7 +4,7 @@ _**Python utilities to prepare data for the [Timelapse Feature Explorer](https:/
 
 [Timelapse Feature Explorer](https://github.com/allen-cell-animated/timelapse-colorizer) is a browser-based web app for viewing tracked segmented data. This package provides utilities to convert time-series data to the Timelapse Feature Explorer's format.
 
-**To start converting your own data, [follow our tutorial (`GETTING_STARTED.ipynb`)](./documentation/getting_started_guide/GETTING_STARTED.ipynb) to get started!**
+**To start converting your own data, [follow our tutorial (`GETTING_STARTED.ipynb`)](./documentation/getting_started_guide/GETTING_STARTED.ipynb)!**
 
 You can read more about the data format specification here: [`DATA_FORMAT.md`](./documentation/DATA_FORMAT.md)
 
