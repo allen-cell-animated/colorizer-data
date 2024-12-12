@@ -2,7 +2,7 @@
 
 _**Python utilities to prepare data for the [Timelapse Feature Explorer](https://github.com/allen-cell-animated/timelapse-colorizer)**_
 
-[Timelapse Feature Explorer](https://github.com/allen-cell-animated/timelapse-colorizer) is a browser-based web app for viewing tracked segmented data. This package provides utilities to convert time-series data to the Timelapse Feature Explorer's format.
+[Timelapse Feature Explorer](https://github.com/allen-cell-animated/timelapse-colorizer) is a browser-based web app for viewing tracked segmented data. This package provides utilities to convert time-series data to a format that can be read by the viewer.
 
 **To start converting your own data, [follow our tutorial (`GETTING_STARTED.ipynb`)](./documentation/getting_started_guide/GETTING_STARTED.ipynb)!**
 
@@ -32,9 +32,7 @@ into the correct format for the Timelapse Feature Explorer.
 ```python
 import pandas as pd
 from io import StringIO
-from colorizer_data import (
-    convert_colorizer_data,
-)
+from colorizer_data import convert_colorizer_data
 
 from pathlib import Path
 
