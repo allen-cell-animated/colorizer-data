@@ -6,11 +6,11 @@ import shutil
 
 import pandas as pd
 import pytest
+from typing import Dict, List, Union
 
 from colorizer_data import convert_colorizer_data
 from colorizer_data.types import DataFileType, FeatureMetadata
 from colorizer_data.utils import read_data_array_file
-from typing import Dict, List, Union
 
 asset_path = pathlib.Path(__file__).parent / "assets"
 

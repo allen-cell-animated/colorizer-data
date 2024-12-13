@@ -2,11 +2,11 @@
 
 Last release: v1.5.1
 
-Timelapse Feature Explorer can only load datasets that follow the defined data specification.
+**NOTE:** If you are looking to create a dataset, you can use the utilities provided in the package to write your data in the correct format. Follow our [getting started guide (`GETTING_STARTED.ipynb`)](./getting_started_guide/GETTING_STARTED.ipynb), and see the [readme (`README.md`)](../README.md) for more details on how to install this package.
 
-The easiest way to get started is to follow our [getting started guide](./getting_started_guide/GETTING_STARTED.ipynb)! See the [README](../README.md) for more details on how to install this package.
+Timelapse Feature Explorer can only load datasets that follow the defined data specification, described here.
 
-## Terms
+## 1. Terms
 
 Here are a few important terms:
 
@@ -14,7 +14,7 @@ Here are a few important terms:
 - **Collection**: An arbitrary grouping of datasets.
 - **Object ID**: Every segmentation object in every frame has an integer identifier that is unique across all time steps. This identifier will be used to map an object to relevant data. Object IDs must be sequential, starting from 0, across the whole dataset.
 
-## Dataset
+## 2. Dataset
 
 A dataset consists of a group of files that describe the segmentations, tracks, feature data, processed images, and additional metadata for a single time-series.
 
@@ -35,13 +35,13 @@ The most important file is the **manifest**, which is a JSON file that describes
             "name": <feature display name>,
             "data": <relative path to feature JSON>,
             // Optional fields:
-            "unit": <unit label>,                                 
-            "type": <"continuous" | "discrete" | "categorical">,  
+            "unit": <unit label>,
+            "type": <"continuous" | "discrete" | "categorical">,
             "categories": [<category 1>, <category 2>, ...,]      //< required if type "categorical"; max 12 categories
-            "min": <min value for feature>,                       
+            "min": <min value for feature>,
             "max": <max value for feature>,
             "description": <feature description>,
-        }     
+        }
         {
             "name": <feature display name>,
             ...
@@ -148,7 +148,7 @@ See the [included example dataset](./example_dataset) for another example of bac
 
 </details>
 
-### 1. Metadata
+### 2.1. Metadata
 
 Manifests can include some optional **metadata** about the dataset and its features.
 
@@ -216,11 +216,11 @@ The manifest file would look something like this:
 
 </details>
 
-### 2. Backdrops (optional)
+### 2.2. Backdrops (optional)
 
 Multiple sets of **backdrop images** can be included in the manifest, which will be shown behind the colored objects in the UI. Each backdrop image set is defined by a JSON object with a `name`, `key`, and `frames`.
 
-The `key` must be unique across all backdrop image sets, and must only contain lowercase alphanumeric characters and underscores. (See note in [Dataset](#note-on-keys) for more details.)
+The `key` must be unique across all backdrop image sets, and must only contain lowercase alphanumeric characters and underscores. (See [note in 1. Dataset](#note-on-keys) for more details.)
 
 `frames` is a list of **relative image paths** corresponding to each frame in the time series. Each set must have **one backdrop image for every frame in the time series**, and they must all be listed in order in the manifest file.
 
@@ -317,7 +317,7 @@ We would need to add the `backdrops` key to our `manifest.json` file as well:
 
 </details>
 
-### 3. Tracks
+### 2.3. Tracks
 
 Every segmented object in each time step has an **object ID**, an integer identifier that is unique across all time steps. To recognize the same object across multiple frames, these object IDs must be grouped together into a **track** with a single **track number/track ID**.
 
@@ -369,7 +369,7 @@ Note that the object IDs in a track are not guaranteed to be sequential!
 
 </details>
 
-### 4. Times
+### 2.4. Times
 
 The times JSON is similar to the tracks JSON. It also contains a `data` array that maps from object IDs to the frame number that they appear on.
 
@@ -386,7 +386,7 @@ The times JSON is similar to the tracks JSON. It also contains a `data` array th
 }
 ```
 
-### 5. Frames
+### 2.5. Frames
 
 _Example frame:_
 ![Segmented cell nuclei on a black background, in various shades of green, yellow, red.](./frame_example.png)
@@ -426,7 +426,7 @@ The resulting frame would look like this:
 
 </details>
 
-### 6. Features
+### 2.6. Features
 
 Datasets can contain any number of `features`, which are a numeric value assigned to each object ID in the dataset. Features are used by the Timelapse Feature Explorer to colorize objects, and each feature file corresponds to a single column of data. Examples of relevant features might include the volume, depth, number of neighbors, age, etc. of each object.
 
@@ -506,7 +506,7 @@ Our feature file should look something like this.
 
 </details>
 
-### 7. Centroids (optional)
+### 2.7. Centroids (optional)
 
 The centroids file defines the center of each object ID in the dataset. It follows the same format as the feature file, but each ID has two entries corresponding to the `x` and `y` coordinates of the object's centroid, making the `data` array twice as long.
 
@@ -527,7 +527,7 @@ Coordinates are defined in pixels in the frame, where the upper left corner of t
 }
 ```
 
-### 8. Bounds (optional)
+### 2.8. Bounds (optional)
 
 The bounds file defines the rectangular boundary occupied by each object ID. Like centroids and features, the file defines a `data` array, but has four entries for each object ID to represent the `x` and `y` coordinates of the upper left and lower right corners of the bounding box.
 
@@ -551,7 +551,7 @@ Again, coordinates are defined in pixels in the image frame, where the upper lef
 }
 ```
 
-### 9. Outliers (optional)
+### 2.9. Outliers (optional)
 
 The outliers file stores whether a given object ID should be marked as an outlier using an array of booleans (`true`/`false`). Indices that are `true` indicate outlier values, and are given a unique color in Timelapse Feature Explorer.
 
@@ -599,7 +599,7 @@ For example, if a dataset had the following tracks and outliers, the file might 
 
 </details>
 
-## Collections
+## 3. Collections
 
 Collections are defined by an optional JSON file and group one or more datasets together. Timelapse Feature Explorer can parse collection files and present its datasets for easier comparison and analysis from the UI.
 
@@ -622,7 +622,7 @@ By default, collection files should be named `collection.json`.
 
 _Note: The legacy collection format was a JSON array instead of a JSON object. Backwards-compatibility is preserved in the viewer, but the JSON array format is considered deprecated._
 
-### 1. Defining datasets in collections
+### 3.1. Defining datasets in collections
 
 Collections contain an array of dataset objects, each of which define the `name` (an **alias**) and the `path` of a dataset. This can either be a relative path from the location of the collection file, or a complete URL.
 
@@ -661,7 +661,7 @@ Here's a list of where Timelapse Feature Explorer will check for the manifest fi
 
 </details>
 
-### 2. Collection metadata
+### 3.2. Collection metadata
 
 A collection file can also include optional metadata fields, saved under the `metadata` key.
 
@@ -682,7 +682,7 @@ A collection file can also include optional metadata fields, saved under the `me
 }
 ```
 
-## FAQ
+## 4. FAQ
 
 ### My data needs to start at a timepoint other than zero
 

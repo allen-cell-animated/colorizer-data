@@ -1,6 +1,2 @@
-numpy
 pandas
-scikit-image
-bioio >= 1.0.2
-bioio-ome-tiff >= 1.0.0
 colorizer_data @ git+https://github.com/allen-cell-animated/colorizer-data.git@v1.5.1

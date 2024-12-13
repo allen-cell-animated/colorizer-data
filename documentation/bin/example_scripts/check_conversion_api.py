@@ -3,9 +3,9 @@ import pandas as pd
 from colorizer_data import convert_colorizer_data
 
 """
-To test, run the following commands:
+To test, run the following commands from the root directory.
 ```
-python colorizer_data/tests/test_api.py
+python documentation/bin/example_scripts/check_conversion_api.py
 ```
 
 """
@@ -13,9 +13,10 @@ python colorizer_data/tests/test_api.py
 if __name__ == "__main__":
     source_dir = pathlib.Path("./documentation/getting_started_guide/raw_dataset")
     data = pd.read_csv(source_dir / "data.csv")
+    output_dir = pathlib.Path("./documentation/getting_started_guide/processed_data")
     convert_colorizer_data(
         data,
-        "converted_data",
+        output_dir,
         source_dir=source_dir,
         object_id_column="object_id",
         track_column="track_id",

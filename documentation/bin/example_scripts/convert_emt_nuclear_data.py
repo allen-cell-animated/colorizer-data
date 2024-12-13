@@ -6,7 +6,7 @@ Note that this dataset does not have track IDs, so each unique object ID is trea
 
 To export the default datasets, you can run the following commands from the root directory:
 ```
-python colorizer_data/bin/example_scripts/convert_emt_nuclear_data.py --scale 1.0 --output_dir=/allen/aics/animated-cell/Dan/fileserver/colorizer/EMT_nuclear
+python documentation/bin/example_scripts/convert_emt_nuclear_data.py --scale 1.0 --output_dir=/allen/aics/animated-cell/Dan/fileserver/colorizer/EMT_nuclear
 ```
 """
 
