@@ -305,6 +305,7 @@ class ColorizerDatasetWriter:
         times: Union[np.ndarray, None] = None,
         centroids_x: Union[np.ndarray, None] = None,
         centroids_y: Union[np.ndarray, None] = None,
+        centroids_z: Union[np.ndarray, None] = None,
         outliers: Union[np.ndarray, None] = None,
         bounds: Union[np.ndarray, None] = None,
         *,
@@ -323,6 +324,7 @@ class ColorizerDatasetWriter:
                 is visible.
             centroids_x (`np.ndarray`): A 1D numpy array of float x-coordinates for object centroids.
             centroids_y (`np.ndarray`): A 1D numpy array of float y-coordinates for object centroids.
+            centroids_z (`np.ndarray`): A 1D numpy array of float z-coordinates for object centroids. If not provided, will be set to 0.
             outliers (`np.ndarray`): An optional 1D numpy array of boolean values, where `outliers[i]` is `True` if the `i`th object is an outlier.
             bounds (`np.ndarray`): An optional 1D numpy array of float values. For the `i`th object, the coordinates of the upper left corner are
                 `(x: bounds[4i], y: bounds[4i + 1])` and the lower right corner are `(x: bounds[4i + 2], y: bounds[4i + 3])`.
@@ -357,10 +359,14 @@ class ColorizerDatasetWriter:
         if centroids_x is not None or centroids_y is not None:
             if centroids_x is None or centroids_y is None:
                 raise Exception(
-                    "Both arguments centroids_x and centroids_y must be defined."
+                    "Both arguments centroids_x and centroids_y must both be defined if provided."
                 )
             logging.info("Writing centroids data...")
-            centroids_stacked = np.ravel(np.dstack([centroids_x, centroids_y]))
+            centroids_stacked = None
+            if centroids_z is None:
+                centroids_stacked = np.ravel(np.dstack([centroids_x, centroids_y]))
+            else:
+                centroids_stacked = np.ravel(np.dstack([centroids_x, centroids_y, centroids_z]))
             centroids_stacked = centroids_stacked * self.scale
             centroids_stacked = centroids_stacked.astype(int)
             centroids_filename = write_data_array(
@@ -461,6 +467,9 @@ class ColorizerDatasetWriter:
         Use `generate_frame_paths()` if your frame numbers are contiguous (no gaps or skips).
         """
         self.manifest["frames"] = paths
+
+    def set_3d_frame_src(self, src: Union[str, List[str]], seg_channel: int = 0) -> None:
+        pass
 
     def write_manifest(
         self,
