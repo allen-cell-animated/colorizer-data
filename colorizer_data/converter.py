@@ -572,7 +572,6 @@ def convert_colorizer_data(
         frames_3d_url=frames_3d_url,
         frames_3d_seg_channel=frames_3d_seg_channel,
         allow_copy_frames_3d=allow_copy_frames_3d,
-        seg_id_column=seg_id_column,
         
         # Additional config
         output_format=output_format,
