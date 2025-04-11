@@ -242,11 +242,12 @@ class DatasetManifest(TypedDict):
     tracks: str
     centroids: str
     times: str
+    seg_ids: str
     bounds: str
     metadata: ColorizerMetadata
     frames: List[str]
     backdrops: List[BackdropMetadata]
-    frames3d: Optional[Frames3dMetadata]
+    frames_3d: Optional[Frames3dMetadata]
 
 
 @dataclass

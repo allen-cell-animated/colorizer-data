@@ -160,6 +160,12 @@ def _write_data(
                 f"All objects are marked as outliers in column '{config.outlier_column}'. At least one object must not be an outlier."
             )
 
+    seg_ids = _get_data_or_none(dataset, config.seg_id_column)
+    if seg_ids is None:
+        logging.warning(f"No segmentation ID data found in the dataset for column name '{config.seg_id_column}'." +
+                        "\n  The segmentation ID for each object in image frames will be assumed to be (= row index + 1)." +
+                        "\n  This may cause issues if the dataset does not have globally-unique segmentation IDs in the image.")
+
     tracks_data = _get_data_or_none(dataset, config.track_column)
     if tracks_data is None:
         logging.warning(
@@ -176,6 +182,7 @@ def _write_data(
     writer.write_data(
         tracks=tracks_data,
         times=times_data,
+        seg_ids=seg_ids,
         centroids_x=_get_data_or_none(dataset, config.centroid_x_column),
         centroids_y=_get_data_or_none(dataset, config.centroid_y_column),
         outliers=outliers_data,
@@ -301,7 +308,9 @@ def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
     
     if config.image_column is not None:
         reserved_columns += config.image_column
-
+    if config.centroid_z_column is not None:
+        reserved_columns += config.centroid_z_column
+        
     return reserved_columns
 
 
@@ -458,7 +467,8 @@ def convert_colorizer_data(
             See `ColorizerMetadata` for more information. Note that some information will be
             written automatically, such as a timestamp and revision number.
         object_id_column (str): DEPRECATED. The name of the column containing object IDs. Defaults to "ID."
-        seg_id_column (str): The name of the column containing segmentation IDs. Defaults to "ID."
+        seg_id_column (str): The name of the column containing the segmentation ID of a given object 
+            in the frame or image data. Defaults to "ID."
         times_column (str): The name of the column containing time steps. Defaults to "Frame."
         track_column (str): The name of the column containing track IDs. Defaults to "Track."
         image_column (str): The name of the column containing filepaths to the segmentation images.

@@ -303,6 +303,7 @@ class ColorizerDatasetWriter:
         self,
         tracks: Union[np.ndarray, None] = None,
         times: Union[np.ndarray, None] = None,
+        seg_ids: Union[np.ndarray, None] = None,
         centroids_x: Union[np.ndarray, None] = None,
         centroids_y: Union[np.ndarray, None] = None,
         centroids_z: Union[np.ndarray, None] = None,
@@ -355,6 +356,13 @@ class ColorizerDatasetWriter:
                 times, self.outpath, "times", write_json=write_json
             )
             self.manifest["times"] = times_filename
+
+        if seg_ids is not None:
+            logging.info("Writing segmentation ID data...")
+            seg_ids_filename = write_data_array(
+                seg_ids, self.outpath, "seg_ids", write_json=write_json
+            )
+            self.manifest["seg_ids"] = seg_ids_filename
 
         if centroids_x is not None or centroids_y is not None:
             if centroids_x is None or centroids_y is None:
