@@ -119,6 +119,10 @@ class FrameDimensions(TypedDict):
     height: float
     """Height of a frame in physical units (not pixels)."""
 
+class Frames3dMetadata(TypedDict):
+    source: Union[str, List[str]]
+    segmentationChannel: int
+    totalFrames: int
 
 class BaseMetadataJson(TypedDict):
     """JSON dictionary format for `BaseMetadata`."""
@@ -242,6 +246,7 @@ class DatasetManifest(TypedDict):
     metadata: ColorizerMetadata
     frames: List[str]
     backdrops: List[BackdropMetadata]
+    frames3d: Optional[Frames3dMetadata]
 
 
 @dataclass

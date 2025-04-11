@@ -39,12 +39,12 @@ from colorizer_data.writer import ColorizerDatasetWriter
 
 @dataclass
 class ConverterConfig:
-    object_id_column: str
+    seg_id_column: str
     times_column: str
     track_column: str
-    image_column: str
     centroid_x_column: str
     centroid_y_column: str
+    centroid_z_column: Optional[str]
     outlier_column: str
     backdrop_column_names: Optional[List[str]] = None
     backdrop_info: Optional[Dict[str, BackdropMetadata]] = None
@@ -52,7 +52,13 @@ class ConverterConfig:
     feature_info: Optional[Dict[str, FeatureInfo]] = None
     output_format: DataFileType = DataFileType.PARQUET
 
+    image_column: Optional[str] = None
 
+    allow_copy_frames_3d: bool = False
+    frames_3d_path: Optional[Union[str, List[str]]] = None
+    frames_3d_url: Optional[Union[str, List[str]]] = None
+    frames_3d_seg_channel: Optional[int] = None
+    
 def _get_image_from_row(row: pd.DataFrame, config: ConverterConfig) -> BioImage:
     zstackpath = row[config.image_column]
     zstackpath = sanitize_path_by_platform(zstackpath)
@@ -85,7 +91,7 @@ def _make_frame(
     seg_remapped, lut = remap_segmented_image(
         seg2d,
         frame,
-        config.object_id_column,
+        config.seg_id_column,
     )
 
     writer.write_image(seg_remapped, frame_number)
@@ -159,7 +165,7 @@ def _write_data(
         logging.warning(
             f"No track data found in the dataset for column name '{config.track_column}'. Object IDs will be used as a fallback instead."
         )
-        tracks_data = _get_data_or_none(dataset, config.object_id_column)
+        tracks_data = _get_data_or_none(dataset, config.seg_id_column)
 
     times_data = _get_data_or_none(dataset, config.times_column)
     if times_data is None:
@@ -264,7 +270,7 @@ def _write_backdrops(
 
 def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
     reserved_columns = [
-        config.object_id_column,
+        config.seg_id_column,
         config.times_column,
         config.track_column,
         config.image_column,
@@ -281,10 +287,9 @@ def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
 
 def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
     reserved_columns = [
-        config.object_id_column,
+        config.seg_id_column,
         config.times_column,
         config.track_column,
-        config.image_column,
         config.centroid_x_column,
         config.centroid_y_column,
         config.outlier_column,
@@ -293,6 +298,10 @@ def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
         reserved_columns += config.backdrop_column_names
     elif config.backdrop_info is not None:
         reserved_columns += list(config.backdrop_info.keys())
+    
+    if config.image_column is not None:
+        reserved_columns += config.image_column
+
     return reserved_columns
 
 
@@ -350,8 +359,12 @@ def _should_regenerate_frames(
             if not os.path.exists(writer.outpath / frame):
                 logging.info(f"Frame {frame} is missing. Regenerating all frames.")
                 return True
-    # get object count and regenerate frames if it has changed
-    num_objects = data[config.object_id_column].nunique()
+    # Get object count and regenerate frames if it has changed
+    
+    # TODO: Need to check for changes to segmentation ID values or ordering here
+    # for this to really be a robust check. Could also check for changes to
+    # times.
+    num_objects = data[config.seg_id_column].nunique()
     if writer.manifest["times"] is not None:
         # parse existing times to get object count and compare to new data
         times_path = writer.outpath / writer.manifest["times"]
@@ -360,17 +373,17 @@ def _should_regenerate_frames(
             times_data = read_data_array_file(times_path)
             if times_data is None:
                 logging.info(
-                    "Existing times data file could not be parsed. Regenerating all frames."
+                    "Existing times data file could not be parsed. Regenerating all 2D frames."
                 )
                 return True
             elif len(times_data) != num_objects:
                 logging.info(
-                    f"Number of objects has changed (old: {len(times_data)}, new: {num_objects}). Regenerating all frames."
+                    f"Number of objects has changed (old: {len(times_data)}, new: {num_objects}). Regenerating all 2D frames."
                 )
                 return True
         except Exception as e:
             logging.info(
-                f"The existing times data file could not be read, which may indicate a corrupted dataset: {e}. Regenerating all frames."
+                f"The existing times data file could not be read, which may indicate a corrupted dataset: {e}. Regenerating all 2D frames."
             )
             return True
 
@@ -383,6 +396,18 @@ def _validate_manifest(writer: ColorizerDatasetWriter):
             "No features found in dataset. At least one feature is required."
         )
 
+def _handle_3d_frames(writer: ColorizerDatasetWriter, config: ConverterConfig) -> None:
+    # Check for 3D frame src (safe to assume Zarr?)
+    # If 3D frame src is provided, go to 3D source (using bioio?) and 
+    if config.frames_3d_path is not None:
+        raise NotImplementedError("Paths are not implemented yet.")
+    if config.frames_3d_url is not None:
+        # Attempt to read the image to get info (such as length)
+        img = BioImage(config.frames_3d_url)
+        dims = img.shape()
+        print(dims)
+        # Assumes TCXYZ ordering of dimensions
+        writer.set_3d_frame_src(config.frames_3d_url, dims[0], 0)
 
 def convert_colorizer_data(
     data: DataFrame,
@@ -390,12 +415,21 @@ def convert_colorizer_data(
     *,
     source_dir: Optional[Union[str, pathlib.Path]] = None,
     metadata: Optional[ColorizerMetadata] = None,
-    object_id_column: str = "ID",
+    object_id_column: str = None,
+    seg_id_column: str = "ID",
     times_column: str = "Frame",
     track_column: str = "Track",
-    image_column: str = "File Path",
+
+    image_column: str = None,
+
+    frames_3d_path: Optional[str] = None,
+    frames_3d_url: Optional[str] = None,
+    frames_3d_seg_channel: Optional[int] = None,
+    allow_copy_frames_3d: bool = False,
+
     centroid_x_column: str = "Centroid X",
     centroid_y_column: str = "Centroid Y",
+    centroid_z_column: Optional[str] = None,
     outlier_column: str = "Outlier",
     backdrop_column_names: Optional[List[str]] = None,
     backdrop_info: Optional[Dict[str, BackdropMetadata]] = None,
@@ -423,7 +457,8 @@ def convert_colorizer_data(
             as the dataset name, author, dataset description, frame resolution, and time units.
             See `ColorizerMetadata` for more information. Note that some information will be
             written automatically, such as a timestamp and revision number.
-        object_id_column (str): The name of the column containing object IDs. Defaults to "ID."
+        object_id_column (str): DEPRECATED. The name of the column containing object IDs. Defaults to "ID."
+        seg_id_column (str): The name of the column containing segmentation IDs. Defaults to "ID."
         times_column (str): The name of the column containing time steps. Defaults to "Frame."
         track_column (str): The name of the column containing track IDs. Defaults to "Track."
         image_column (str): The name of the column containing filepaths to the segmentation images.
@@ -435,6 +470,8 @@ def convert_colorizer_data(
         centroid_y_column (str): The name of the column containing y-coordinates of object
             centroids, in pixels relative to the frame image, where 0 is the top edge of the image.
             Defaults to "Centroid Y."
+        centroid_z_column (str): The name of the column containing z-coordinates of object
+            centroids, in pixels relative to the frame image.
         outlier_column (str): The name of the column containing outlier flags. 0/False indicates a
             normal object, while 1/True indicates an outlier. Outliers are excluded from min/max
             calculation for features. Defaults to "Outlier."
@@ -511,19 +548,33 @@ def convert_colorizer_data(
             )
         ```
     """
+    if (object_id_column is not None):
+        logging.warning("Argument `object_id_column` is being deprecated; please use `seg_id_column` to indicate the segmentation ID of objects in the image.")
+        seg_id_column = object_id_column
+
     # TODO: Trim spaces from column names and data
     config = ConverterConfig(
-        object_id_column=object_id_column,
+        seg_id_column=seg_id_column,
         times_column=times_column,
         track_column=track_column,
-        image_column=image_column,
         centroid_x_column=centroid_x_column,
         centroid_y_column=centroid_y_column,
+        centroid_z_column=centroid_z_column,
         outlier_column=outlier_column,
         backdrop_column_names=backdrop_column_names,
         backdrop_info=backdrop_info,
         feature_column_names=feature_column_names,
         feature_info=feature_info,
+
+        # Frame source
+        image_column=image_column,
+        frames_3d_path=frames_3d_path,
+        frames_3d_url=frames_3d_url,
+        frames_3d_seg_channel=frames_3d_seg_channel,
+        allow_copy_frames_3d=allow_copy_frames_3d,
+        seg_id_column=seg_id_column,
+        
+        # Additional config
         output_format=output_format,
     )
 
@@ -543,30 +594,42 @@ def convert_colorizer_data(
         # Change source directory for evaluating relative paths
         os.chdir(source_dir)
 
-        if force_frame_generation or _should_regenerate_frames(writer, data, config):
+
+        # Reorder rows by time, then by seg ID (local segmentation ID per frame)
+        # to match the segmentation IDs in the ZARR data.
+        data = data.sort_values([config.times_column, config.seg_id_column])
+
+        if image_column is None:
+            print("No image column provided, so 2D frame generation will be skipped.")
+        elif force_frame_generation or _should_regenerate_frames(writer, data, config):
             # Group the data by time, then run frame generation in parallel.
             reduced_dataset = data[
-                [config.times_column, config.image_column, config.object_id_column]
+                [config.times_column, config.image_column, config.seg_id_column]
             ]
             reduced_dataset = reduced_dataset.reset_index(drop=True)
             reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
             grouped_frames = reduced_dataset.groupby(config.times_column)
             # TODO: this should pass out the frame paths
             _make_frames_parallel(grouped_frames, 1.0, writer, config)
+
+            # TODO: get accurate count of frames
+            # TODO: throw error/warning if times are non-contiguous
+            max_frame = data[config.times_column].max()
+            writer.set_frame_paths(generate_frame_paths(max_frame + 1))
         else:
             logging.info(
-                "Frames already exist and no changes were detected. Skipping frame generation."
+                "2D Frames already exist and no changes were detected. Skipping frame generation."
             )
+
+        if frames_3d_path is not None or frames_3d_url is not None:
+            logging.info("3D frame source provided.")
+            _handle_3d_frames(writer, config)
 
         _write_data(data, writer, config)
         _write_features(data, writer, config)
         _write_backdrops(data, writer, config)
 
-        # TODO: get accurate count of frames
-        # TODO: throw error/warning if times are non-contiguous
-        max_frame = data[config.times_column].max()
-        writer.set_frame_paths(generate_frame_paths(max_frame + 1))
-
+        # TODO: Add validation step to check for either frames or frames3d property
         _validate_manifest(writer)
         writer.write_manifest(metadata=metadata)
         logging.info("Dataset conversion completed successfully.")
