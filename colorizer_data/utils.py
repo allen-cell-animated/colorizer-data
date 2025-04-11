@@ -314,7 +314,7 @@ def write_data_array(
         return filename
 
 
-def read_data_array_file(path: str | pathlib.Path) -> Optional[np.array]:
+def read_data_array_file(path: Union[str, pathlib.Path]) -> Optional[np.array]:
     """Reads a data array from a JSON or Parquet file, returning the data array or None if the file does not exist."""
     path = pathlib.Path(sanitize_path_by_platform(str(path)))
     if not path.exists():

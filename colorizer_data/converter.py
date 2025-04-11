@@ -192,7 +192,7 @@ def _write_data(
 
 def _get_raw_backdrop_paths(
     grouped_frames: DataFrameGroupBy, column_name: str
-) -> List[str | None]:
+) -> List[Union[str, None]]:
     # Get the backdrop paths for each frame.
     backdrop_paths = []
     for _group_name, frame in grouped_frames:
@@ -609,7 +609,7 @@ def convert_colorizer_data(
         data = data.sort_values([config.times_column, config.seg_id_column])
 
         if image_column is None:
-            print("No image column provided, so 2D frame generation will be skipped.")
+            logging.info("No image column provided, so 2D frame generation will be skipped.")
         elif force_frame_generation or _should_regenerate_frames(writer, data, config):
             # Group the data by time, then run frame generation in parallel.
             reduced_dataset = data[
