@@ -242,12 +242,15 @@ class DatasetManifest(TypedDict):
     tracks: str
     centroids: str
     times: str
-    seg_ids: str
+    # TODO: Change to a DataClassJsonMixin type so this can be stored as
+    # `seg_ids` and only exported as `segIds`. Python convention is to use
+    # snake_case, but JSON convention is camelCase.
+    segIds: str
     bounds: str
     metadata: ColorizerMetadata
     frames: List[str]
     backdrops: List[BackdropMetadata]
-    frames_3d: Optional[Frames3dMetadata]
+    frames3d: Optional[Frames3dMetadata]
 
 
 @dataclass
