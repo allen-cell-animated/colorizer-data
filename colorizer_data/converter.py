@@ -515,8 +515,10 @@ def convert_colorizer_data(
     times_column: str = "Frame",
     track_column: str = "Track",
 
-    image_column: str = None,
+    # 2D image source
+    image_column: Optional[str] = "File Path",
 
+    # 3D image source
     frames_3d_path: Optional[str] = None,
     frames_3d_url: Optional[str] = None,
     frames_3d_seg_channel: int = 0,
@@ -696,6 +698,8 @@ def convert_colorizer_data(
 
         if image_column is None:
             logging.info("No image column provided, so 2D frame generation will be skipped.")
+        elif image_column not in data.columns:
+            logging.warning(f"Image column '{image_column}' not found in the dataset. 2D frame generation will be skipped.")
         elif force_frame_generation or _should_regenerate_frames(writer, data, config):
             # Group the data by time, then run frame generation in parallel.
             reduced_dataset = data[

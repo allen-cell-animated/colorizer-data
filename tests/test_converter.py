@@ -43,7 +43,7 @@ def existing_dataset(tmp_path_factory) -> pathlib.Path:
     tmp_path = tmp_path_factory.mktemp("dataset")
     csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
     csv_data = pd.read_csv(StringIO(csv_content))
-    convert_colorizer_data(csv_data, tmp_path, output_format=DataFileType.JSON)
+    convert_colorizer_data(csv_data, tmp_path, output_format=DataFileType.JSON, image_column="File Path")
     return tmp_path
 
 
@@ -56,7 +56,7 @@ def existing_dataset(tmp_path) -> pathlib.Path:
     csv_data = pd.read_csv(StringIO(csv_content))
     # TODO: Should I just write the relevant data files out without going through the image
     # processing step? Multiprocessing seems to make this very slow.
-    convert_colorizer_data(csv_data, tmp_path, output_format=DataFileType.JSON)
+    convert_colorizer_data(csv_data, tmp_path, output_format=DataFileType.JSON, image_column="File Path")
     return tmp_path
 
 
@@ -155,7 +155,7 @@ def test_handles_simple_csv(tmp_path):
     csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
     csv_data = pd.read_csv(StringIO(csv_content))
     convert_colorizer_data(
-        csv_data, tmp_path / "dataset", output_format=DataFileType.JSON
+        csv_data, tmp_path / "dataset", output_format=DataFileType.JSON, image_column="File Path"
     )
     validate_default_dataset(tmp_path / "dataset")
 
@@ -184,7 +184,7 @@ def test_handles_default_csv_parquet(tmp_path):
     csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
     csv_data = pd.read_csv(StringIO(csv_content))
     convert_colorizer_data(
-        csv_data, tmp_path / "dataset", output_format=DataFileType.PARQUET
+        csv_data, tmp_path / "dataset", output_format=DataFileType.PARQUET, image_column="File Path"
     )
     validate_default_dataset(tmp_path / "dataset", DataFileType.PARQUET)
 
@@ -277,6 +277,7 @@ def test_uses_source_dir_to_evaluate_relative_paths(tmp_path):
         data,
         tmp_path,
         source_dir=asset_path,
+        image_column="File Path",
     )
     validate_default_dataset(tmp_path, DataFileType.PARQUET)
     os.chdir(original_cwd)
