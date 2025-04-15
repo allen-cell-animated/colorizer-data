@@ -399,7 +399,7 @@ def _get_frame_count_from_3d_source(source: Union[str, List[str], None]) -> int:
     # Attempt to read the image to get info (such as length)
     try:
         img = BioImage(source)
-        dims = img.shape()
+        dims = img.shape
         # Assumes TCXYZ ordering of dimensions
         return dims[0]
     except Exception as e:
