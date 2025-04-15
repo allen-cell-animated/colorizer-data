@@ -17,6 +17,15 @@ Note: time MUST be in UTC!
 Use `datetime.now(timezone.utc).strftime(DATETIME_FORMAT)`.
 """
 
+class CopyMode(str, Enum):
+    """Copy mode for files and frame data."""
+    FORCE = "force"
+    """Overwrite existing files."""
+    SKIP = "skip"
+    """Does not copy files, even if they do not exist."""
+    DEFAULT = "default"
+    """Copies files if they do not exist, otherwise skips."""
+
 
 class FeatureType(str, Enum):
     CONTINUOUS = "continuous"
@@ -121,7 +130,12 @@ class FrameDimensions(TypedDict):
 
 class Frames3dMetadata(TypedDict):
     source: Union[str, List[str]]
+    """One or more source files (ideally ZARRs) with the 3D data.
+    If multiple files are provided, 
+    """
     segmentationChannel: int
+    """The channel of segmentation data."""
+    
     totalFrames: int
 
 class BaseMetadataJson(TypedDict):
