@@ -281,36 +281,19 @@ def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
         config.seg_id_column,
         config.times_column,
         config.track_column,
-        config.image_column,
         config.centroid_x_column,
         config.centroid_y_column,
         config.outlier_column,
     ]
     if config.backdrop_column_names is not None:
-        reserved_columns += config.backdrop_column_names
-    if config.backdrop_info is not None:
-        reserved_columns += list(config.backdrop_info.keys())
-    return reserved_columns
-
-
-def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
-    reserved_columns = [
-        config.seg_id_column,
-        config.times_column,
-        config.track_column,
-        config.centroid_x_column,
-        config.centroid_y_column,
-        config.outlier_column,
-    ]
-    if config.backdrop_column_names is not None:
-        reserved_columns += config.backdrop_column_names
+        reserved_columns.extend(config.backdrop_column_names)
     elif config.backdrop_info is not None:
-        reserved_columns += list(config.backdrop_info.keys())
+        reserved_columns.extend(list(config.backdrop_info.keys()))
     
     if config.image_column is not None:
-        reserved_columns += config.image_column
+        reserved_columns.append(config.image_column)
     if config.centroid_z_column is not None:
-        reserved_columns += config.centroid_z_column
+        reserved_columns.append(config.centroid_z_column)
         
     return reserved_columns
 
@@ -324,6 +307,7 @@ def _write_features(
     feature_columns = config.feature_column_names
     if config.feature_column_names is None:
         reserved_columns = _get_reserved_column_names(config)
+        print("Reserved columns: ", reserved_columns)
         feature_columns = [
             col for col in dataset.columns if col not in reserved_columns
         ]
