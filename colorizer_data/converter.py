@@ -29,7 +29,6 @@ from colorizer_data.utils import (
     get_total_objects,
     merge_dictionaries,
     read_data_array_file,
-    remap_segmented_image,
     sanitize_key_name,
     sanitize_path_by_platform,
     scale_image,
@@ -88,15 +87,8 @@ def _make_frame(
     seg2d = scale_image(seg2d, scale)
     seg2d = seg2d.astype(np.uint32)
 
-    # Remap the frame image so the IDs are unique across the whole dataset.
-    seg_remapped, lut = remap_segmented_image(
-        seg2d,
-        frame,
-        config.seg_id_column,
-    )
-
-    writer.write_image(seg_remapped, frame_number)
-    update_bounding_box_data(bounds_arr, seg_remapped)
+    writer.write_image(seg2d, frame_number)
+    update_bounding_box_data(bounds_arr, seg2d)
 
     time_elapsed = time.time() - start_time
     logging.info(
@@ -674,11 +666,6 @@ def convert_colorizer_data(
     try:
         # Change source directory for evaluating relative paths
         os.chdir(source_dir)
-
-
-        # Reorder rows by time, then by seg ID (local segmentation ID per frame)
-        # to match the segmentation IDs in the ZARR data.
-        data = data.sort_values([config.times_column, config.seg_id_column])
 
         if image_column is None:
             logging.info("No image column provided, so 2D frame generation will be skipped.")
