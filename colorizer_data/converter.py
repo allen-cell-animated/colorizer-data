@@ -68,7 +68,6 @@ def _get_image_from_row(row: pd.DataFrame, config: ConverterConfig) -> BioImage:
 def _make_frame(
     frame: pd.DataFrame,
     scale: float,
-    bounds_arr: Sequence[int],
     writer: ColorizerDatasetWriter,
     config: ConverterConfig,
 ):
@@ -88,7 +87,6 @@ def _make_frame(
     seg2d = seg2d.astype(np.uint32)
 
     writer.write_image(seg2d, frame_number)
-    update_bounding_box_data(bounds_arr, seg2d)
 
     time_elapsed = time.time() - start_time
     logging.info(
@@ -125,10 +123,6 @@ def _make_frames_parallel(
                     for _group_name, frame in grouped_frames
                 ],
             )
-        writer.write_data(
-            bounds=np.array(bounds_arr, dtype=np.uint32),
-            write_json=config.output_format == DataFileType.JSON,
-        )
 
 
 def _get_data_or_none(
@@ -158,13 +152,14 @@ def _write_data(
         logging.warning(f"No segmentation ID data found in the dataset for column name '{config.seg_id_column}'." +
                         "\n  The segmentation ID for each object in image frames will be assumed to be (= row index + 1)." +
                         "\n  This may cause issues if the dataset does not have globally-unique segmentation IDs in the image.")
+        seg_ids = np.arange(1, len(dataset) + 1) + 1
 
     tracks_data = _get_data_or_none(dataset, config.track_column)
     if tracks_data is None:
         logging.warning(
-            f"No track data found in the dataset for column name '{config.track_column}'. Object IDs will be used as a fallback instead."
+            f"No track data found in the dataset for column name '{config.track_column}'. Segmentation IDs will be used as a fallback instead."
         )
-        tracks_data = _get_data_or_none(dataset, config.seg_id_column)
+        tracks_data = seg_ids
 
     times_data = _get_data_or_none(dataset, config.times_column)
     if times_data is None:
@@ -299,7 +294,6 @@ def _write_features(
     feature_columns = config.feature_column_names
     if config.feature_column_names is None:
         reserved_columns = _get_reserved_column_names(config)
-        print("Reserved columns: ", reserved_columns)
         feature_columns = [
             col for col in dataset.columns if col not in reserved_columns
         ]
@@ -346,10 +340,6 @@ def _should_regenerate_frames(
                 logging.info(f"Frame {frame} is missing. Regenerating all frames.")
                 return True
     # Get object count and regenerate frames if it has changed
-    
-    # TODO: Need to check for changes to segmentation ID values or ordering here
-    # for this to really be a robust check. Could also check for changes to
-    # times.
     num_objects = data[config.seg_id_column].nunique()
     if writer.manifest["times"] is not None:
         # parse existing times to get object count and compare to new data
@@ -382,8 +372,7 @@ def _validate_manifest(writer: ColorizerDatasetWriter):
             "No features found in dataset. At least one feature is required."
         )
 
-# TODO: Move to utils
-def _get_frame_count_from_3d_source(source: Union[str, List[str], None]) -> int:
+def _get_frame_count_from_3d_source(source: Union[str, List[str], None], fallback: int = 0) -> int:
     if source is None:
         raise ValueError("Could not compute number of frames in 3D frame source: 3D frame source is `None`.")
     if isinstance(source, list):
@@ -395,8 +384,8 @@ def _get_frame_count_from_3d_source(source: Union[str, List[str], None]) -> int:
         # Assumes TCXYZ ordering of dimensions
         return dims[0]
     except Exception as e:
-        logging.error(f"Failed to read 3D frame source: {e}")
-        return 0
+        logging.error(f"Failed to read 3D frame source: {e}. A fallback frame count of {fallback} was calculated using the times column, which may not be correct.")
+        return fallback
 
 
 def _copy_3d_frame_from_paths(writer: ColorizerDatasetWriter, config: ConverterConfig) -> List[str]:
@@ -461,19 +450,20 @@ def _copy_3d_frame_from_paths(writer: ColorizerDatasetWriter, config: ConverterC
     return dst_paths
 
 
-def _handle_3d_frames(writer: ColorizerDatasetWriter, config: ConverterConfig) -> None:
+def _handle_3d_frames(data: DataFrame, writer: ColorizerDatasetWriter, config: ConverterConfig) -> None:
     # Check for 3D frame src (safe to assume Zarr?)
-    # If 3D frame src is provided, go to 3D source (using bioio?) and 
+    # If 3D frame src is provided, go to 3D source (using bioio) and check the number of frames.
+    fallback_frame_count = data[config.times_column].max() + 1
     if (config.frames_3d_path is None and config.frames_3d_url is None):
         return
     elif (config.frames_3d_path is not None and config.frames_3d_url is not None):
         raise ValueError("Cannot provide both `frames_3d_path` and `frames_3d_url`.")
     elif config.frames_3d_path is not None:
-        frame_count = _get_frame_count_from_3d_source(config.frames_3d_path)
+        frame_count = _get_frame_count_from_3d_source(config.frames_3d_path, fallback_frame_count)
         relative_paths = _copy_3d_frame_from_paths(writer, config)
         writer.set_3d_frame_src(relative_paths, frame_count, config.frames_3d_seg_channel)
     else:
-        frame_count = _get_frame_count_from_3d_source(config.frames_3d_url)
+        frame_count = _get_frame_count_from_3d_source(config.frames_3d_url, fallback_frame_count)
         writer.set_3d_frame_src(config.frames_3d_url, frame_count, config.frames_3d_seg_channel)
     
     # For paths, copy the 3D frames into the dataset directory, as subdirectories of the
@@ -693,7 +683,7 @@ def convert_colorizer_data(
 
         if frames_3d_path is not None or frames_3d_url is not None:
             logging.info("3D frame source provided.")
-            _handle_3d_frames(writer, config)
+            _handle_3d_frames(data, writer, config)
 
         _write_data(data, writer, config)
         _write_features(data, writer, config)
