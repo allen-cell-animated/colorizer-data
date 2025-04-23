@@ -325,7 +325,7 @@ class ColorizerDatasetWriter:
                 is visible.
             centroids_x (`np.ndarray`): A 1D numpy array of float x-coordinates for object centroids.
             centroids_y (`np.ndarray`): A 1D numpy array of float y-coordinates for object centroids.
-            centroids_z (`np.ndarray`): A 1D numpy array of float z-coordinates for object centroids. If not provided, will be set to 0.
+            centroids_z (`np.ndarray`): An optional 1D numpy array of float z-coordinates for object centroids.
             outliers (`np.ndarray`): An optional 1D numpy array of boolean values, where `outliers[i]` is `True` if the `i`th object is an outlier.
             bounds (`np.ndarray`): An optional 1D numpy array of float values. For the `i`th object, the coordinates of the upper left corner are
                 `(x: bounds[4i], y: bounds[4i + 1])` and the lower right corner are `(x: bounds[4i + 2], y: bounds[4i + 3])`.
@@ -364,10 +364,14 @@ class ColorizerDatasetWriter:
             )
             self.manifest["segIds"] = seg_ids_filename
 
-        if centroids_x is not None or centroids_y is not None:
+        if (
+            centroids_x is not None
+            or centroids_y is not None
+            or centroids_z is not None
+        ):
             if centroids_x is None or centroids_y is None:
                 raise Exception(
-                    "Both arguments centroids_x and centroids_y must both be defined if provided."
+                    f"Both arguments centroids_x and centroids_y must be defined if any centroid coordinates are provided. Got centroids_x: {centroids_x} and centroids_y: {centroids_y}."
                 )
             logging.info("Writing centroids data...")
             centroids_stacked = None

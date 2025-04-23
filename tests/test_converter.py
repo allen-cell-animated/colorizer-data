@@ -20,8 +20,8 @@ sample_csv_headers_alternate = "object_id,track,frame,centroid_x,centroid_y,Cont
 
 raw_sample_csv_data = [
     f"0,1,0,50,50,0.5,0,A,0,{str(asset_path)}/test_csv/frame_0.tiff",
-    f"1,2,0,55,60,0.6,1,B,0,{str(asset_path)}/test_csv/frame_0.tiff",
-    f"2,1,1,60,70,0.7,2,C,0,{str(asset_path)}/test_csv/frame_1.tiff",
+    f"1,1,1,55,60,0.6,1,B,0,{str(asset_path)}/test_csv/frame_1.tiff",
+    f"2,2,0,60,70,0.7,2,C,0,{str(asset_path)}/test_csv/frame_0.tiff",
     f"3,2,1,65,75,0.8,3,A,1,{str(asset_path)}/test_csv/frame_1.tiff",
 ]
 sample_csv_data = "\n".join(raw_sample_csv_data)
@@ -29,8 +29,8 @@ sample_csv_data = "\n".join(raw_sample_csv_data)
 sample_csv_data_relative_paths = "\n".join(
     [
         "0,1,0,50,50,0.5,0,A,0,test_csv/frame_0.tiff",
-        "1,2,0,55,60,0.6,1,B,0,test_csv/frame_0.tiff",
-        "2,1,1,60,70,0.7,2,C,0,test_csv/frame_1.tiff",
+        "1,1,1,55,60,0.6,1,B,0,test_csv/frame_1.tiff",
+        "2,2,0,60,70,0.7,2,C,0,test_csv/frame_0.tiff",
         "3,2,1,65,75,0.8,3,A,1,test_csv/frame_1.tiff",
     ]
 )
@@ -136,7 +136,7 @@ def validate_default_dataset(
 
     assert manifest["tracks"] == f"tracks.{filetype.value}"
     assert os.path.exists(dataset_dir / f"tracks.{filetype.value}")
-    validate_data(dataset_dir / f"tracks.{filetype.value}", [1, 2, 1, 2])
+    validate_data(dataset_dir / f"tracks.{filetype.value}", [1, 1, 2, 2])
 
     assert manifest["centroids"] == f"centroids.{filetype.value}"
     assert os.path.exists(dataset_dir / f"centroids.{filetype.value}")
@@ -146,7 +146,7 @@ def validate_default_dataset(
 
     assert manifest["times"] == f"times.{filetype.value}"
     assert os.path.exists(dataset_dir / f"times.{filetype.value}")
-    validate_data(dataset_dir / f"times.{filetype.value}", [0, 0, 1, 1])
+    validate_data(dataset_dir / f"times.{filetype.value}", [0, 1, 0, 1])
 
     assert manifest["outliers"] == f"outliers.{filetype.value}"
     assert os.path.exists(dataset_dir / f"outliers.{filetype.value}")
@@ -447,9 +447,9 @@ class TestBackdropWriting:
         raw_sample_csv_data[0]
         + f",{str(asset_path)}/backdrop-light/image_0.png,{str(asset_path)}/backdrop-dark/image_0.png",
         raw_sample_csv_data[1]
-        + f",{str(asset_path)}/backdrop-light/image_0.png,{str(asset_path)}/backdrop-dark/image_0.png",
-        raw_sample_csv_data[2]
         + f",{str(asset_path)}/backdrop-light/image_1.png,{str(asset_path)}/backdrop-dark/image_1.png",
+        raw_sample_csv_data[2]
+        + f",{str(asset_path)}/backdrop-light/image_0.png,{str(asset_path)}/backdrop-dark/image_0.png",
         raw_sample_csv_data[3]
         + f",{str(asset_path)}/backdrop-light/image_1.png,{str(asset_path)}/backdrop-dark/image_1.png",
     ]
@@ -509,9 +509,9 @@ class TestBackdropWriting:
             raw_sample_csv_data[0]
             + f",{tmp_path}/backdrop-light/image_0.png,{tmp_path}/backdrop-dark/image_0.png",
             raw_sample_csv_data[1]
-            + f",{tmp_path}/backdrop-light/image_0.png,{tmp_path}/backdrop-dark/image_0.png",
+            + f",{tmp_path}/backdrop-light/image_0.png,{tmp_path}/backdrop-dark/image_1.png",
             raw_sample_csv_data[2]
-            + f",{tmp_path}/backdrop-light/image_1.png,{tmp_path}/backdrop-dark/image_1.png",
+            + f",{tmp_path}/backdrop-light/image_1.png,{tmp_path}/backdrop-dark/image_0.png",
             raw_sample_csv_data[3]
             + f",{tmp_path}/backdrop-light/image_1.png,{tmp_path}/backdrop-dark/image_1.png",
         ]
