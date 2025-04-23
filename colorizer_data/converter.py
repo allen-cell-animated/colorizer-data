@@ -58,7 +58,8 @@ class ConverterConfig:
     frames_3d_path: Optional[Union[str, List[str]]] = None
     frames_3d_url: Optional[Union[str, List[str]]] = None
     frames_3d_seg_channel: Optional[int] = None
-    
+
+
 def _get_image_from_row(row: pd.DataFrame, config: ConverterConfig) -> BioImage:
     zstackpath = row[config.image_column]
     zstackpath = sanitize_path_by_platform(zstackpath)
@@ -114,12 +115,11 @@ def _make_frames_parallel(
     logging.info("Making {} frames...".format(nframes))
 
     with multiprocessing.Manager() as manager:
-        bounds_arr = manager.Array("i", [0] * int(total_objects_in_dataset * 4))
         with multiprocessing.Pool() as pool:
             pool.starmap(
                 _make_frame,
                 [
-                    (frame, scale, bounds_arr, writer, config)
+                    (frame, scale, writer, config)
                     for _group_name, frame in grouped_frames
                 ],
             )
@@ -149,10 +149,12 @@ def _write_data(
 
     seg_ids = _get_data_or_none(dataset, config.seg_id_column)
     if seg_ids is None:
-        logging.warning(f"No segmentation ID data found in the dataset for column name '{config.seg_id_column}'." +
-                        "\n  The segmentation ID for each object in image frames will be assumed to be (= row index + 1)." +
-                        "\n  This may cause issues if the dataset does not have globally-unique segmentation IDs in the image.")
-        seg_ids = np.arange(1, len(dataset) + 1) + 1
+        logging.warning(
+            f"No segmentation ID data found in the dataset for column name '{config.seg_id_column}'."
+            + "\n  The segmentation ID for each object in image frames will be assumed to be (= row index + 1)."
+            + "\n  This may cause issues if the dataset does not have globally-unique segmentation IDs in the image."
+        )
+        seg_ids = np.arange(1, len(dataset) + 1)
 
     tracks_data = _get_data_or_none(dataset, config.track_column)
     if tracks_data is None:
@@ -276,12 +278,12 @@ def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
         reserved_columns.extend(config.backdrop_column_names)
     elif config.backdrop_info is not None:
         reserved_columns.extend(list(config.backdrop_info.keys()))
-    
+
     if config.image_column is not None:
         reserved_columns.append(config.image_column)
     if config.centroid_z_column is not None:
         reserved_columns.append(config.centroid_z_column)
-        
+
     return reserved_columns
 
 
@@ -372,9 +374,14 @@ def _validate_manifest(writer: ColorizerDatasetWriter):
             "No features found in dataset. At least one feature is required."
         )
 
-def _get_frame_count_from_3d_source(source: Union[str, List[str], None], fallback: int = 0) -> int:
+
+def _get_frame_count_from_3d_source(
+    source: Union[str, List[str], None], fallback: int = 0
+) -> int:
     if source is None:
-        raise ValueError("Could not compute number of frames in 3D frame source: 3D frame source is `None`.")
+        raise ValueError(
+            "Could not compute number of frames in 3D frame source: 3D frame source is `None`."
+        )
     if isinstance(source, list):
         source = source[0]
     # Attempt to read the image to get info (such as length)
@@ -384,11 +391,15 @@ def _get_frame_count_from_3d_source(source: Union[str, List[str], None], fallbac
         # Assumes TCXYZ ordering of dimensions
         return dims[0]
     except Exception as e:
-        logging.error(f"Failed to read 3D frame source: {e}. A fallback frame count of {fallback} was calculated using the times column, which may not be correct.")
+        logging.error(
+            f"Failed to read 3D frame source: {e}. A fallback frame count of {fallback} was calculated using the times column, which may not be correct."
+        )
         return fallback
 
 
-def _copy_3d_frame_from_paths(writer: ColorizerDatasetWriter, config: ConverterConfig) -> List[str]:
+def _copy_3d_frame_from_paths(
+    writer: ColorizerDatasetWriter, config: ConverterConfig
+) -> List[str]:
     """
     Optionally copies 3D frame data into the dataset directory, depending on the current config.
     Returns the list of copied paths as relative paths from the root of the dataset directory.
@@ -408,7 +419,7 @@ def _copy_3d_frame_from_paths(writer: ColorizerDatasetWriter, config: ConverterC
 
     # Optionally copy files
     if config.frames_3d_copy_mode == CopyMode.SKIP:
-        # CopyMode.SKIP 
+        # CopyMode.SKIP
         # Check that all paths are inside of the dataset directory
         # and change them to be relative to the dataset directory.
         # Warn if any paths are outside of the dataset directory, because
@@ -420,14 +431,17 @@ def _copy_3d_frame_from_paths(writer: ColorizerDatasetWriter, config: ConverterC
                 dst_paths.append(relative_path.as_posix())
             else:
                 logging.warning(
-                    f"3D frame source path '{src_path}' is outside of the dataset directory, but copy mode is set to 'skip'." +
-                    " The source path will be included in the dataset manifest as-is but may not be readable." +
-                    " Set to `frames_3d_copy_mode` to `CopyMode.DEFAULT` to automatically copy files into the dataset directory."
+                    f"3D frame source path '{src_path}' is outside of the dataset directory, but copy mode is set to 'skip'."
+                    + " The source path will be included in the dataset manifest as-is but may not be readable."
+                    + " Set to `frames_3d_copy_mode` to `CopyMode.DEFAULT` to automatically copy files into the dataset directory."
                 )
                 dst_paths.append(src_path.as_posix())
-    if config.frames_3d_copy_mode == CopyMode.DEFAULT or config.frames_3d_copy_mode == CopyMode.FORCE:
+    if (
+        config.frames_3d_copy_mode == CopyMode.DEFAULT
+        or config.frames_3d_copy_mode == CopyMode.FORCE
+    ):
         for src_path in src_paths:
-            if (writer.outpath in src_path.parents):
+            if writer.outpath in src_path.parents:
                 # Path exists and is already in the dataset directory.
                 relative_path = src_path.relative_to(writer.outpath)
                 dst_path = os.path.join(frames_3d_local_path, relative_path)
@@ -437,8 +451,13 @@ def _copy_3d_frame_from_paths(writer: ColorizerDatasetWriter, config: ConverterC
             src_path = sanitize_path_by_platform(src_path)
             dst_path = os.path.join(frames_3d_local_path, os.path.basename(src_path))
             if os.path.exists(src_path):
-                if os.path.exists(dst_path) and config.frames_3d_copy_mode == CopyMode.DEFAULT:
-                    logging.info(f"3D frame data for path '{dst_path}' already exists. Skipping copying...")
+                if (
+                    os.path.exists(dst_path)
+                    and config.frames_3d_copy_mode == CopyMode.DEFAULT
+                ):
+                    logging.info(
+                        f"3D frame data for path '{dst_path}' already exists. Skipping copying..."
+                    )
                 # Copy the file to the dataset directory
                 shutil.copy(src_path, dst_path)
             else:
@@ -450,25 +469,36 @@ def _copy_3d_frame_from_paths(writer: ColorizerDatasetWriter, config: ConverterC
     return dst_paths
 
 
-def _handle_3d_frames(data: DataFrame, writer: ColorizerDatasetWriter, config: ConverterConfig) -> None:
+def _handle_3d_frames(
+    data: DataFrame, writer: ColorizerDatasetWriter, config: ConverterConfig
+) -> None:
     # Check for 3D frame src (safe to assume Zarr?)
     # If 3D frame src is provided, go to 3D source (using bioio) and check the number of frames.
     fallback_frame_count = data[config.times_column].max() + 1
-    if (config.frames_3d_path is None and config.frames_3d_url is None):
+    if config.frames_3d_path is None and config.frames_3d_url is None:
         return
-    elif (config.frames_3d_path is not None and config.frames_3d_url is not None):
+    elif config.frames_3d_path is not None and config.frames_3d_url is not None:
         raise ValueError("Cannot provide both `frames_3d_path` and `frames_3d_url`.")
     elif config.frames_3d_path is not None:
-        frame_count = _get_frame_count_from_3d_source(config.frames_3d_path, fallback_frame_count)
+        frame_count = _get_frame_count_from_3d_source(
+            config.frames_3d_path, fallback_frame_count
+        )
         relative_paths = _copy_3d_frame_from_paths(writer, config)
-        writer.set_3d_frame_src(relative_paths, frame_count, config.frames_3d_seg_channel)
+        writer.set_3d_frame_src(
+            relative_paths, frame_count, config.frames_3d_seg_channel
+        )
     else:
-        frame_count = _get_frame_count_from_3d_source(config.frames_3d_url, fallback_frame_count)
-        writer.set_3d_frame_src(config.frames_3d_url, frame_count, config.frames_3d_seg_channel)
-    
+        frame_count = _get_frame_count_from_3d_source(
+            config.frames_3d_url, fallback_frame_count
+        )
+        writer.set_3d_frame_src(
+            config.frames_3d_url, frame_count, config.frames_3d_seg_channel
+        )
+
     # For paths, copy the 3D frames into the dataset directory, as subdirectories of the
     # `frames_3d` directory.
     # Maybe copy frames 3d should have modes? no copy, force copy, or copy if not exist...
+
 
 def convert_colorizer_data(
     data: DataFrame,
@@ -480,16 +510,13 @@ def convert_colorizer_data(
     seg_id_column: str = "ID",
     times_column: str = "Frame",
     track_column: str = "Track",
-
     # 2D image source
     image_column: Optional[str] = "File Path",
-
     # 3D image source
     frames_3d_path: Optional[str] = None,
     frames_3d_url: Optional[str] = None,
     frames_3d_seg_channel: int = 0,
     frames_3d_copy_mode: CopyMode = CopyMode.DEFAULT,
-
     centroid_x_column: str = "Centroid X",
     centroid_y_column: str = "Centroid Y",
     centroid_z_column: Optional[str] = None,
@@ -521,7 +548,7 @@ def convert_colorizer_data(
             See `ColorizerMetadata` for more information. Note that some information will be
             written automatically, such as a timestamp and revision number.
         object_id_column (str): DEPRECATED. The name of the column containing object IDs. Defaults to "ID."
-        seg_id_column (str): The name of the column containing the segmentation ID of a given object 
+        seg_id_column (str): The name of the column containing the segmentation ID of a given object
             in the frame or image data. Defaults to "ID."
         times_column (str): The name of the column containing time steps. Defaults to "Frame."
         track_column (str): The name of the column containing track IDs. Defaults to "Track."
@@ -612,8 +639,10 @@ def convert_colorizer_data(
             )
         ```
     """
-    if (object_id_column is not None):
-        logging.warning("Argument `object_id_column` is being deprecated; please use `seg_id_column` to indicate the segmentation ID of objects in the image.")
+    if object_id_column is not None:
+        logging.warning(
+            "Argument `object_id_column` is being deprecated; please use `seg_id_column` to indicate the segmentation ID of objects in the image."
+        )
         seg_id_column = object_id_column
 
     # TODO: Trim spaces from column names and data
@@ -629,14 +658,12 @@ def convert_colorizer_data(
         backdrop_info=backdrop_info,
         feature_column_names=feature_column_names,
         feature_info=feature_info,
-
         # Frame source
         image_column=image_column,
         frames_3d_path=frames_3d_path,
         frames_3d_url=frames_3d_url,
         frames_3d_seg_channel=frames_3d_seg_channel,
         frames_3d_copy_mode=frames_3d_copy_mode,
-        
         # Additional config
         output_format=output_format,
     )
@@ -658,14 +685,18 @@ def convert_colorizer_data(
         os.chdir(source_dir)
 
         if image_column is None:
-            logging.info("No image column provided, so 2D frame generation will be skipped.")
+            logging.info(
+                "No image column provided, so 2D frame generation will be skipped."
+            )
         elif image_column not in data.columns:
-            logging.warning(f"Image column '{image_column}' not found in the dataset. 2D frame generation will be skipped.")
+            logging.warning(
+                f"Image column '{image_column}' not found in the dataset. 2D frame generation will be skipped."
+            )
         elif force_frame_generation or _should_regenerate_frames(writer, data, config):
             # Group the data by time, then run frame generation in parallel.
-            reduced_dataset = data[
-                [config.times_column, config.image_column, config.seg_id_column]
-            ]
+            reduced_dataset = data.reindex(
+                columns=[config.times_column, config.image_column, config.seg_id_column]
+            )
             reduced_dataset = reduced_dataset.reset_index(drop=True)
             reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values
             grouped_frames = reduced_dataset.groupby(config.times_column)

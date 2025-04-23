@@ -362,7 +362,7 @@ class ColorizerDatasetWriter:
             seg_ids_filename = write_data_array(
                 seg_ids, self.outpath, "seg_ids", write_json=write_json
             )
-            self.manifest["seg_ids"] = seg_ids_filename
+            self.manifest["segIds"] = seg_ids_filename
 
         if centroids_x is not None or centroids_y is not None:
             if centroids_x is None or centroids_y is None:
@@ -374,7 +374,9 @@ class ColorizerDatasetWriter:
             if centroids_z is None:
                 centroids_stacked = np.ravel(np.dstack([centroids_x, centroids_y]))
             else:
-                centroids_stacked = np.ravel(np.dstack([centroids_x, centroids_y, centroids_z]))
+                centroids_stacked = np.ravel(
+                    np.dstack([centroids_x, centroids_y, centroids_z])
+                )
             centroids_stacked = centroids_stacked * self.scale
             centroids_stacked = centroids_stacked.astype(int)
             centroids_filename = write_data_array(
@@ -476,12 +478,14 @@ class ColorizerDatasetWriter:
         """
         self.manifest["frames"] = paths
 
-    def set_3d_frame_src(self, src: Union[str, List[str]], frames: int = 0, seg_channel: int = 0) -> None:
+    def set_3d_frame_src(
+        self, src: Union[str, List[str]], frames: int = 0, seg_channel: int = 0
+    ) -> None:
         self.manifest["frames_3d"] = {
-                "source": src,
-                "totalFrames": frames,
-                "segmentationChannel": seg_channel,
-            }
+            "source": src,
+            "totalFrames": frames,
+            "segmentationChannel": seg_channel,
+        }
 
     def write_manifest(
         self,
