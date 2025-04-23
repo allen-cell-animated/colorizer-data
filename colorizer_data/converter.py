@@ -18,7 +18,6 @@ import numpy as np
 from colorizer_data.types import (
     BackdropMetadata,
     ColorizerMetadata,
-    CopyMode,
     DataFileType,
     FeatureInfo,
 )
@@ -32,7 +31,6 @@ from colorizer_data.utils import (
     sanitize_key_name,
     sanitize_path_by_platform,
     scale_image,
-    update_bounding_box_data,
 )
 from colorizer_data.writer import ColorizerDatasetWriter
 
@@ -54,9 +52,7 @@ class ConverterConfig:
 
     image_column: Optional[str] = None
 
-    frames_3d_copy_mode: CopyMode = CopyMode.DEFAULT
-    frames_3d_path: Optional[Union[str, List[str]]] = None
-    frames_3d_url: Optional[Union[str, List[str]]] = None
+    frames_3d_src: Optional[Union[str, List[str]]] = None
     frames_3d_seg_channel: Optional[int] = None
 
 
@@ -389,7 +385,7 @@ def _get_frame_count_from_3d_source(
         img = BioImage(source)
         dims = img.shape
         # Assumes TCXYZ ordering of dimensions
-        return dims[0]
+        return int(dims[0])
     except Exception as e:
         logging.error(
             f"Failed to read 3D frame source: {e}. A fallback frame count of {fallback} was calculated using the times column, which may not be correct."
@@ -397,107 +393,18 @@ def _get_frame_count_from_3d_source(
         return fallback
 
 
-def _copy_3d_frame_from_paths(
-    writer: ColorizerDatasetWriter, config: ConverterConfig
-) -> List[str]:
-    """
-    Optionally copies 3D frame data into the dataset directory, depending on the current config.
-    Returns the list of copied paths as relative paths from the root of the dataset directory.
-    """
-    src_paths = config.frames_3d_path
-    if src_paths is None:
-        raise ValueError("Cannot copy 3D frames: no source path provided.")
-    if isinstance(src_paths, str):
-        src_paths = [src_paths]
-
-    dst_paths = []
-    """Destination paths relative to the root of the dataset directory."""
-
-    # Make frames 3d directory
-    frames_3d_local_path = os.join(writer.outpath, "frames_3d")
-    os.mkdir(frames_3d_local_path, exist_ok=True)
-
-    # Optionally copy files
-    if config.frames_3d_copy_mode == CopyMode.SKIP:
-        # CopyMode.SKIP
-        # Check that all paths are inside of the dataset directory
-        # and change them to be relative to the dataset directory.
-        # Warn if any paths are outside of the dataset directory, because
-        # they cannot be read.
-        for src_path in src_paths:
-            src_path = sanitize_path_by_platform(src_path)
-            if writer.outpath in src_path.parents:
-                relative_path = src_path.relative_to(writer.outpath)
-                dst_paths.append(relative_path.as_posix())
-            else:
-                logging.warning(
-                    f"3D frame source path '{src_path}' is outside of the dataset directory, but copy mode is set to 'skip'."
-                    + " The source path will be included in the dataset manifest as-is but may not be readable."
-                    + " Set to `frames_3d_copy_mode` to `CopyMode.DEFAULT` to automatically copy files into the dataset directory."
-                )
-                dst_paths.append(src_path.as_posix())
-    if (
-        config.frames_3d_copy_mode == CopyMode.DEFAULT
-        or config.frames_3d_copy_mode == CopyMode.FORCE
-    ):
-        for src_path in src_paths:
-            if writer.outpath in src_path.parents:
-                # Path exists and is already in the dataset directory.
-                relative_path = src_path.relative_to(writer.outpath)
-                dst_path = os.path.join(frames_3d_local_path, relative_path)
-                continue
-            # Path exists but is not in the dataset directory. Copy it if it does not exist.
-
-            src_path = sanitize_path_by_platform(src_path)
-            dst_path = os.path.join(frames_3d_local_path, os.path.basename(src_path))
-            if os.path.exists(src_path):
-                if (
-                    os.path.exists(dst_path)
-                    and config.frames_3d_copy_mode == CopyMode.DEFAULT
-                ):
-                    logging.info(
-                        f"3D frame data for path '{dst_path}' already exists. Skipping copying..."
-                    )
-                # Copy the file to the dataset directory
-                shutil.copy(src_path, dst_path)
-            else:
-                raise FileNotFoundError(
-                    f"3D frame source path '{src_path}' does not exist."
-                )
-            relative_path = pathlib.Path(dst_path).relative_to(writer.outpath)
-            dst_paths.append(relative_path.as_posix())
-    return dst_paths
-
-
 def _handle_3d_frames(
     data: DataFrame, writer: ColorizerDatasetWriter, config: ConverterConfig
 ) -> None:
-    # Check for 3D frame src (safe to assume Zarr?)
+    # Check for 3D frame src (TODO: safe to assume Zarr?)
     # If 3D frame src is provided, go to 3D source (using bioio) and check the number of frames.
-    fallback_frame_count = data[config.times_column].max() + 1
-    if config.frames_3d_path is None and config.frames_3d_url is None:
-        return
-    elif config.frames_3d_path is not None and config.frames_3d_url is not None:
-        raise ValueError("Cannot provide both `frames_3d_path` and `frames_3d_url`.")
-    elif config.frames_3d_path is not None:
-        frame_count = _get_frame_count_from_3d_source(
-            config.frames_3d_path, fallback_frame_count
-        )
-        relative_paths = _copy_3d_frame_from_paths(writer, config)
-        writer.set_3d_frame_src(
-            relative_paths, frame_count, config.frames_3d_seg_channel
-        )
-    else:
-        frame_count = _get_frame_count_from_3d_source(
-            config.frames_3d_url, fallback_frame_count
-        )
-        writer.set_3d_frame_src(
-            config.frames_3d_url, frame_count, config.frames_3d_seg_channel
-        )
-
-    # For paths, copy the 3D frames into the dataset directory, as subdirectories of the
-    # `frames_3d` directory.
-    # Maybe copy frames 3d should have modes? no copy, force copy, or copy if not exist...
+    fallback_frame_count = int(data[config.times_column].max()) + 1
+    frame_count = _get_frame_count_from_3d_source(
+        config.frames_3d_src, fallback_frame_count
+    )
+    writer.set_3d_frame_src(
+        config.frames_3d_src, frame_count, config.frames_3d_seg_channel
+    )
 
 
 def convert_colorizer_data(
@@ -513,10 +420,8 @@ def convert_colorizer_data(
     # 2D image source
     image_column: Optional[str] = "File Path",
     # 3D image source
-    frames_3d_path: Optional[str] = None,
-    frames_3d_url: Optional[str] = None,
+    frames_3d_src: Optional[str] = None,
     frames_3d_seg_channel: int = 0,
-    frames_3d_copy_mode: CopyMode = CopyMode.DEFAULT,
     centroid_x_column: str = "Centroid X",
     centroid_y_column: str = "Centroid Y",
     centroid_z_column: Optional[str] = None,
@@ -555,6 +460,11 @@ def convert_colorizer_data(
         image_column (str): The name of the column containing filepaths to the segmentation images.
             Defaults to "File Path." Images will be copied and remapped. If they are 3D, they will
             be flattened along the Z-axis using a max projection.
+        frames_3d_src (str | List[str] | None): The url or path to a 3D image source. This should be
+            an OME-Zarr file or list of OME-Zarr files. Defaults to `None`.
+        frames_3d_seg_channel (int): The channel to use for the 3D image source. If multiple
+            OME-Zarr files are provided, this value will index into a concatenated array of their
+            channels. Defaults to 0.
         centroid_x_column (str): The name of the column containing x-coordinates of object
             centroids, in pixels relative to the frame image, where 0 is the left edge of the
             image. Defaults to "Centroid X."
@@ -660,10 +570,8 @@ def convert_colorizer_data(
         feature_info=feature_info,
         # Frame source
         image_column=image_column,
-        frames_3d_path=frames_3d_path,
-        frames_3d_url=frames_3d_url,
+        frames_3d_src=frames_3d_src,
         frames_3d_seg_channel=frames_3d_seg_channel,
-        frames_3d_copy_mode=frames_3d_copy_mode,
         # Additional config
         output_format=output_format,
     )
@@ -712,7 +620,7 @@ def convert_colorizer_data(
                 "2D Frames already exist and no changes were detected. Skipping frame generation."
             )
 
-        if frames_3d_path is not None or frames_3d_url is not None:
+        if frames_3d_src is not None:
             logging.info("3D frame source provided.")
             _handle_3d_frames(data, writer, config)
 

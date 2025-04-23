@@ -481,7 +481,7 @@ class ColorizerDatasetWriter:
     def set_3d_frame_src(
         self, src: Union[str, List[str]], frames: int = 0, seg_channel: int = 0
     ) -> None:
-        self.manifest["frames_3d"] = {
+        self.manifest["frames3d"] = {
             "source": src,
             "totalFrames": frames,
             "segmentationChannel": seg_channel,

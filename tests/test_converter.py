@@ -414,6 +414,30 @@ def test_skips_frame_generation_if_no_image_column(existing_dataset):
     assert os.path.getmtime(existing_dataset / "frame_1.png") == frame_1_time
 
 
+# ///////////////////////// 3D FRAME TESTS /////////////////////////
+
+
+def test_writes_3d_data(tmp_path):
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+
+    convert_colorizer_data(
+        csv_data,
+        tmp_path,
+        frames_3d_src="https://example.com/3d.ome.zarr",
+        frames_3d_seg_channel=1,
+    )
+
+    with open(tmp_path / "manifest.json", "r") as f:
+        manifest = json.load(f)
+        assert manifest["frames3d"] == {
+            "source": "https://example.com/3d.ome.zarr",
+            "segmentationChannel": 1,
+            # Total frames derived from times array if data source does not exist
+            "totalFrames": 2,
+        }
+
+
 # ///////////////////////// BACKDROP TESTS /////////////////////////
 
 
