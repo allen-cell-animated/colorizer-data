@@ -110,15 +110,11 @@ def _make_frames_parallel(
 
     logging.info("Making {} frames...".format(nframes))
 
-    with multiprocessing.Manager() as manager:
-        with multiprocessing.Pool() as pool:
-            pool.starmap(
-                _make_frame,
-                [
-                    (frame, scale, writer, config)
-                    for _group_name, frame in grouped_frames
-                ],
-            )
+    with multiprocessing.Pool() as pool:
+        pool.starmap(
+            _make_frame,
+            [(frame, scale, writer, config) for _group_name, frame in grouped_frames],
+        )
 
 
 def _get_data_or_none(

@@ -16,6 +16,7 @@ from colorizer_data.types import (
     FeatureInfo,
     FeatureMetadata,
     FeatureType,
+    Frames3dMetadata,
 )
 from colorizer_data.utils import (
     DEFAULT_FRAME_PREFIX,
@@ -485,11 +486,13 @@ class ColorizerDatasetWriter:
     def set_3d_frame_src(
         self, src: Union[str, List[str]], frames: int = 0, seg_channel: int = 0
     ) -> None:
-        self.manifest["frames3d"] = {
-            "source": src,
-            "totalFrames": frames,
-            "segmentationChannel": seg_channel,
-        }
+        self.manifest["frames3d"] = Frames3dMetadata(
+            source=src,
+            segmentation_channel=seg_channel,
+            total_frames=frames,
+        ).to_dict()
+        # TODO: when DatasetManifest is a dataclass, it can serialize Frames3dMetadata directly
+        # instead of needing to call to_dict() here.
 
     def write_manifest(
         self,

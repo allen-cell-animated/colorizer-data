@@ -120,27 +120,22 @@ class FrameDimensions(TypedDict):
     """Height of a frame in physical units (not pixels)."""
 
 
-class Frames3dMetadata(TypedDict):
+@dataclass
+class Frames3dMetadata(DataClassJsonMixin):
+    dataclass_json_config = config(letter_case=LetterCase.CAMEL, undefined=None)[
+        "dataclasses_json"
+    ]
+
     source: Union[str, List[str]]
     """One or more source files (ideally ZARRs) with the 3D data.
-    If multiple files are provided, 
+
+    If multiple files are provided in a list, their channels will be
+    concatenated and the segmentation channel argument will index into the
+    concatenated array.
     """
-    segmentationChannel: int
-    """The channel of segmentation data."""
-
-    totalFrames: int
-
-
-class BaseMetadataJson(TypedDict):
-    """JSON dictionary format for `BaseMetadata`."""
-
-    name: str
-    description: str
-    author: str
-    dateCreated: str
-    lastModified: str
-    revision: str
-    dataVersion: str
+    segmentation_channel: int
+    """The channel of segmentation data. 0-indexed."""
+    total_frames: int
 
 
 @dataclass
