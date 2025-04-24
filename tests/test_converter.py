@@ -509,9 +509,9 @@ class TestBackdropWriting:
             raw_sample_csv_data[0]
             + f",{tmp_path}/backdrop-light/image_0.png,{tmp_path}/backdrop-dark/image_0.png",
             raw_sample_csv_data[1]
-            + f",{tmp_path}/backdrop-light/image_0.png,{tmp_path}/backdrop-dark/image_1.png",
+            + f",{tmp_path}/backdrop-light/image_1.png,{tmp_path}/backdrop-dark/image_1.png",
             raw_sample_csv_data[2]
-            + f",{tmp_path}/backdrop-light/image_1.png,{tmp_path}/backdrop-dark/image_0.png",
+            + f",{tmp_path}/backdrop-light/image_0.png,{tmp_path}/backdrop-dark/image_0.png",
             raw_sample_csv_data[3]
             + f",{tmp_path}/backdrop-light/image_1.png,{tmp_path}/backdrop-dark/image_1.png",
         ]
