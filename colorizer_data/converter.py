@@ -20,9 +20,11 @@ from colorizer_data.types import (
     ColorizerMetadata,
     DataFileType,
     FeatureInfo,
+    Frames3dMetadata,
 )
 from colorizer_data.utils import (
     INITIAL_INDEX_COLUMN,
+    _get_frame_count_from_3d_source,
     configureLogging,
     generate_frame_paths,
     get_total_objects,
@@ -52,8 +54,7 @@ class ConverterConfig:
 
     image_column: Optional[str] = None
 
-    frames_3d_src: Optional[str] = None
-    frames_3d_seg_channel: Optional[int] = None
+    frames_3d: Optional[Frames3dMetadata] = None
 
 
 def _get_image_from_row(row: pd.DataFrame, config: ConverterConfig) -> BioImage:
@@ -366,34 +367,23 @@ def _validate_manifest(writer: ColorizerDatasetWriter):
         )
 
 
-def _get_frame_count_from_3d_source(source: Optional[str], fallback: int = 0) -> int:
-    if source is None:
-        raise ValueError(
-            "Could not compute number of frames in 3D frame source: 3D frame source is `None`."
-        )
-    # Attempt to read the image to get info (such as length)
-    try:
-        img = BioImage(source)
-        return int(img.dims.T)
-    except Exception as e:
-        logging.error(
-            f"Failed to read 3D frame source: {e}. A fallback frame count of {fallback} was calculated using the times column, which may not be correct."
-        )
-        return fallback
-
-
 def _handle_3d_frames(
     data: DataFrame, writer: ColorizerDatasetWriter, config: ConverterConfig
 ) -> None:
     # Check for 3D frame src (TODO: safe to assume Zarr?)
     # If 3D frame src is provided, go to 3D source (using bioio) and check the number of frames.
     fallback_frame_count = int(data[config.times_column].max()) + 1
-    frame_count = _get_frame_count_from_3d_source(
-        config.frames_3d_src, fallback_frame_count
-    )
-    writer.set_3d_frame_src(
-        config.frames_3d_src, frame_count, config.frames_3d_seg_channel
-    )
+    if config.frames_3d.total_frames is None:
+        try:
+            config.frames_3d.total_frames = _get_frame_count_from_3d_source(
+                config.frames_3d.source
+            )
+        except Exception as e:
+            logging.error(
+                f"Error getting frame count from 3D source: {e}. Using fallback frame count of {fallback_frame_count}."
+            )
+            config.frames_3d.total_frames = fallback_frame_count
+    writer.set_3d_frame_data(config.frames_3d)
 
 
 def convert_colorizer_data(
@@ -408,8 +398,7 @@ def convert_colorizer_data(
     # 2D image source
     image_column: Optional[str] = "File Path",
     # 3D image source
-    frames_3d_src: Optional[str] = None,
-    frames_3d_seg_channel: int = 0,
+    frames_3d: Optional[Frames3dMetadata] = None,
     centroid_x_column: str = "Centroid X",
     centroid_y_column: str = "Centroid Y",
     centroid_z_column: Optional[str] = None,
@@ -447,11 +436,8 @@ def convert_colorizer_data(
         image_column (str): The name of the column containing filepaths to the segmentation images.
             Defaults to "File Path." Images will be copied and remapped. If they are 3D, they will
             be flattened along the Z-axis using a max projection.
-        frames_3d_src (str | List[str] | None): The url or path to a 3D image source. This should be
-            an OME-Zarr file or list of OME-Zarr files. Defaults to `None`.
-        frames_3d_seg_channel (int): The channel to use for the 3D image source. If multiple
-            OME-Zarr files are provided, this value will index into a concatenated array of their
-            channels. Defaults to 0.
+        frames_3d (Frames3dMetadata | None): A `Frames3dMetadata` object containing the 3D image source
+            ("source") and channel ("segmentation_channel") to use for the 3D image source.
         centroid_x_column (str): The name of the column containing x-coordinates of object
             centroids, in pixels relative to the frame image, where 0 is the left edge of the
             image. Defaults to "Centroid X."
@@ -552,8 +538,7 @@ def convert_colorizer_data(
         feature_info=feature_info,
         # Frame source
         image_column=image_column,
-        frames_3d_src=frames_3d_src,
-        frames_3d_seg_channel=frames_3d_seg_channel,
+        frames_3d=frames_3d,
         # Additional config
         output_format=output_format,
     )
@@ -606,7 +591,7 @@ def convert_colorizer_data(
                 "2D Frames already exist and no changes were detected. Skipping frame generation."
             )
 
-        if frames_3d_src is not None:
+        if frames_3d is not None:
             logging.info("3D frame source provided.")
             _handle_3d_frames(data, writer, config)
 

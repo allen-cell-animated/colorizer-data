@@ -9,7 +9,7 @@ import pytest
 from typing import Dict, List, Union
 
 from colorizer_data import convert_colorizer_data
-from colorizer_data.types import DataFileType, FeatureMetadata
+from colorizer_data.types import DataFileType, FeatureMetadata, Frames3dMetadata
 from colorizer_data.utils import read_data_array_file
 
 asset_path = pathlib.Path(__file__).parent / "assets"
@@ -424,8 +424,9 @@ def test_writes_3d_data(tmp_path):
     convert_colorizer_data(
         csv_data,
         tmp_path,
-        frames_3d_src="https://example.com/3d.ome.zarr",
-        frames_3d_seg_channel=1,
+        frames_3d=Frames3dMetadata(
+            source="https://example.com/3d.ome.zarr", segmentation_channel=1
+        ),
     )
 
     with open(tmp_path / "manifest.json", "r") as f:

@@ -122,20 +122,21 @@ class FrameDimensions(TypedDict):
 
 @dataclass
 class Frames3dMetadata(DataClassJsonMixin):
-    dataclass_json_config = config(letter_case=LetterCase.CAMEL, undefined=None)[
-        "dataclasses_json"
-    ]
+    serialize_config = config(letter_case=LetterCase.CAMEL, undefined=None)
+    dataclass_json_config = serialize_config["dataclasses_json"]
 
-    source: Union[str, List[str]]
-    """One or more source files (ideally ZARRs) with the 3D data.
-
-    If multiple files are provided in a list, their channels will be
-    concatenated and the segmentation channel argument will index into the
-    concatenated array.
+    source: str
     """
-    segmentation_channel: int
-    """The channel of segmentation data. 0-indexed."""
-    total_frames: int
+    HTTPS or local path to 3D data, ideally in OME-Zarr format (e.g. ends with
+    `.ome.zarr`).
+    """
+    segmentation_channel: int = 0
+    """The channel of segmentation data. `0` by default."""
+    total_frames: Optional[int] = None
+    """
+    The total number of frames in the 3D data. If not provided, the number of
+    frames will be inferred from the source data.
+    """
 
 
 @dataclass

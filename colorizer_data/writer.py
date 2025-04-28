@@ -21,6 +21,7 @@ from colorizer_data.types import (
 from colorizer_data.utils import (
     DEFAULT_FRAME_PREFIX,
     DEFAULT_FRAME_SUFFIX,
+    _get_frame_count_from_3d_source,
     cast_feature_to_info_type,
     copy_remote_or_local_file,
     generate_frame_paths,
@@ -84,7 +85,8 @@ class ColorizerDatasetWriter:
                 logging.info(
                     "An existing manifest file was found in the output directory and will be updated."
                 )
-            except:
+            except Exception as e:
+                logging.error(e)
                 logging.warning(
                     "A manifest file exists in this output directory but could not be loaded, and will be overwritten instead!"
                 )
@@ -483,14 +485,13 @@ class ColorizerDatasetWriter:
         """
         self.manifest["frames"] = paths
 
-    def set_3d_frame_src(
-        self, src: Union[str, List[str]], frames: int = 0, seg_channel: int = 0
-    ) -> None:
-        self.manifest["frames3d"] = Frames3dMetadata(
-            source=src,
-            segmentation_channel=seg_channel,
-            total_frames=frames,
-        ).to_dict()
+    def set_3d_frame_data(self, data: Frames3dMetadata) -> None:
+        if data.total_frames is None:
+            logging.warning(
+                "ColorizerDatasetWriter: The `total_frames` property of the Frames3dMetadata object is `None`. Will attempt to infer the number of frames from the provided data."
+            )
+            data.total_frames = _get_frame_count_from_3d_source(data.source)
+        self.manifest["frames3d"] = data.to_dict()
         # TODO: when DatasetManifest is a dataclass, it can serialize Frames3dMetadata directly
         # instead of needing to call to_dict() here.
 
