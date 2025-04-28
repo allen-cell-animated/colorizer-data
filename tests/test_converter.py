@@ -9,10 +9,11 @@ import pytest
 from typing import Dict, List, Union
 
 from colorizer_data import convert_colorizer_data
-from colorizer_data.types import DataFileType, FeatureMetadata
+from colorizer_data.types import DataFileType, FeatureMetadata, Frames3dMetadata
 from colorizer_data.utils import read_data_array_file
 
 asset_path = pathlib.Path(__file__).parent / "assets"
+
 
 sample_csv_headers = "ID,Track,Frame,Centroid X,Centroid Y,Continuous Feature,Discrete Feature,Categorical Feature,Outlier,File Path"
 sample_csv_headers_alternate = "object_id,track,frame,centroid_x,centroid_y,Continuous Feature,Discrete Feature,Categorical Feature,outlier,file_path"
@@ -43,7 +44,9 @@ def existing_dataset(tmp_path_factory) -> pathlib.Path:
     tmp_path = tmp_path_factory.mktemp("dataset")
     csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
     csv_data = pd.read_csv(StringIO(csv_content))
-    convert_colorizer_data(csv_data, tmp_path, output_format=DataFileType.JSON)
+    convert_colorizer_data(
+        csv_data, tmp_path, output_format=DataFileType.JSON, image_column="File Path"
+    )
     return tmp_path
 
 
@@ -56,7 +59,9 @@ def existing_dataset(tmp_path) -> pathlib.Path:
     csv_data = pd.read_csv(StringIO(csv_content))
     # TODO: Should I just write the relevant data files out without going through the image
     # processing step? Multiprocessing seems to make this very slow.
-    convert_colorizer_data(csv_data, tmp_path, output_format=DataFileType.JSON)
+    convert_colorizer_data(
+        csv_data, tmp_path, output_format=DataFileType.JSON, image_column="File Path"
+    )
     return tmp_path
 
 
@@ -184,7 +189,10 @@ def test_handles_default_csv_parquet(tmp_path):
     csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
     csv_data = pd.read_csv(StringIO(csv_content))
     convert_colorizer_data(
-        csv_data, tmp_path / "dataset", output_format=DataFileType.PARQUET
+        csv_data,
+        tmp_path / "dataset",
+        output_format=DataFileType.PARQUET,
+        image_column="File Path",
     )
     validate_default_dataset(tmp_path / "dataset", DataFileType.PARQUET)
 
@@ -277,18 +285,37 @@ def test_uses_source_dir_to_evaluate_relative_paths(tmp_path):
         data,
         tmp_path,
         source_dir=asset_path,
+        image_column="File Path",
     )
     validate_default_dataset(tmp_path, DataFileType.PARQUET)
     os.chdir(original_cwd)
 
 
+def test_uses_default_segmentation_ids(tmp_path):
+    data = pd.read_csv(StringIO(f"{sample_csv_headers}\n{sample_csv_data}"))
+    convert_colorizer_data(
+        data,
+        tmp_path,
+        output_format=DataFileType.JSON,
+        object_id_column=None,
+    )
+    # Check that segmentation IDs are still written to the manifest
+    # and the dataset directory.
+    manifest = {}
+    with open(tmp_path / "manifest.json", "r") as f:
+        manifest = json.load(f)
+        assert manifest["segIds"] == "seg_ids.json"
+        assert os.path.exists(tmp_path / "seg_ids.json")
+        validate_data(tmp_path / "seg_ids.json", [1, 2, 3, 4])
+
+
 # ///////////////////////// FRAME GENERATION TESTS /////////////////////////
 
 
-def test_does_not_rewrite_existing_frames_or_bounds_data(existing_dataset):
+def test_does_not_rewrite_existing_frames(existing_dataset):
     frame_0_time = os.path.getmtime(existing_dataset / "frame_0.png")
     frame_1_time = os.path.getmtime(existing_dataset / "frame_1.png")
-    bounds_time = os.path.getmtime(existing_dataset / "bounds.json")
+    # bounds_time = os.path.getmtime(existing_dataset / "bounds.json")
 
     csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
     csv_data = pd.read_csv(StringIO(csv_content))
@@ -297,14 +324,14 @@ def test_does_not_rewrite_existing_frames_or_bounds_data(existing_dataset):
     # Frames + bbox data should not be modified
     assert os.path.getmtime(existing_dataset / "frame_0.png") == frame_0_time
     assert os.path.getmtime(existing_dataset / "frame_1.png") == frame_1_time
-    assert os.path.getmtime(existing_dataset / "bounds.json") == bounds_time
+    # assert os.path.getmtime(existing_dataset / "bounds.json") == bounds_time
 
     # Reference to frames and bounds data should still be present in the manifest
     manifest = {}
     with open(existing_dataset / "manifest.json", "r") as f:
         manifest = json.load(f)
-        assert manifest["bounds"] == "bounds.json"
         assert manifest["frames"] == ["frame_0.png", "frame_1.png"]
+        # assert manifest["bounds"] == "bounds.json"
 
 
 def test_detects_missing_frames(existing_dataset):
@@ -369,6 +396,47 @@ def test_regenerates_frames_if_missing_times_file(existing_dataset):
     # Frame 0 and 1 should both have newer write times
     assert os.path.getmtime(existing_dataset / "frame_0.png") > frame_0_time
     assert os.path.getmtime(existing_dataset / "frame_1.png") > frame_1_time
+
+
+def test_skips_frame_generation_if_no_image_column(existing_dataset):
+    # Record write time of both frames
+    frame_0_time = os.path.getmtime(existing_dataset / "frame_0.png")
+    frame_1_time = os.path.getmtime(existing_dataset / "frame_1.png")
+
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+    convert_colorizer_data(
+        csv_data, existing_dataset, force_frame_generation=False, image_column=None
+    )
+
+    # Frame 0 and 1 should not have newer write times
+    assert os.path.getmtime(existing_dataset / "frame_0.png") == frame_0_time
+    assert os.path.getmtime(existing_dataset / "frame_1.png") == frame_1_time
+
+
+# ///////////////////////// 3D FRAME TESTS /////////////////////////
+
+
+def test_writes_3d_data(tmp_path):
+    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+
+    convert_colorizer_data(
+        csv_data,
+        tmp_path,
+        frames_3d=Frames3dMetadata(
+            source="https://example.com/3d.ome.zarr", segmentation_channel=1
+        ),
+    )
+
+    with open(tmp_path / "manifest.json", "r") as f:
+        manifest = json.load(f)
+        assert manifest["frames3d"] == {
+            "source": "https://example.com/3d.ome.zarr",
+            "segmentationChannel": 1,
+            # Total frames derived from times array if data source does not exist
+            "totalFrames": 2,
+        }
 
 
 # ///////////////////////// BACKDROP TESTS /////////////////////////

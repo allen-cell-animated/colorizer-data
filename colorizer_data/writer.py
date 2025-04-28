@@ -16,16 +16,19 @@ from colorizer_data.types import (
     FeatureInfo,
     FeatureMetadata,
     FeatureType,
+    Frames3dMetadata,
 )
 from colorizer_data.utils import (
     DEFAULT_FRAME_PREFIX,
     DEFAULT_FRAME_SUFFIX,
+    _get_frame_count_from_3d_source,
     cast_feature_to_info_type,
     copy_remote_or_local_file,
     generate_frame_paths,
     get_duplicate_items,
     make_relative_image_paths,
     merge_dictionaries,
+    read_data_array_file,
     replace_out_of_bounds_values_with_nan,
     sanitize_key_name,
     MAX_CATEGORIES,
@@ -33,6 +36,8 @@ from colorizer_data.utils import (
     update_metadata,
     write_data_array,
 )
+
+MAX_SEG_ID_GAP = 10
 
 
 class ColorizerDatasetWriter:
@@ -83,7 +88,8 @@ class ColorizerDatasetWriter:
                 logging.info(
                     "An existing manifest file was found in the output directory and will be updated."
                 )
-            except:
+            except Exception as e:
+                logging.error(e)
                 logging.warning(
                     "A manifest file exists in this output directory but could not be loaded, and will be overwritten instead!"
                 )
@@ -303,8 +309,10 @@ class ColorizerDatasetWriter:
         self,
         tracks: Union[np.ndarray, None] = None,
         times: Union[np.ndarray, None] = None,
+        seg_ids: Union[np.ndarray, None] = None,
         centroids_x: Union[np.ndarray, None] = None,
         centroids_y: Union[np.ndarray, None] = None,
+        centroids_z: Union[np.ndarray, None] = None,
         outliers: Union[np.ndarray, None] = None,
         bounds: Union[np.ndarray, None] = None,
         *,
@@ -323,6 +331,7 @@ class ColorizerDatasetWriter:
                 is visible.
             centroids_x (`np.ndarray`): A 1D numpy array of float x-coordinates for object centroids.
             centroids_y (`np.ndarray`): A 1D numpy array of float y-coordinates for object centroids.
+            centroids_z (`np.ndarray`): An optional 1D numpy array of float z-coordinates for object centroids.
             outliers (`np.ndarray`): An optional 1D numpy array of boolean values, where `outliers[i]` is `True` if the `i`th object is an outlier.
             bounds (`np.ndarray`): An optional 1D numpy array of float values. For the `i`th object, the coordinates of the upper left corner are
                 `(x: bounds[4i], y: bounds[4i + 1])` and the lower right corner are `(x: bounds[4i + 2], y: bounds[4i + 3])`.
@@ -354,13 +363,30 @@ class ColorizerDatasetWriter:
             )
             self.manifest["times"] = times_filename
 
-        if centroids_x is not None or centroids_y is not None:
+        if seg_ids is not None:
+            logging.info("Writing segmentation ID data...")
+            seg_ids_filename = write_data_array(
+                seg_ids, self.outpath, "seg_ids", write_json=write_json
+            )
+            self.manifest["segIds"] = seg_ids_filename
+
+        if (
+            centroids_x is not None
+            or centroids_y is not None
+            or centroids_z is not None
+        ):
             if centroids_x is None or centroids_y is None:
                 raise Exception(
-                    "Both arguments centroids_x and centroids_y must be defined."
+                    f"Both arguments centroids_x and centroids_y must be defined if any centroid coordinates are provided. Got centroids_x: {centroids_x} and centroids_y: {centroids_y}."
                 )
             logging.info("Writing centroids data...")
-            centroids_stacked = np.ravel(np.dstack([centroids_x, centroids_y]))
+            centroids_stacked = None
+            if centroids_z is None:
+                centroids_stacked = np.ravel(np.dstack([centroids_x, centroids_y]))
+            else:
+                centroids_stacked = np.ravel(
+                    np.dstack([centroids_x, centroids_y, centroids_z])
+                )
             centroids_stacked = centroids_stacked * self.scale
             centroids_stacked = centroids_stacked.astype(int)
             centroids_filename = write_data_array(
@@ -461,6 +487,16 @@ class ColorizerDatasetWriter:
         Use `generate_frame_paths()` if your frame numbers are contiguous (no gaps or skips).
         """
         self.manifest["frames"] = paths
+
+    def set_3d_frame_data(self, data: Frames3dMetadata) -> None:
+        if data.total_frames is None:
+            logging.warning(
+                "ColorizerDatasetWriter: The `total_frames` property of the Frames3dMetadata object is `None`. Will attempt to infer the number of frames from the provided data."
+            )
+            data.total_frames = _get_frame_count_from_3d_source(data.source)
+        self.manifest["frames3d"] = data.to_dict()
+        # TODO: when DatasetManifest is a dataclass, it can serialize Frames3dMetadata directly
+        # instead of needing to call to_dict() here.
 
     def write_manifest(
         self,
@@ -582,6 +618,47 @@ class ColorizerDatasetWriter:
 
         # TODO: Add validation for other required data files
 
+        # Check that segmentation IDs do not have large gaps between them.
+        if "segIds" in self.manifest and "times" in self.manifest:
+            seg_ids = read_data_array_file(
+                os.path.join(self.outpath, self.manifest["segIds"])
+            )
+            times = read_data_array_file(
+                os.path.join(self.outpath, self.manifest["times"])
+            )
+            # Bin segmentation IDs by time, then check for gaps in the IDs.
+            if seg_ids is not None and times is not None:
+                timeToSegIds = {}
+                for i in range(len(times)):
+                    time = times[i]
+                    segId = seg_ids[i]
+                    if time not in timeToSegIds:
+                        timeToSegIds[time] = set()
+                    timeToSegIds[time].add(segId)
+
+            gaps: List[(int, int, int)] = []
+            for time, segIds in timeToSegIds.items():
+                segIds = list(segIds)
+                segIds.sort()
+                # Check for gaps in the IDs
+                for i in range(len(segIds) - 1):
+                    if segIds[i + 1] - segIds[i] > MAX_SEG_ID_GAP:
+                        gaps.append((time, segIds[i], segIds[i + 1]))
+            if len(gaps) > 0:
+                logging.warning(
+                    f"Segmentation IDs have {len(gaps)} gap(s) greater than {MAX_SEG_ID_GAP}. "
+                    "This may cause performance or out-of-memory issues in the viewer when loading this dataset. "
+                    "For best performance, segmentation IDs should be contiguous on each frame."
+                )
+                logging.warning(
+                    "The following gap(s) were detected (showing up to 10 max):"
+                )
+                for i in range(min(10, len(gaps))):
+                    time, segId1, segId2 = gaps[i]
+                    logging.warning(
+                        f"  Time {time}: Segmentation ID gap between {segId1} and {segId2}."
+                    )
+
         # Check that all features + backdrops have unique keys. This should be guaranteed because
         # they are stored as dictionaries before writing.
         feature_keys = [feature["key"] for feature in self.manifest["features"]]
@@ -590,12 +667,13 @@ class ColorizerDatasetWriter:
             backdrop_keys = [backdrop["key"] for backdrop in self.manifest["backdrops"]]
             self.__check_for_duplicate_keys(backdrop_keys, "backdrop")
 
-        if "frames" not in self.manifest:
+        # Check for missing frames
+        if "frames" not in self.manifest and "frames3d" not in self.manifest:
             logging.warning(
                 "No frames are provided! Did you forget to call `set_frame_paths` on the writer?"
             )
-        else:
-            # Check that all the frame paths exist
+        elif "frames" in self.manifest:
+            # Check that all the 2D frame paths exist
             missing_frames = []
             for i in range(len(self.manifest["frames"])):
                 path = self.manifest["frames"][i]

@@ -9,6 +9,7 @@ import re
 import shutil
 from typing import Dict, List, Optional, Sequence, TypeVar, Union, Tuple
 
+from bioio import BioImage
 import numpy as np
 import pandas as pd
 import pyarrow as pa
@@ -219,7 +220,12 @@ def update_collection(
         try:
             with open(collection_filepath, "r") as f:
                 collection = json.load(f)
-        except:
+        except Exception as e:
+            logging.warning(
+                "update_collection: Failed to read collection file '{}': {}".format(
+                    collection_filepath, str(e)
+                )
+            )
             collection = None
 
     if collection is None:
@@ -314,7 +320,7 @@ def write_data_array(
         return filename
 
 
-def read_data_array_file(path: str | pathlib.Path) -> Optional[np.array]:
+def read_data_array_file(path: Union[str, pathlib.Path]) -> Optional[np.array]:
     """Reads a data array from a JSON or Parquet file, returning the data array or None if the file does not exist."""
     path = pathlib.Path(sanitize_path_by_platform(str(path)))
     if not path.exists():
@@ -718,3 +724,9 @@ def get_duplicate_items(input: List[str]) -> List[str]:
     """
     # Copied from https://stackoverflow.com/questions/9835762/how-do-i-find-the-duplicates-in-a-list-and-create-another-list-with-them
     return [item for item, count in collections.Counter(input).items() if count > 1]
+
+
+def _get_frame_count_from_3d_source(source: str) -> int:
+    # Attempt to read the image to get info (such as length)
+    img = BioImage(source)
+    return int(img.dims.T)

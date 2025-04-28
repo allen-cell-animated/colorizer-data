@@ -120,16 +120,23 @@ class FrameDimensions(TypedDict):
     """Height of a frame in physical units (not pixels)."""
 
 
-class BaseMetadataJson(TypedDict):
-    """JSON dictionary format for `BaseMetadata`."""
+@dataclass
+class Frames3dMetadata(DataClassJsonMixin):
+    serialize_config = config(letter_case=LetterCase.CAMEL, undefined=None)
+    dataclass_json_config = serialize_config["dataclasses_json"]
 
-    name: str
-    description: str
-    author: str
-    dateCreated: str
-    lastModified: str
-    revision: str
-    dataVersion: str
+    source: str
+    """
+    HTTPS or local path to 3D data, ideally in OME-Zarr format (e.g. ends with
+    `.ome.zarr`).
+    """
+    segmentation_channel: int = 0
+    """The channel of segmentation data. `0` by default."""
+    total_frames: Optional[int] = None
+    """
+    The total number of frames in the 3D data. If not provided, the number of
+    frames will be inferred from the source data.
+    """
 
 
 @dataclass
@@ -238,10 +245,15 @@ class DatasetManifest(TypedDict):
     tracks: str
     centroids: str
     times: str
+    # TODO: Change to a DataClassJsonMixin type so this can be stored as
+    # `seg_ids` and only exported as `segIds`. Python convention is to use
+    # snake_case, but JSON convention is camelCase.
+    segIds: str
     bounds: str
     metadata: ColorizerMetadata
     frames: List[str]
     backdrops: List[BackdropMetadata]
+    frames3d: Optional[Frames3dMetadata]
 
 
 @dataclass
