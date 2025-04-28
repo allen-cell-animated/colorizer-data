@@ -28,6 +28,7 @@ from colorizer_data.utils import (
     get_duplicate_items,
     make_relative_image_paths,
     merge_dictionaries,
+    read_data_array_file,
     replace_out_of_bounds_values_with_nan,
     sanitize_key_name,
     MAX_CATEGORIES,
@@ -35,6 +36,8 @@ from colorizer_data.utils import (
     update_metadata,
     write_data_array,
 )
+
+MAX_SEG_ID_GAP = 10
 
 
 class ColorizerDatasetWriter:
@@ -615,6 +618,47 @@ class ColorizerDatasetWriter:
 
         # TODO: Add validation for other required data files
 
+        # Check that segmentation IDs do not have large gaps between them.
+        if self.manifest["segIds"] is not None and self.manifest["times"] is not None:
+            seg_ids = read_data_array_file(
+                os.path.join(self.outpath, self.manifest["segIds"])
+            )
+            times = read_data_array_file(
+                os.path.join(self.outpath, self.manifest["times"])
+            )
+            # Bin segmentation IDs by time, then check for gaps in the IDs.
+            if seg_ids is not None and times is not None:
+                timeToSegIds = {}
+                for i in range(len(times)):
+                    time = times[i]
+                    segId = seg_ids[i]
+                    if time not in timeToSegIds:
+                        timeToSegIds[time] = set()
+                    timeToSegIds[time].add(segId)
+
+            gaps: List[(int, int, int)] = []
+            for time, segIds in timeToSegIds.items():
+                segIds = list(segIds)
+                segIds.sort()
+                # Check for gaps in the IDs
+                for i in range(len(segIds) - 1):
+                    if segIds[i + 1] - segIds[i] > MAX_SEG_ID_GAP:
+                        gaps.append((time, segIds[i], segIds[i + 1]))
+            if len(gaps) > 0:
+                logging.warning(
+                    f"Segmentation IDs have {len(gaps)} gaps greater than {MAX_SEG_ID_GAP}. "
+                    "This may cause performance or out-of-memory issues in the viewer when loading this dataset. "
+                    "For best performance, segmentation IDs should be contiguous on each frame."
+                )
+                logging.warning(
+                    "The following gaps were detected (showing up to 10 max):"
+                )
+                for i in range(min(10, len(gaps))):
+                    time, segId1, segId2 = gaps[i]
+                    logging.warning(
+                        f"  Time {time}: Segmentation ID gap between {segId1} and {segId2}."
+                    )
+
         # Check that all features + backdrops have unique keys. This should be guaranteed because
         # they are stored as dictionaries before writing.
         feature_keys = [feature["key"] for feature in self.manifest["features"]]
@@ -623,12 +667,13 @@ class ColorizerDatasetWriter:
             backdrop_keys = [backdrop["key"] for backdrop in self.manifest["backdrops"]]
             self.__check_for_duplicate_keys(backdrop_keys, "backdrop")
 
-        if "frames" not in self.manifest:
+        # Check for missing frames
+        if "frames" not in self.manifest and "frames3d" not in self.manifest:
             logging.warning(
                 "No frames are provided! Did you forget to call `set_frame_paths` on the writer?"
             )
-        else:
-            # Check that all the frame paths exist
+        elif "frames" in self.manifest:
+            # Check that all the 2D frame paths exist
             missing_frames = []
             for i in range(len(self.manifest["frames"])):
                 path = self.manifest["frames"][i]
