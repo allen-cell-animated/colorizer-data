@@ -619,7 +619,7 @@ class ColorizerDatasetWriter:
         # TODO: Add validation for other required data files
 
         # Check that segmentation IDs do not have large gaps between them.
-        if self.manifest["segIds"] is not None and self.manifest["times"] is not None:
+        if "segIds" in self.manifest and "times" in self.manifest:
             seg_ids = read_data_array_file(
                 os.path.join(self.outpath, self.manifest["segIds"])
             )
@@ -646,12 +646,12 @@ class ColorizerDatasetWriter:
                         gaps.append((time, segIds[i], segIds[i + 1]))
             if len(gaps) > 0:
                 logging.warning(
-                    f"Segmentation IDs have {len(gaps)} gaps greater than {MAX_SEG_ID_GAP}. "
+                    f"Segmentation IDs have {len(gaps)} gap(s) greater than {MAX_SEG_ID_GAP}. "
                     "This may cause performance or out-of-memory issues in the viewer when loading this dataset. "
                     "For best performance, segmentation IDs should be contiguous on each frame."
                 )
                 logging.warning(
-                    "The following gaps were detected (showing up to 10 max):"
+                    "The following gap(s) were detected (showing up to 10 max):"
                 )
                 for i in range(min(10, len(gaps))):
                     time, segId1, segId2 = gaps[i]

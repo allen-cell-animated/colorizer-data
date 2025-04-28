@@ -130,7 +130,7 @@ def test_writer_updates_revision_and_time(existing_manifest):
         oldMetadata = EXISTING_MANIFEST_CONTENT["metadata"]
 
         # Updates expected fields
-        assert metadata["lastModified"] != None
+        assert metadata["lastModified"] is not None
         assert metadata["lastModified"] != oldMetadata["lastModified"]
         assert metadata["revision"] == oldMetadata["revision"] + 1
         assert metadata["writerVersion"] == CURRENT_VERSION
@@ -231,7 +231,7 @@ def test_writer_updates_fields_when_metadata_is_missing(blank_manifest):
         metadata: ColorizerMetadata = ColorizerMetadata.from_dict(manifest["metadata"])
 
         assert metadata.name == DEFAULT_DATASET_NAME
-        assert metadata.date_created != None
+        assert metadata.date_created is not None
         assert metadata.date_created == metadata.last_modified
         assert metadata._writer_version == CURRENT_VERSION
         assert metadata._revision == 0
