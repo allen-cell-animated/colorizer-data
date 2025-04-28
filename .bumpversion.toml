@@ -6,7 +6,10 @@ tag_name = "v{new_version}"
 current_version = "1.5.2"
 
 [[tool.bumpversion.files]]
-glob = "**/*.md"
+glob = "documentation/**/*.md"
+
+[[tool.bumpversion.files]]
+glob = "*.md"
 
 [[tool.bumpversion.files]]
 filename = "colorizer_data/types.py"
