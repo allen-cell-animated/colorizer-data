@@ -5,7 +5,7 @@ import os
 import pathlib
 import shutil
 import time
-from typing import Dict, List, Optional, Sequence, Union
+from typing import Dict, List, Optional, Union
 
 from bioio import BioImage
 from dataclasses import dataclass
@@ -37,7 +37,7 @@ from colorizer_data.writer import ColorizerDatasetWriter
 
 @dataclass
 class ConverterConfig:
-    seg_id_column: str
+    object_id_column: str
     times_column: str
     track_column: str
     centroid_x_column: str
@@ -52,7 +52,7 @@ class ConverterConfig:
 
     image_column: Optional[str] = None
 
-    frames_3d_src: Optional[Union[str, List[str]]] = None
+    frames_3d_src: Optional[str] = None
     frames_3d_seg_channel: Optional[int] = None
 
 
@@ -139,12 +139,12 @@ def _write_data(
                 f"All objects are marked as outliers in column '{config.outlier_column}'. At least one object must not be an outlier."
             )
 
-    seg_ids = _get_data_or_none(dataset, config.seg_id_column)
+    seg_ids = _get_data_or_none(dataset, config.object_id_column)
     if seg_ids is None:
         logging.warning(
-            f"No segmentation ID data found in the dataset for column name '{config.seg_id_column}'."
-            + "\n  The segmentation ID for each object in image frames will be assumed to be (= row index + 1)."
-            + "\n  This may cause issues if the dataset does not have globally-unique segmentation IDs in the image."
+            f"No object ID data found in the dataset for column name '{config.object_id_column}'."
+            + "\n  The pixel value for each object in image frames will be assumed to be (= row index + 1)."
+            + "\n  This may cause issues if the dataset does not have globally-unique object IDs in the image."
         )
         seg_ids = np.arange(1, len(dataset) + 1)
 
@@ -259,7 +259,7 @@ def _write_backdrops(
 
 def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
     reserved_columns = [
-        config.seg_id_column,
+        config.object_id_column,
         config.times_column,
         config.track_column,
         config.centroid_x_column,
@@ -323,7 +323,6 @@ def _write_features(
 def _should_regenerate_frames(
     writer: ColorizerDatasetWriter, data: DataFrame, config: ConverterConfig
 ) -> bool:
-
     if "frames" not in writer.manifest:
         logging.info("No frames found in dataset manifest. Regenerating all frames.")
         return True
@@ -334,7 +333,7 @@ def _should_regenerate_frames(
                 logging.info(f"Frame {frame} is missing. Regenerating all frames.")
                 return True
     # Get object count and regenerate frames if it has changed
-    num_objects = data[config.seg_id_column].nunique()
+    num_objects = data[config.object_id_column].nunique()
     if writer.manifest["times"] is not None:
         # parse existing times to get object count and compare to new data
         times_path = writer.outpath / writer.manifest["times"]
@@ -367,21 +366,15 @@ def _validate_manifest(writer: ColorizerDatasetWriter):
         )
 
 
-def _get_frame_count_from_3d_source(
-    source: Union[str, List[str], None], fallback: int = 0
-) -> int:
+def _get_frame_count_from_3d_source(source: Optional[str], fallback: int = 0) -> int:
     if source is None:
         raise ValueError(
             "Could not compute number of frames in 3D frame source: 3D frame source is `None`."
         )
-    if isinstance(source, list):
-        source = source[0]
     # Attempt to read the image to get info (such as length)
     try:
         img = BioImage(source)
-        dims = img.shape
-        # Assumes TCXYZ ordering of dimensions
-        return int(dims[0])
+        return int(img.dims.T)
     except Exception as e:
         logging.error(
             f"Failed to read 3D frame source: {e}. A fallback frame count of {fallback} was calculated using the times column, which may not be correct."
@@ -409,8 +402,7 @@ def convert_colorizer_data(
     *,
     source_dir: Optional[Union[str, pathlib.Path]] = None,
     metadata: Optional[ColorizerMetadata] = None,
-    object_id_column: str = None,
-    seg_id_column: str = "ID",
+    object_id_column: str = "ID",
     times_column: str = "Frame",
     track_column: str = "Track",
     # 2D image source
@@ -448,8 +440,7 @@ def convert_colorizer_data(
             as the dataset name, author, dataset description, frame resolution, and time units.
             See `ColorizerMetadata` for more information. Note that some information will be
             written automatically, such as a timestamp and revision number.
-        object_id_column (str): DEPRECATED. The name of the column containing object IDs. Defaults to "ID."
-        seg_id_column (str): The name of the column containing the segmentation ID of a given object
+        object_id_column (str): The name of the column containing the segmentation ID of a given object
             in the frame or image data. Defaults to "ID."
         times_column (str): The name of the column containing time steps. Defaults to "Frame."
         track_column (str): The name of the column containing track IDs. Defaults to "Track."
@@ -545,15 +536,10 @@ def convert_colorizer_data(
             )
         ```
     """
-    if object_id_column is not None:
-        logging.warning(
-            "Argument `object_id_column` is being deprecated; please use `seg_id_column` to indicate the segmentation ID of objects in the image."
-        )
-        seg_id_column = object_id_column
 
     # TODO: Trim spaces from column names and data
     config = ConverterConfig(
-        seg_id_column=seg_id_column,
+        object_id_column=object_id_column,
         times_column=times_column,
         track_column=track_column,
         centroid_x_column=centroid_x_column,
@@ -599,7 +585,11 @@ def convert_colorizer_data(
         elif force_frame_generation or _should_regenerate_frames(writer, data, config):
             # Group the data by time, then run frame generation in parallel.
             reduced_dataset = data.reindex(
-                columns=[config.times_column, config.image_column, config.seg_id_column]
+                columns=[
+                    config.times_column,
+                    config.image_column,
+                    config.object_id_column,
+                ]
             )
             reduced_dataset = reduced_dataset.reset_index(drop=True)
             reduced_dataset[INITIAL_INDEX_COLUMN] = reduced_dataset.index.values

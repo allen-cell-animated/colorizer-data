@@ -297,7 +297,7 @@ def test_uses_default_segmentation_ids(tmp_path):
         data,
         tmp_path,
         output_format=DataFileType.JSON,
-        seg_id_column=None,
+        object_id_column=None,
     )
     # Check that segmentation IDs are still written to the manifest
     # and the dataset directory.
