@@ -334,7 +334,7 @@ def _should_regenerate_frames(
                 logging.info(f"Frame {frame} is missing. Regenerating all frames.")
                 return True
     # Get object count and regenerate frames if it has changed
-    num_objects = data[config.object_id_column].nunique()
+    num_objects = len(data[config.times_column])
     if writer.manifest["times"] is not None:
         # parse existing times to get object count and compare to new data
         times_path = writer.outpath / writer.manifest["times"]
