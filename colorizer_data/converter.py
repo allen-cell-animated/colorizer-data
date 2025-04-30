@@ -407,7 +407,6 @@ def convert_colorizer_data(
     backdrop_info: Optional[Dict[str, BackdropMetadata]] = None,
     feature_column_names: Union[List[str], None] = None,
     feature_info: Optional[Dict[str, FeatureInfo]] = None,
-    skip_frame_generation=False,
     force_frame_generation=False,
     output_format=DataFileType.PARQUET,
 ):
@@ -434,9 +433,10 @@ def convert_colorizer_data(
             in the frame or image data. Defaults to "ID."
         times_column (str): The name of the column containing time steps. Defaults to "Frame."
         track_column (str): The name of the column containing track IDs. Defaults to "Track."
-        image_column (str): The name of the column containing filepaths to the segmentation images.
+        image_column (str | None): The name of the column containing filepaths to the segmentation images.
             Defaults to "File Path." Images will be copied and remapped. If they are 3D, they will
-            be flattened along the Z-axis using a max projection.
+            be flattened along the Z-axis using a max projection. If `None`, 2D frame generation
+            will be skipped.
         frames_3d (Frames3dMetadata | None): A `Frames3dMetadata` object containing the 3D image source
             ("source") and channel ("segmentation_channel") to use for the 3D image source.
         centroid_x_column (str): The name of the column containing x-coordinates of object
@@ -473,9 +473,6 @@ def convert_colorizer_data(
             categorical features. If a feature's column name does not exist in the `feature_info`
             (or the dictionary is `None`), the feature type and metadata will be inferred based
             on column values. Defaults to `None`.
-        skip_frame_generation (bool): If True, frame generation will be skipped. If False (default),
-            frames will be generated if they do not already exist. Overrides the `force_frame_generation`
-            flag if set to True.
         force_frame_generation (bool): If True, frames will be regenerated even if they already
             exist. If False (default), frames will be regenerated only when changes are detected.
         output_format (DataFileType): Enum value, either `DataFileType.PARQUET` or `DataFileType.JSON`.
@@ -574,11 +571,7 @@ def convert_colorizer_data(
             logging.info("3D frame source provided.")
             _handle_3d_frames(data, writer, config)
 
-        if skip_frame_generation:
-            logging.info(
-                "Skipping 2D frame generation. If you want to automatically generate frames, set `skip_frame_generation=False`."
-            )
-        elif image_column is None:
+        if image_column is None:
             logging.info(
                 "No image column provided, so 2D frame generation will be skipped."
             )
