@@ -407,6 +407,7 @@ def convert_colorizer_data(
     backdrop_info: Optional[Dict[str, BackdropMetadata]] = None,
     feature_column_names: Union[List[str], None] = None,
     feature_info: Optional[Dict[str, FeatureInfo]] = None,
+    skip_frame_generation=False,
     force_frame_generation=False,
     output_format=DataFileType.PARQUET,
 ):
@@ -472,6 +473,9 @@ def convert_colorizer_data(
             categorical features. If a feature's column name does not exist in the `feature_info`
             (or the dictionary is `None`), the feature type and metadata will be inferred based
             on column values. Defaults to `None`.
+        skip_frame_generation (bool): If True, frame generation will be skipped. If False (default),
+            frames will be generated if they do not already exist. Overrides the `force_frame_generation`
+            flag if set to True.
         force_frame_generation (bool): If True, frames will be regenerated even if they already
             exist. If False (default), frames will be regenerated only when changes are detected.
         output_format (DataFileType): Enum value, either `DataFileType.PARQUET` or `DataFileType.JSON`.
@@ -570,7 +574,11 @@ def convert_colorizer_data(
             logging.info("3D frame source provided.")
             _handle_3d_frames(data, writer, config)
 
-        if image_column is None:
+        if skip_frame_generation:
+            logging.info(
+                "Skipping 2D frame generation. If you want to automatically generate frames, set `skip_frame_generation=False`."
+            )
+        elif image_column is None:
             logging.info(
                 "No image column provided, so 2D frame generation will be skipped."
             )
