@@ -559,6 +559,17 @@ def convert_colorizer_data(
         # Change source directory for evaluating relative paths
         os.chdir(source_dir)
 
+        # Must do before writing data, since it checks against existing files
+        do_frames_need_regeneration = _should_regenerate_frames(writer, data, config)
+
+        _write_data(data, writer, config)
+        _write_features(data, writer, config)
+        _write_backdrops(data, writer, config)
+
+        if frames_3d is not None:
+            logging.info("3D frame source provided.")
+            _handle_3d_frames(data, writer, config)
+
         if image_column is None:
             logging.info(
                 "No image column provided, so 2D frame generation will be skipped."
@@ -567,7 +578,7 @@ def convert_colorizer_data(
             logging.warning(
                 f"Image column '{image_column}' not found in the dataset. 2D frame generation will be skipped."
             )
-        elif force_frame_generation or _should_regenerate_frames(writer, data, config):
+        elif force_frame_generation or do_frames_need_regeneration:
             # Group the data by time, then run frame generation in parallel.
             reduced_dataset = data.reindex(
                 columns=[
@@ -590,14 +601,6 @@ def convert_colorizer_data(
             logging.info(
                 "2D Frames already exist and no changes were detected. Skipping frame generation."
             )
-
-        if frames_3d is not None:
-            logging.info("3D frame source provided.")
-            _handle_3d_frames(data, writer, config)
-
-        _write_data(data, writer, config)
-        _write_features(data, writer, config)
-        _write_backdrops(data, writer, config)
 
         # TODO: Add validation step to check for either frames or frames3d property
         _validate_manifest(writer)
