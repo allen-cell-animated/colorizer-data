@@ -334,7 +334,7 @@ def _should_regenerate_frames(
                 logging.info(f"Frame {frame} is missing. Regenerating all frames.")
                 return True
     # Get object count and regenerate frames if it has changed
-    num_objects = data[config.object_id_column].nunique()
+    num_objects = len(data[config.times_column])
     if writer.manifest["times"] is not None:
         # parse existing times to get object count and compare to new data
         times_path = writer.outpath / writer.manifest["times"]
@@ -433,9 +433,10 @@ def convert_colorizer_data(
             in the frame or image data. Defaults to "ID."
         times_column (str): The name of the column containing time steps. Defaults to "Frame."
         track_column (str): The name of the column containing track IDs. Defaults to "Track."
-        image_column (str): The name of the column containing filepaths to the segmentation images.
+        image_column (str | None): The name of the column containing filepaths to the segmentation images.
             Defaults to "File Path." Images will be copied and remapped. If they are 3D, they will
-            be flattened along the Z-axis using a max projection.
+            be flattened along the Z-axis using a max projection. If `None`, 2D frame generation
+            will be skipped.
         frames_3d (Frames3dMetadata | None): A `Frames3dMetadata` object containing the 3D image source
             ("source") and channel ("segmentation_channel") to use for the 3D image source.
         centroid_x_column (str): The name of the column containing x-coordinates of object
