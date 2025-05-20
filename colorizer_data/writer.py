@@ -231,26 +231,29 @@ class ColorizerDatasetWriter:
         encoder = NumpyValuesEncoder()
         fmin = encoder.default(info.min)
         fmax = encoder.default(info.max)
+        print(fmin, fmax)
         if fmin is None:
             try:
                 fmin = np.nanmin(filtered_data)
             except ValueError:
                 raise ValueError(
-                    "ColorizerDatasetWriter.write_feature: Feature '{}' has no finite, non-outlier values.".format(
+                    "ColorizerDatasetWriter.write_feature: Feature '{}' had no finite, non-outlier values when calculating min/max bounds.".format(
                         info.get_name()
                     )
+                    + " Provide a min and max in FeatureInfo to override automatic bounds calculation."
                 )
+            fmin = encoder.default(fmin)
         if fmax is None:
             try:
                 fmax = np.nanmax(filtered_data)
             except ValueError:
                 raise ValueError(
-                    "ColorizerDatasetWriter.write_feature: Feature '{}' has no finite, non-outlier values.".format(
+                    "ColorizerDatasetWriter.write_feature: Feature '{}' has no finite, non-outlier values when calculating min/max bounds.".format(
                         info.get_name()
                     )
+                    + " Provide a min and max in FeatureInfo to override automatic bounds calculation."
                 )
-        fmin = encoder.default(fmin)
-        fmax = encoder.default(fmax)
+            fmax = encoder.default(fmax)
 
         # The viewer reads float data as float32, so cast it if needed.
         if data.dtype == np.float64 or data.dtype == np.double:

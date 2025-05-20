@@ -51,11 +51,17 @@ class NumpyValuesEncoder(json.JSONEncoder):
 
     def default(self, obj):
         if (
-            isinstance(obj, np.float32)
+            isinstance(obj, float)
+            or isinstance(obj, np.float32)
             or isinstance(obj, np.double)
             or isinstance(obj, np.float64)
         ):
-            return float(obj)
+            if np.isposinf(obj):
+                return "Infinity"
+            elif np.isneginf(obj):
+                return "-Infinity"
+            else:
+                return float(obj)
         elif (
             isinstance(obj, int)
             or isinstance(obj, np.int16)
@@ -65,6 +71,8 @@ class NumpyValuesEncoder(json.JSONEncoder):
             return int(obj)
         elif obj is None:
             return None
+        elif isinstance(obj, str):
+            return obj
         return json.JSONEncoder.default(self, obj)
 
 

@@ -361,6 +361,29 @@ class TestWriteFeature:
                 outliers=[True, True, True],
             )
 
+    def test_writer_serializes_infinity_values_as_strings(self, tmp_path):
+        # Generally we want to ignore infinity values when calculating min/max,
+        # but if the user explicitly sets min/max to infinity, we should
+        # serialize them as strings in the JSON file to avoid parsing errors.
+        writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
+        setup_dummy_writer_data(writer)
+
+        feature_info = FeatureInfo(
+            key="feature", label="Feature", min=-np.inf, max=np.inf
+        )
+        data = np.array([0, 1, 2, np.inf, -np.inf, 4])
+        writer.write_feature(data, feature_info, write_json=True)
+        writer.write_manifest()
+
+        with open(tmp_path / DEFAULT_DATASET_NAME / "manifest.json", "r") as f:
+            manifest: DatasetManifest = json.load(f)
+            feature_file = manifest["features"][0]["data"]
+            with open(tmp_path / DEFAULT_DATASET_NAME / feature_file, "r") as f2:
+                feature_data = json.load(f2)
+                assert feature_data["min"] == "-Infinity"
+                assert feature_data["max"] == "Infinity"
+                assert feature_data["data"] == [0, 1, 2, np.inf, -np.inf, 4]
+
     def test_write_feature_writes_parquet_data(self, tmp_path):
         writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
         setup_dummy_writer_data(writer)
