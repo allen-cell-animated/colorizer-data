@@ -340,7 +340,6 @@ class TestWriteFeature:
                 assert feature_data["data"] == [0, 1, 2, 3, 4]
 
     def test_writer_throws_error_if_feature_has_no_finite_values(self, tmp_path):
-        # Test that an error is raised when min > max
         writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
         setup_dummy_writer_data(writer)
 
@@ -349,7 +348,6 @@ class TestWriteFeature:
             writer.write_feature(np.array([-np.inf, np.nan, np.inf]), feature_info)
 
     def test_writer_throws_error_if_feature_has_only_outlier_values(self, tmp_path):
-        # Test that an error is raised when min > max
         writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
         setup_dummy_writer_data(writer)
 

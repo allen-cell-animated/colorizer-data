@@ -231,7 +231,6 @@ class ColorizerDatasetWriter:
         encoder = NumpyValuesEncoder()
         fmin = encoder.default(info.min)
         fmax = encoder.default(info.max)
-        print(fmin, fmax)
         if fmin is None:
             try:
                 fmin = np.nanmin(filtered_data)
@@ -240,7 +239,7 @@ class ColorizerDatasetWriter:
                     "ColorizerDatasetWriter.write_feature: Feature '{}' had no finite, non-outlier values when calculating min/max bounds.".format(
                         info.get_name()
                     )
-                    + " Provide a min and max in FeatureInfo to override automatic bounds calculation."
+                    + " Provide a min and max property in FeatureInfo to override automatic bounds calculation."
                 )
             fmin = encoder.default(fmin)
         if fmax is None:
@@ -251,7 +250,7 @@ class ColorizerDatasetWriter:
                     "ColorizerDatasetWriter.write_feature: Feature '{}' has no finite, non-outlier values when calculating min/max bounds.".format(
                         info.get_name()
                     )
-                    + " Provide a min and max in FeatureInfo to override automatic bounds calculation."
+                    + " Provide a min and max property in FeatureInfo to override automatic bounds calculation."
                 )
             fmax = encoder.default(fmax)
 
