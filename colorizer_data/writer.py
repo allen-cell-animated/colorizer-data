@@ -232,9 +232,23 @@ class ColorizerDatasetWriter:
         fmin = encoder.default(info.min)
         fmax = encoder.default(info.max)
         if fmin is None:
-            fmin = np.nanmin(filtered_data)
+            try:
+                fmin = np.nanmin(filtered_data)
+            except ValueError:
+                raise ValueError(
+                    "ColorizerDatasetWriter.write_feature: Feature '{}' has no finite, non-outlier values.".format(
+                        info.get_name()
+                    )
+                )
         if fmax is None:
-            fmax = np.nanmax(filtered_data)
+            try:
+                fmax = np.nanmax(filtered_data)
+            except ValueError:
+                raise ValueError(
+                    "ColorizerDatasetWriter.write_feature: Feature '{}' has no finite, non-outlier values.".format(
+                        info.get_name()
+                    )
+                )
         fmin = encoder.default(fmin)
         fmax = encoder.default(fmax)
 
