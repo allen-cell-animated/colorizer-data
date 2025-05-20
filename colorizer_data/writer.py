@@ -226,6 +226,8 @@ class ColorizerDatasetWriter:
         filtered_data = data
         if outliers is not None:
             filtered_data = data[np.logical_not(outliers)]
+        # Exclude NaN + Infinity values from min/max calculation
+        filtered_data = filtered_data[np.isfinite(filtered_data)]
         encoder = NumpyValuesEncoder()
         fmin = encoder.default(info.min)
         fmax = encoder.default(info.max)

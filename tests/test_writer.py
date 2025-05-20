@@ -271,6 +271,29 @@ def test_writer_overwrites_duplicate_backdrop_keys(tmp_path):
         assert manifest["backdrops"][0]["name"] == "Backdrop 2"
 
 
+def test_writer_ignores_infinity_values_for_feature_min_max(tmp_path):
+    # Test that infinity values are ignored when calculating min/max
+    writer = ColorizerDatasetWriter(tmp_path, DEFAULT_DATASET_NAME)
+    setup_dummy_writer_data(writer)
+
+    feature_info = FeatureInfo(key="feature", label="Feature")
+    writer.write_feature(
+        np.array([0, 1, 2, np.inf, -np.inf, 4]),
+        feature_info,
+        write_json=True,
+    )
+    writer.write_manifest()
+
+    with open(tmp_path / DEFAULT_DATASET_NAME / "manifest.json", "r") as f:
+        manifest: DatasetManifest = json.load(f)
+        feature_file = manifest["features"][0]["data"]
+        with open(tmp_path / DEFAULT_DATASET_NAME / feature_file, "r") as f2:
+            feature_data = json.load(f2)
+            assert feature_data["min"] == 0
+            assert feature_data["max"] == 4
+            assert feature_data["data"] == [0, 1, 2, np.inf, -np.inf, 4]
+
+
 class TestWriteFeature:
     def test_write_feature_ignores_outliers_when_calculating_feature_min_max(
         self, tmp_path
