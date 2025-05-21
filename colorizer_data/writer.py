@@ -226,15 +226,33 @@ class ColorizerDatasetWriter:
         filtered_data = data
         if outliers is not None:
             filtered_data = data[np.logical_not(outliers)]
+        # Exclude NaN + Infinity values from min/max calculation
+        filtered_data = filtered_data[np.isfinite(filtered_data)]
         encoder = NumpyValuesEncoder()
         fmin = encoder.default(info.min)
         fmax = encoder.default(info.max)
         if fmin is None:
-            fmin = np.nanmin(filtered_data)
+            try:
+                fmin = np.nanmin(filtered_data)
+            except ValueError:
+                raise ValueError(
+                    "ColorizerDatasetWriter.write_feature: Feature '{}' had no finite, non-outlier values when calculating min/max bounds.".format(
+                        info.get_name()
+                    )
+                    + " Provide a min and max property in FeatureInfo to override automatic bounds calculation."
+                )
+            fmin = encoder.default(fmin)
         if fmax is None:
-            fmax = np.nanmax(filtered_data)
-        fmin = encoder.default(fmin)
-        fmax = encoder.default(fmax)
+            try:
+                fmax = np.nanmax(filtered_data)
+            except ValueError:
+                raise ValueError(
+                    "ColorizerDatasetWriter.write_feature: Feature '{}' has no finite, non-outlier values when calculating min/max bounds.".format(
+                        info.get_name()
+                    )
+                    + " Provide a min and max property in FeatureInfo to override automatic bounds calculation."
+                )
+            fmax = encoder.default(fmax)
 
         # The viewer reads float data as float32, so cast it if needed.
         if data.dtype == np.float64 or data.dtype == np.double:
