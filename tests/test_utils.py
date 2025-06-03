@@ -421,12 +421,12 @@ def test_sanitize_path_by_platform_sanitizes_paths(mock_platform):
     if platform.system() == "Windows":
         default_expected_path = "//some/path/to/file.txt"
         paths = [
-            ["C:\\some\\path\\to\\file.txt", "C:/some/path/to/file.txt"],
-            ["C:/some/path/to/file.txt", "C:/some/path/to/file.txt"],
-            ["\\some\\path\\to\\file.txt", default_expected_path],
-            ["\\\\some\\path\\to\\file.txt", default_expected_path],
-            ["//some/path/to/file.txt", default_expected_path],
-            ["/some/path/to/file.txt", default_expected_path],
+            [r"C:\some\path\to\file.txt", "C:/some/path/to/file.txt"],
+            [r"C:/some/path/to/file.txt", "C:/some/path/to/file.txt"],
+            [r"\some\path\to\file.txt", default_expected_path],
+            [r"\\some\path\to\file.txt", default_expected_path],
+            [r"//some/path/to/file.txt", default_expected_path],
+            [r"/some/path/to/file.txt", default_expected_path],
         ]
     else:
         paths = [
@@ -443,7 +443,7 @@ def test_sanitize_path_by_platform_handles_pathlib_paths(mock_platform):
     if platform.system() == "Windows":
         # Pure means that the path won't try to access the filesystem which is
         # good for testing Windows on Linux and vice versa.
-        path = PureWindowsPath("/some/path/to/file.txt")
+        path = PureWindowsPath(r"/some/path/to/file.txt")
         expected_path = "//some/path/to/file.txt"
     else:
         path = PurePosixPath("/home/user/documents/file.txt")
