@@ -93,12 +93,24 @@ def configureLogging(output_dir: Union[str, pathlib.Path], log_name="debug.log")
     )
 
 
-def sanitize_path_by_platform(path: str) -> str:
-    """Sanitizes paths for specific platforms."""
+def sanitize_path_by_platform(
+    path: Union[str, pathlib.Path],
+) -> str:
+    """Sanitizes paths for specific platforms.
+
+    Converts Windows paths to POSIX format, and ensures that UNC paths are
+    properly formatted.
+    """
+    posix_path = pathlib.Path(path).as_posix()
     if platform.system() == "Windows":
-        if path.startswith("/") and not path.startswith("//"):
-            return "/" + path
-    return path
+        # Sanitize UNC (universal naming convention) paths so they have double
+        # slashes at the beginning. See
+        # https://learn.microsoft.com/en-us/dotnet/standard/io/file-path-formats#unc-paths.
+        # "\\some\path" -> "//some/path"
+        # "\some\path" -> "//some/path"
+        if posix_path.startswith("/") and not posix_path.startswith("//"):
+            return "/" + posix_path
+    return str(posix_path)
 
 
 def scale_image(seg2d: np.ndarray, scale: float) -> np.ndarray:
