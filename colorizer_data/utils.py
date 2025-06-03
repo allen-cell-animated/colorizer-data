@@ -103,15 +103,17 @@ def sanitize_path_by_platform(
     slashes. Also, Windows UNC paths (paths starting with `\\` or `\\\\`) will
     be properly formatted with double slashes at the beginning.
     """
-    posix_path_str = pathlib.Path(path).as_posix()
     if platform.system() == "Windows":
         # Sanitize UNC (universal naming convention) paths. See
         # https://learn.microsoft.com/en-us/dotnet/standard/io/file-path-formats#unc-paths.
         # "\\some\path" -> "//some/path"
         # "\some\path" -> "//some/path"
+        # Cast to Windows path so backslashes are converted to forward slashes
+        posix_path_str = pathlib.PureWindowsPath(path).as_posix()
         if posix_path_str.startswith("/") and not posix_path_str.startswith("//"):
             return "/" + posix_path_str
-    return posix_path_str
+        return posix_path_str
+    return pathlib.Path(path).as_posix()
 
 
 def scale_image(seg2d: np.ndarray, scale: float) -> np.ndarray:
