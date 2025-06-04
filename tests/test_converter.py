@@ -50,21 +50,6 @@ def existing_dataset(tmp_path_factory) -> pathlib.Path:
     return tmp_path
 
 
-# ///////////////////////// METHODS /////////////////////////
-
-
-@pytest.fixture
-def existing_dataset(tmp_path) -> pathlib.Path:
-    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
-    csv_data = pd.read_csv(StringIO(csv_content))
-    # TODO: Should I just write the relevant data files out without going through the image
-    # processing step? Multiprocessing seems to make this very slow.
-    convert_colorizer_data(
-        csv_data, tmp_path, output_format=DataFileType.JSON, image_column="File Path"
-    )
-    return tmp_path
-
-
 def feature_array_to_dict(
     feature_array: List[FeatureMetadata],
 ) -> Dict[str, FeatureMetadata]:
@@ -307,6 +292,36 @@ def test_uses_default_segmentation_ids(tmp_path):
         assert manifest["segIds"] == "seg_ids.json"
         assert os.path.exists(tmp_path / "seg_ids.json")
         validate_data(tmp_path / "seg_ids.json", [1, 2, 3, 4])
+
+
+def test_writes_3d_centroids(tmp_path):
+    # Add Z coordinates to the sample data
+    raw_sample_csv_data_3d = [
+        raw_sample_csv_data[0] + ",15",
+        raw_sample_csv_data[1] + ",20",
+        raw_sample_csv_data[2] + ",25",
+        raw_sample_csv_data[3] + ",30",
+    ]
+    sample_csv_data_3d = "\n".join(raw_sample_csv_data_3d)
+    sample_csv_headers_3d = sample_csv_headers + ",Centroid Z"
+    csv_content = f"{sample_csv_headers_3d}\n{sample_csv_data_3d}"
+    csv_data = pd.read_csv(StringIO(csv_content))
+
+    dataset_dir = tmp_path / "dataset"
+    convert_colorizer_data(
+        csv_data, dataset_dir, output_format=DataFileType.JSON, image_column="File Path"
+    )
+    # Validate that centroids are written correctly
+    expected_manifest = dataset_dir / "manifest.json"
+    assert os.path.exists(expected_manifest)
+    manifest = {}
+    with open(expected_manifest, "r") as f:
+        manifest = json.load(f)
+    assert manifest["centroids"] == "centroids.json"
+    validate_data(
+        dataset_dir / "centroids.json",
+        [50, 50, 15, 55, 60, 20, 60, 70, 25, 65, 75, 30],
+    )
 
 
 # ///////////////////////// FRAME GENERATION TESTS /////////////////////////
