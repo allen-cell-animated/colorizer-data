@@ -168,6 +168,7 @@ def _write_data(
         seg_ids=seg_ids,
         centroids_x=_get_data_or_none(dataset, config.centroid_x_column),
         centroids_y=_get_data_or_none(dataset, config.centroid_y_column),
+        centroids_z=_get_data_or_none(dataset, config.centroid_z_column),
         outliers=outliers_data,
         write_json=config.output_format == DataFileType.JSON,
     )
