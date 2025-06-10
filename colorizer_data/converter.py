@@ -168,6 +168,7 @@ def _write_data(
         seg_ids=seg_ids,
         centroids_x=_get_data_or_none(dataset, config.centroid_x_column),
         centroids_y=_get_data_or_none(dataset, config.centroid_y_column),
+        centroids_z=_get_data_or_none(dataset, config.centroid_z_column),
         outliers=outliers_data,
         write_json=config.output_format == DataFileType.JSON,
     )
@@ -401,7 +402,7 @@ def convert_colorizer_data(
     frames_3d: Optional[Frames3dMetadata] = None,
     centroid_x_column: str = "Centroid X",
     centroid_y_column: str = "Centroid Y",
-    centroid_z_column: Optional[str] = None,
+    centroid_z_column: Optional[str] = "Centroid Z",
     outlier_column: str = "Outlier",
     backdrop_column_names: Optional[List[str]] = None,
     backdrop_info: Optional[Dict[str, BackdropMetadata]] = None,
