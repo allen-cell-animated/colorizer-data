@@ -1,5 +1,6 @@
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
+import platform
 from typing import List
 import numpy as np
 from colorizer_data.types import (
@@ -16,6 +17,7 @@ from colorizer_data.utils import (
     infer_feature_type,
     merge_dictionaries,
     replace_out_of_bounds_values_with_nan,
+    sanitize_path_by_platform,
     update_collection,
 )
 import pytest
@@ -408,3 +410,44 @@ def test_get_duplicates():
     assert get_duplicate_items(["a", "b", "c", "c", "d", "b", "c"]) == ["b", "c"]
 
     assert get_duplicate_items(["c", "b", "a", "a", "c", "b"]) == ["c", "b", "a"]
+
+
+@pytest.fixture(params=["Windows", "Linux"])
+def mock_platform(request, monkeypatch):
+    monkeypatch.setattr(platform, "system", lambda: request.param)
+
+
+def test_sanitize_path_by_platform_sanitizes_paths(mock_platform):
+    if platform.system() == "Windows":
+        default_expected_path = "//some/path/to/file.txt"
+        paths = [
+            [r"C:\some\path\to\file.txt", "C:/some/path/to/file.txt"],
+            ["C:/some/path/to/file.txt", "C:/some/path/to/file.txt"],
+            [r"\some\path\to\file.txt", default_expected_path],
+            [r"\\some\path\to\file.txt", default_expected_path],
+            ["//some/path/to/file.txt", default_expected_path],
+            ["/some/path/to/file.txt", default_expected_path],
+        ]
+    else:
+        paths = [
+            ["/some/path/to/file.txt", "/some/path/to/file.txt"],
+            ["/home/user/documents/file.txt", "/home/user/documents/file.txt"],
+        ]
+
+    for path, expected_path in paths:
+        sanitized_path = sanitize_path_by_platform(path)
+        assert sanitized_path == expected_path
+
+
+def test_sanitize_path_by_platform_handles_pathlib_paths(mock_platform):
+    if platform.system() == "Windows":
+        # Pure means that the path won't try to access the filesystem which is
+        # good for testing Windows on Linux and vice versa.
+        path = PureWindowsPath("/some/path/to/file.txt")
+        expected_path = "//some/path/to/file.txt"
+    else:
+        path = PurePosixPath("/home/user/documents/file.txt")
+        expected_path = "/home/user/documents/file.txt"
+
+    sanitized_path = sanitize_path_by_platform(path)
+    assert sanitized_path == expected_path
