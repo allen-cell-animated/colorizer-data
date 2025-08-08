@@ -2,17 +2,18 @@
 
 Last release: v1.6.4
 
-**NOTE:** If you are looking to create a dataset, you can use the utilities provided in the package to write your data in the correct format. Follow our [getting started guide (`GETTING_STARTED.ipynb`)](./getting_started_guide/GETTING_STARTED.ipynb), and see the [readme (`README.md`)](../README.md) for more details on how to install this package.
+**NOTE:** If you are looking to create a dataset, follow our [getting started guide (`GETTING_STARTED.ipynb`)](./getting_started_guide/GETTING_STARTED.ipynb), and see the [readme (`README.md`)](../README.md) for more details on how to install this package.
 
-Timelapse Feature Explorer can only load datasets that follow the defined data specification, described here.
+This document describes the dataset format used by Timelapse Feature Explorer. Utilities in `colorizer_data` automatically write datasets in this format, but this document exists to guide technical users who want to create or edit their own datasets manually.
 
 ## 1. Terms
 
-Here are a few important terms:
+A few important terms:
 
 - **Dataset**: A dataset is a single time-series, and can have any number of tracked objects and features.
-- **Collection**: An arbitrary grouping of datasets.
-- **Object ID**: Every segmentation object in every frame has an integer identifier that is unique across all time steps. This identifier will be used to map an object to relevant data. Object IDs must be sequential, starting from 0, across the whole dataset.
+- **Collection**: A grouping of datasets.
+- **Segmentation ID**: An integer identifier for a segmented object at a single time step, usually as the output of a segmentation algorithm. Segmentation IDs are unique within a single time step, but are not guaranteed to be unique across time steps.
+- **Global/object ID**: An integer identifier for each segmented object which is unique across ALL time steps. A tracked object will have a different object ID at each time step.
 
 ## 2. Dataset
 
@@ -598,6 +599,46 @@ For example, if a dataset had the following tracks and outliers, the file might 
 ---
 
 </details>
+
+### 2.10. 3D Frames (experimental)
+
+Timelapse Feature Explorer has experimental support for viewing and interacting with 3D segmentation data.
+
+For best performance, 3D segmentation sources should be stored as a multiscale [OME-Zarr file](https://link.springer.com/article/10.1007/s00418-023-02209-1) ending in `.ome.zarr`. It should be a time-series Zarr that directly stores the integer segmentation IDs (if the `segIds` file is provided) or the global object IDs.
+
+To do so, include the `frames3d` key in the manifest file, which will replace the `frames` and `backdrops` parameters.
+
+`manifest.json:`
+
+```txt
+{
+    "frames3d": {
+        "source": <relative path or URL>,
+        "segmentationChannel": <channel index for segmentation IDs>, // optional, defaults to 0
+        "totalFrames": <total number of frames in the time series>,
+        "backdrops": [...] <array of backdrop parameters>
+    },
+}
+```
+
+If you want to include additional channels as backdrop images, you can specify them in the `backdrops` array. Each backdrop object should have the following format:
+
+```text
+{
+    "source": <relative path or URL to the backdrop channel>,
+    "name": <name of the backdrop>,
+    "description": <description of the backdrop>, // optional
+    "channel": <channel index for the backdrop>,  // optional, defaults to 0
+    "min": <min value for transfer function>, // optional
+    "max": <max value for transfer function>, // optional
+}
+```
+
+Multiple backdrops sharing the same source can be included by specifying different `channel` indices.
+
+If a min and max value is provided, the backdrop channel will be displayed using a transfer function that maps from raw data values to an intensity value. Values at `min` will be mapped to 0, and values at `max` will be mapped to 1, and values between will be ramped linearly. Values outside this range will be clamped to the nearest value.
+
+If `centroids` data are provided, they will be assumed to be in voxel coordinates.
 
 ## 3. Collections
 
