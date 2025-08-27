@@ -29,6 +29,7 @@ dependencies = [
     "bioio-ome-tiff >= 1.0.0",
     "bioio-tifffile",
     "bioio-ome-zarr",
+    "cryptography",
     "dataclasses-json",
     "numpy",
     "pandas",
