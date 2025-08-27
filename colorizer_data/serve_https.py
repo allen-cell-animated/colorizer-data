@@ -62,6 +62,20 @@ def generate_self_signed_cert():
     return cert_file.name, key_file.name
 
 
+class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
+    def do_OPTIONS(self):
+        self.send_response(200, "ok")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+
+    def end_headers(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        http.server.SimpleHTTPRequestHandler.end_headers(self)
+        if self.request_version != "HTTP/0.9":
+            self._headers_buffer.append(b"\r\n")
+            self.flush_headers()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Simple HTTPS server (self-signed cert)."
@@ -83,9 +97,7 @@ def main():
 
     cert_path, key_path = generate_self_signed_cert()
 
-    handler_class = partial(
-        http.server.SimpleHTTPRequestHandler, directory=args.directory
-    )
+    handler_class = partial(CORSRequestHandler, directory=args.directory)
     httpd = http.server.HTTPServer(("0.0.0.0", args.port), handler_class)
 
     # Modern SSL API
