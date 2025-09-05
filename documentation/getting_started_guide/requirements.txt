@@ -1,2 +1,3 @@
 pandas
+psutil
 colorizer_data @ git+https://github.com/allen-cell-animated/colorizer-data.git@v1.6.4
