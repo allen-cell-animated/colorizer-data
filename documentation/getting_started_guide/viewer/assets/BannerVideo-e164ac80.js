@@ -1,1 +1,0 @@
-import{j as e}from"./main-b5ce02e5.js";import"./gh_routing-cdb305c8.js";const r="/viewer/assets/banner_video-783a41be.mp4";function n(){return e.jsx("video",{autoPlay:!0,loop:!0,muted:!0,children:e.jsx("source",{src:r,type:"video/mp4"})})}export{n as default};
