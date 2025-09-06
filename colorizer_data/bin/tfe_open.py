@@ -5,7 +5,6 @@ from multiprocessing import Process
 import argparse
 import os
 import signal
-import time
 import webbrowser
 
 # 6465 and 6470 are unassigned ports according to
@@ -117,6 +116,7 @@ def main():
     tfe_port = args.tfe_port
     directory_port = args.port
 
+    # Change working directory to the provided dataset directory
     new_cwd = os.getcwd()
     if os.path.isfile(dataset_path):
         new_cwd = os.path.dirname(dataset_path)
@@ -124,9 +124,11 @@ def main():
     elif os.path.isdir(dataset_path):
         new_cwd = dataset_path
         dataset_path = ""
+    else:
+        raise ValueError("The specified path does not exist: {}".format(dataset_path))
     os.chdir(new_cwd)
 
-    url = "http://localhost:{}/viewer/viewer?"
+    url = "http://localhost:{}/viewer/viewer?".format(tfe_port)
     abs_path = os.path.abspath(dataset_path)
     if is_collection(abs_path):
         url += "collection=http://localhost:{}/{}".format(
@@ -146,8 +148,8 @@ def main():
     tfe_process = Process(target=serve_tfe, args=(tfe_port,))
     tfe_process.start()
 
-    print("Opening TFE at", url.format(tfe_port))
-    webbrowser.open(url.format(tfe_port))
+    print("Opening TFE at", url)
+    webbrowser.open(url)
 
     # Blocks until the server kills the process.
     serve_directory(directory_port)
