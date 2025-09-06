@@ -53,6 +53,5 @@ Issues = "https://github.com/allen-cell-animated/colorizer-data/issues"
 tfe-open = "colorizer_data.bin.open_tfe:main"
 tfe_open = "colorizer_data.bin.open_tfe:main"
 
-
 # ... other project metadata fields as specified in:
 #     https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
