@@ -50,8 +50,8 @@ Homepage = "https://github.com/allen-cell-animated/colorizer-data"
 Issues = "https://github.com/allen-cell-animated/colorizer-data/issues"
 
 [project.scripts]
-tfe-open = "colorizer_data.bin.open_tfe:main"
-tfe_open = "colorizer_data.bin.open_tfe:main"
+tfe-open = "colorizer_data.bin.tfe_open:main"
+tfe_open = "colorizer_data.bin.tfe_open:main"
 
 # ... other project metadata fields as specified in:
 #     https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
