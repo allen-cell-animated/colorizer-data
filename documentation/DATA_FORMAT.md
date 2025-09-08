@@ -4,7 +4,7 @@ Last release: v1.6.4
 
 **NOTE:** If you are looking to create a dataset, follow our [getting started guide (`GETTING_STARTED.ipynb`)](./getting_started_guide/GETTING_STARTED.ipynb), and see the [readme (`README.md`)](../README.md) for more details on how to install this package.
 
-This document describes the dataset format used by Timelapse Feature Explorer. Utilities in `colorizer_data` automatically write datasets in this format, but this document exists to guide technical users who want to create or edit their own datasets manually.
+This document describes the dataset format used by Timelapse Feature Explorer. Utilities in `colorizer_data` automatically write datasets in this format, but this document exists as a technical resource users who want to create or edit their own datasets manually.
 
 ## 1. Terms
 
@@ -34,7 +34,7 @@ The most important file is the **manifest**, which is a JSON file that describes
         {
             "key": <feature key>,                                 // See note on keys below.
             "name": <feature display name>,
-            "data": <relative path to feature JSON>,
+            "data": <relative path to feature file>,
             // Optional fields:
             "unit": <unit label>,
             "type": <"continuous" | "discrete" | "categorical">,
@@ -49,24 +49,29 @@ The most important file is the **manifest**, which is a JSON file that describes
         },
         ...
     ],
-    "tracks": <relative path to tracks JSON>,
-    "times": <relative path to times JSON>,
-    "outliers": <relative path to outlier JSON>,    //< optional
-    "centroids": <relative path to centroids JSON>, //< optional
-    "bounds": <relative path to bounds JSON>        //< optional
+    "tracks": <relative path to tracks file>,
+    "times": <relative path to times file>,
+    "segIds": <relative path to segmentation IDs file>, //< optional, for 3D datasets
+    "outliers": <relative path to outlier file>,    //< optional
+    "centroids": <relative path to centroids file>, //< optional
+    "bounds": <relative path to bounds file>        //< optional
     "backdrops": <array of backdrop image sets>     //< optional, see 2. Backdrops for more details
 }
 ```
 
 _Note: all paths are relative to the location of the manifest file._
 
+A complete example dataset is also available in the [`documentation`](./example_dataset) directory of this project, and can be [viewed on Timelapse Feature Explorer](https://timelapse.allencell.org/viewer?dataset=https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/example_dataset/manifest.json).
+
+### File formats
+
+Linked data files (e.g. `tracks`, `times`, `segIds`, `outliers`, `centroids`, `bounds`, features, etc.) should either be a `.json` file or `.parquet` file. JSON files should be an object with a `data` array property. `.parquet` files should contain a single column.
+
 Note that the `outliers`, `centroids`, and `bounds` files are optional, but certain features of Timelapse Feature Explorer won't work without them.
 
 **Features** can also define additional optional metadata, such as the units and type. Note that there are additional restrictions on some of these fields. **`type`** must have values `continuous` for floats or decimals, `discrete` for integers, or `categorical` for distinct labels.
 
 Features that have the `categorical` type must also define an array of string `categories`, up to a maximum of 12.
-
-A complete example dataset is also available in the [`documentation`](./example_dataset) directory of this project, and can be [viewed on Timelapse Feature Explorer](https://timelapse.allencell.org/viewer?dataset=https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/example_dataset/manifest.json).
 
 ### Note on keys
 
@@ -180,7 +185,7 @@ Besides the details shown above, these are additional parameters that the manife
 }
 ```
 
-These metadata parameters are used to configure additional features of the Timelapse Feature Explorer UI, such as showing scale bars or timestamps on the main display. Additional metadata will likely be added as the project progresses.
+These metadata parameters are used to configure additional features of the Timelapse Feature Explorer UI, such as showing scale bars or timestamps on the main display. Additional metadata fields will likely be added over time.
 
 Note that the interface will directly show the unit labels and does not scale or convert units from one type to another (for example, it will not convert 1000 µm to 1 mm). If you need to present your data with different units, create a (scaled) duplicate of the feature with a different unit label.
 
@@ -387,7 +392,7 @@ The times JSON is similar to the tracks JSON. It also contains a `data` array th
 }
 ```
 
-### 2.5. Frames
+### 2.5. 2D Frames and Segmentation IDs
 
 _Example frame:_
 ![Segmented cell nuclei on a black background, in various shades of green, yellow, red.](./frame_example.png)
@@ -426,6 +431,12 @@ The resulting frame would look like this:
 ---
 
 </details>
+
+#### Segmentation IDs (optional)
+
+It's also possible to load frames where segmentation labels are not unique across all time steps, by providing a `segIds` file. This is typically used for very large or unwieldy images like 3D OME-Zarr data (see section on 3D frames).
+
+For each object ID `i`, the `segIds[i]` is the segmentation ID (e.g. "label" or "raw pixel value") of that object in the frame data at some time `t`.
 
 ### 2.6. Features
 
