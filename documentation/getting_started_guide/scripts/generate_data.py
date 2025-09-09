@@ -3,6 +3,8 @@ import pandas as pd
 from skimage import draw
 from bioio.writers import OmeTiffWriter
 
+import os
+
 """
 Generate some sample data for the `GETTING_STARTED` tutorial.
 
@@ -12,10 +14,13 @@ python generate_data.py
 ```
 """
 
+directory = "raw_dataset"
+os.makedirs(directory, exist_ok=True)
+
 # Create the data frame; this will be turned into a CSV file.
 df = pd.DataFrame(
     columns=[
-        "object_id",
+        "label",
         "track_id",
         "time",
         "centroid_x",
@@ -62,12 +67,12 @@ for i in range(num_frames):
         y = min(max(y, circle_max_radius), frame_dimensions[0] - circle_max_radius)
         circle_last_y_position[j] = y
 
-        # Draw the circle in the segmentation image,
-        # filling it with the object ID. (0 is reserved for the background,
-        # so we add 1 to the object ID to avoid conflicts.)
+        # Draw the circle in the segmentation image, filling it with the label
+        # ID. (0 is reserved for the background, so we add 1 to the label ID to
+        # avoid conflicts.)
         rr, cc = draw.disk((y, x), radius)
-        object_id = i * num_circles + j + 1
-        image[rr, cc] = object_id
+        label_id = j + 1
+        image[rr, cc] = label_id
 
         # Add the circle's data to the data frame.
         # Calculate any additional features
@@ -86,7 +91,7 @@ for i in range(num_frames):
                 df,
                 pd.DataFrame(
                     {
-                        "object_id": object_id,
+                        "label": label_id,
                         "track_id": j,
                         "time": i,
                         "centroid_x": round(x),
@@ -105,7 +110,7 @@ for i in range(num_frames):
     images.append(image)
 
 # Write the resulting data frame + images to disk.
-df.to_csv("raw_dataset/data.csv", index=False)
+df.to_csv(f"{directory}/data.csv", index=False)
 for i, image in enumerate(images):
     tiff_writer = OmeTiffWriter()
-    tiff_writer.save(image, f"raw_dataset/frame_{i}.tiff")
+    tiff_writer.save(image, f"{directory}/frame_{i}.tiff")
