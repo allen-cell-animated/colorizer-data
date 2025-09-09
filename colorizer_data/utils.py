@@ -218,9 +218,9 @@ def update_metadata(
 
 # TODO: Should collections have their own writer?
 def update_collection(
-    collection_filepath,
-    dataset_name,
-    dataset_path,
+    collection_filepath: str,
+    dataset_name: str,
+    dataset_path: str,
     *,
     metadata: Optional[CollectionMetadata] = None,
 ):
@@ -240,16 +240,25 @@ def update_collection(
 
     # Read in the existing collection, if it exists
     if os.path.exists(collection_filepath):
-        try:
-            with open(collection_filepath, "r") as f:
-                collection = json.load(f)
-        except Exception as e:
-            logging.warning(
-                "update_collection: Failed to read collection file '{}': {}".format(
-                    collection_filepath, str(e)
+        if os.path.isdir(collection_filepath):
+            # Write default collection.json
+            collection_filepath = os.path.join(collection_filepath, "collection.json")
+        else:
+            try:
+                with open(collection_filepath, "r") as f:
+                    collection = json.load(f)
+            except Exception as e:
+                logging.warning(
+                    "update_collection: Failed to read collection file '{}': {}".format(
+                        collection_filepath, str(e)
+                    )
                 )
-            )
-            collection = None
+                collection = None
+    else:
+        if not collection_filepath.endswith(".json"):
+            # Append default collection.json filename
+            collection_filepath = os.path.join(collection_filepath, "collection.json")
+        os.makedirs(os.path.dirname(collection_filepath), exist_ok=True)
 
     if collection is None:
         collection: CollectionManifest = {
