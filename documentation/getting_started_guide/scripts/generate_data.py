@@ -20,7 +20,7 @@ os.makedirs(directory, exist_ok=True)
 # Create the data frame; this will be turned into a CSV file.
 df = pd.DataFrame(
     columns=[
-        "label",
+        "segmentation_id",
         "track_id",
         "time",
         "centroid_x",
@@ -67,12 +67,12 @@ for i in range(num_frames):
         y = min(max(y, circle_max_radius), frame_dimensions[0] - circle_max_radius)
         circle_last_y_position[j] = y
 
-        # Draw the circle in the segmentation image, filling it with the label
-        # ID. (0 is reserved for the background, so we add 1 to the label ID to
-        # avoid conflicts.)
+        # Draw the circle in the segmentation image, filling it with the
+        # segmentation ID. (0 is reserved for the background, so we add 1 to the
+        # segmentation ID to avoid conflicts.)
         rr, cc = draw.disk((y, x), radius)
-        label_id = j + 1
-        image[rr, cc] = label_id
+        segmentation_id = j + 1
+        image[rr, cc] = segmentation_id
 
         # Add the circle's data to the data frame.
         # Calculate any additional features
@@ -91,7 +91,7 @@ for i in range(num_frames):
                 df,
                 pd.DataFrame(
                     {
-                        "label": label_id,
+                        "segmentation_id": segmentation_id,
                         "track_id": j,
                         "time": i,
                         "centroid_x": round(x),

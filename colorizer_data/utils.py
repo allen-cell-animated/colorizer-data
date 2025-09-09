@@ -260,6 +260,8 @@ def update_collection(
             collection_filepath = os.path.join(collection_filepath, "collection.json")
         os.makedirs(os.path.dirname(collection_filepath), exist_ok=True)
 
+    # TODO: Check that the dataset path exists?
+
     if collection is None:
         collection: CollectionManifest = {
             "datasets": [],
