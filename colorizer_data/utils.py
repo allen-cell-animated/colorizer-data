@@ -218,7 +218,7 @@ def update_metadata(
 
 # TODO: Should collections have their own writer?
 def update_collection(
-    collection_filepath: str,
+    collection_path: str,
     dataset_name: str,
     dataset_path: str,
     *,
@@ -229,20 +229,23 @@ def update_collection(
     If the dataset is already in the collection, the existing dataset path will be updated.
 
     Args:
-        collection_filepath: The path of the collection file to create or update. Must be a .json file.
+        collection_path: The path of the collection file to create or update. If a directory is provided,
+            a default `collection.json` file will be created or updated in that directory.
         dataset_name: The name of the dataset to add to the collection.
         dataset_path: The relative path to the dataset, from the root directory of the `collection_filepath`.
         metadata: Optional metadata to update the collection with. If not provided, the existing metadata will
-        be used, and fields will be automatically updated. Define fields in the `metadata` argument to override
-        this behavior.
+            be used, and fields will be automatically updated. Define fields in the `metadata` argument to override
+            this behavior.
     """
     collection: Optional[CollectionManifest] = None
 
     # Read in the existing collection, if it exists
+    collection_filepath = pathlib.Path(sanitize_path_by_platform(collection_path))
+
     if os.path.exists(collection_filepath):
         if os.path.isdir(collection_filepath):
             # Write default collection.json
-            collection_filepath = os.path.join(collection_filepath, "collection.json")
+            collection_filepath = collection_filepath / "collection.json"
         else:
             try:
                 with open(collection_filepath, "r") as f:
@@ -255,10 +258,10 @@ def update_collection(
                 )
                 collection = None
     else:
-        if not collection_filepath.endswith(".json"):
+        if not collection_filepath.suffix == ".json":
             # Append default collection.json filename
-            collection_filepath = os.path.join(collection_filepath, "collection.json")
-        os.makedirs(os.path.dirname(collection_filepath), exist_ok=True)
+            collection_filepath = collection_filepath / "collection.json"
+        os.makedirs(collection_filepath.parent, exist_ok=True)
 
     # TODO: Check that the dataset path exists?
 
