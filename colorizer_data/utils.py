@@ -258,12 +258,19 @@ def update_collection(
                 )
                 collection = None
     else:
-        if not collection_filepath.suffix == ".json":
-            # Append default collection.json filename
+        if collection_filepath.suffix == "":
+            # Directory, append default collection.json filename
             collection_filepath = collection_filepath / "collection.json"
+        elif collection_filepath.suffix != ".json":
+            logging.warning(
+                "update_collection: Collection file '{}' should have a .json extension.".format(
+                    collection_filepath
+                )
+            )
         os.makedirs(collection_filepath.parent, exist_ok=True)
 
     # TODO: Check that the dataset path exists?
+    dataset_path = sanitize_path_by_platform(dataset_path)
 
     if collection is None:
         collection: CollectionManifest = {

@@ -434,7 +434,7 @@ The resulting frame would look like this:
 
 #### Segmentation IDs (optional)
 
-It's also possible to load frames where segmentation labels are not unique across all time steps, by providing a `segIds` file. This is typically used for very large or unwieldy images like 3D OME-Zarr data (see section on 3D frames).
+It's also possible to load frames where segmentation labels are not unique across all time steps, by providing a `segIds` file. This is typically used for very large image files like 3D OME-Zarr data (see section on 3D frames).
 
 For each object ID `i`, the `segIds[i]` is the segmentation ID (e.g. "label" or "raw pixel value") of that object in the frame data at some time `t`.
 
