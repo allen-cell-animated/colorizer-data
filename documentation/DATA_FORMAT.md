@@ -624,7 +624,7 @@ To do so, include the `frames3d` key in the manifest file, which will replace th
 ```txt
 {
     "frames3d": {
-        "source": <relative path or URL>,
+        "source": <relative path or URL of an OME-Zarr file>,
         "segmentationChannel": <channel index for segmentation IDs>, // optional, defaults to 0
         "totalFrames": <total number of frames in the time series>,
         "backdrops": [...] <array of backdrop parameters>
@@ -636,7 +636,7 @@ If you want to include additional channels as backdrop images, you can specify t
 
 ```text
 {
-    "source": <relative path or URL to the backdrop channel>,
+    "source": <relative path or URL of an OME-Zarr file>, // can be the same as the main source
     "name": <name of the backdrop>,
     "description": <description of the backdrop>, // optional
     "channel": <channel index for the backdrop>,  // optional, defaults to 0
