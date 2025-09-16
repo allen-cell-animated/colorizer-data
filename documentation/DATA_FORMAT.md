@@ -12,7 +12,7 @@ A few important terms:
 
 - **Dataset**: A dataset is a single time-series, and can have any number of tracked objects and features.
 - **Collection**: A grouping of datasets.
-- **Segmentation ID**: An integer identifier for a segmented object at a single time step, usually as the output of a segmentation algorithm. Segmentation IDs are unique within a single time step, but are not guaranteed to be unique across time steps.
+- **Segmentation ID**: An integer identifier for a segmented object at a single time step, usually as the output of a segmentation algorithm. Segmentation IDs are unique within a single time step, but are not guaranteed to be unique across time steps. This is also interchangeably called a "label," "label ID," or "raw pixel value".
 - **Global/object ID**: An integer identifier for each segmented object which is unique across ALL time steps. A tracked object will have a different object ID at each time step.
 
 ## 2. Dataset
@@ -395,7 +395,7 @@ The times JSON is similar to the tracks JSON. It also contains a `data` array th
 ### 2.5. 2D Frames and Segmentation IDs
 
 _Example frame:_
-![Segmented cell nuclei on a black background, in various shades of green, yellow, red.](./frame_example.png)
+![Segmented cell nuclei on a black background, in various shades of green, yellow, red.](./assets/frame_example.png)
 _Each unique color in this frame is a different object ID._
 
 **Frames** are image textures that store the object IDs for each time step in the time series. Each pixel in the image can encode a single object ID in its RGB value (`object ID = R + G*256 + B*256*256 - 1`), and background pixels are `#000000` (black).
@@ -426,7 +426,7 @@ The RGB value for ID `640` will be `RGB(129, 2, 0)`, or `#810200`.
 
 The resulting frame would look like this:
 
-!["A magnified 3x3 frame with a single red pixel (#810200) in the center, surrounded by black pixels."](./frame_example_simple.png)
+!["A magnified 3x3 frame with a single red pixel (#810200) in the center, surrounded by black pixels."](./assets/frame_example_simple.png)
 
 ---
 
@@ -434,9 +434,51 @@ The resulting frame would look like this:
 
 #### Segmentation IDs (optional)
 
-It's also possible to load frames where segmentation labels are not unique across all time steps, by providing a `segIds` file. This is typically used for very large image files like 3D OME-Zarr data (see section on 3D frames).
+It's also possible to load frames where segmentation IDs are not unique across
+all time steps, by providing a `segIds` file. This is typically used for very
+large image files like 3D OME-Zarr data (see section on 3D frames) where
+remapping the segmentation IDs would be expensive.
 
-For each object ID `i`, the `segIds[i]` is the segmentation ID (e.g. "label" or "raw pixel value") of that object in the frame data at some time `t`.
+For each object ID `i`, the `segIds[i]` is the segmentation ID (e.g. "label" or
+"raw pixel value") of that object in the frame data at some time `t`.
+
+`segIds.json:`
+
+```txt
+{
+    "data": [
+        <segmentation id for object id 0>,
+        <segmentation id for object id 1>,
+        <segmentation id for object id 2>,
+        ...
+    ]
+}
+```
+
+<details>
+<summary><b>[🔍 Show me an example!]</b></summary>
+
+---
+
+Let's say we have a series of images with the following segmentation IDs:
+
+![Label: "Original segmentations." A series of three frame images have various sized bubbles, moving and changing in size over time. There are three bubbles are labeled 1, 2, and 3 in each image.](./assets/segmentation_ids-original.png)
+
+Normally, we would require that the images be remapped so that the segmentation IDs are unique across all time steps, like this.
+
+![Label: "Remapped to store global IDs." The same image as above with three image frames, only now the bubbles have been relabeled so that each bubble has a unique ID across all frames. The count starts at 1 and goes to 8.](./assets/segmentation_ids-remapped.png)
+
+However, this can be expensive, especially when hundreds of frames are involved.
+Instead, we can provide a `segIds.json` file that stores a segmentation ID for
+each object. This, along with the `times` file, can be used to look up the
+segmentation ID for each object ID in the dataset, and allows us to keep the
+original images without remapping them.
+
+!["Label: "With segIds." The same three images as the first segmentations are shown, to indicate that no processing needed to happen. Below it is a visualization of the segmentation IDs array.](./assets/segmentation_ids-segids.png)
+
+---
+
+</details>
 
 ### 2.6. Features
 
@@ -520,14 +562,22 @@ Our feature file should look something like this.
 
 ### 2.7. Centroids (optional)
 
-The centroids file defines the center of each object ID in the dataset. It follows the same format as the feature file, but each ID has two entries corresponding to the `x` and `y` coordinates of the object's centroid, making the `data` array twice as long.
+The centroids file defines the center of each object ID in the dataset. It
+follows the same format as the feature file, but each ID has 2-3 entries
+corresponding to the `x`, `y`, and, optionally, `z` coordinates of the object's
+centroid, making the `data` array exactly two OR three times as long as the
+number of object IDs. If only two coordinates per point are provided, the
+z-coordinate will be assumed to be 0 for all centroids.
 
-For each index `i`, the coordinates are `(x: data[2i], y: data[2i + 1])`.
-Coordinates are defined in pixels in the frame, where the upper left corner of the frame is (0, 0).
+For each index `i`, the coordinates are `(x: data[2i], y: data[2i + 1], z: 0)`
+for 2D data and `(x: data[3i], y: data[3i + 1], z: data[3i + 2])` for 3D data.
+Coordinates are defined in pixels in the frame, where the upper left corner of
+the frame is (0, 0).
 
 `centroids.json:`
 
 ```txt
+2D:
 {
     "data": [
         // <x coordinate for id 0>,
@@ -537,27 +587,68 @@ Coordinates are defined in pixels in the frame, where the upper left corner of t
         // ...
     ]
 }
+
+3D:
+{
+    "data": [
+        // <x coordinate for id 0>,
+        // <y coordinate for id 0>,
+        // <z coordinate for id 0>,
+        // <x coordinate for id 1>,
+        // <y coordinate for id 1>,
+        // <z coordinate for id 1>,
+        // ...
+    ]
+}
 ```
 
 ### 2.8. Bounds (optional)
 
-The bounds file defines the rectangular boundary occupied by each object ID. Like centroids and features, the file defines a `data` array, but has four entries for each object ID to represent the `x` and `y` coordinates of the upper left and lower right corners of the bounding box.
+The bounds file defines the rectangular boundary occupied by each object ID.
+Like centroids and features, the file defines a `data` array, but has either 4
+or 6 entries for each object ID to represent the `x`, `y` (and optionally `z`)
+coordinates of the upper left and lower right corners of the bounding box.
 
-For each object ID `i`, the minimum bounding box coordinates (upper left corner) are given by `(x: data[4i], y: data[4i + 1])`, and the maximum bounding box coordinates (lower right corner) are given by `(x: data[4i + 2], y: data[4i + 3])`.
+For each object ID `i`, the minimum bounding box coordinates (upper left corner
+in 2D) are given by `(x: data[4i], y: data[4i + 1], z: 0)`, and the maximum
+bounding box coordinates (lower right corner in 3D) are given by
+`(x: data[4i + 2], y: data[4i + 3], z: 0)`. If 3D data is provided, the minimum
+bounding box coordinates are given by `(x: data[6i], y: data[6i + 1], z: data[6i + 2])`,
+and the maximum bounding box coordinates are given by
+`(x: data[6i + 3], y: data[6i + 4], z: data[6i + 5])`.
 
-Again, coordinates are defined in pixels in the image frame, where the upper left corner is (0, 0).
+Again, coordinates are defined in pixels (or voxels) in the image. For 2D
+images, the upper left corner is (0, 0).
 
 `bounds.json:`
 
 ```txt
+2D:
 {
     "data": [
-        <upper left x for id 0>,
-        <upper left y for id 0>,
-        <lower right x for id 0>,
-        <lower right y for id 0>,
-        <upper left x for id 1>,
-        <upper left y for id 1>,
+        <min x for id 0>,
+        <min y for id 0>,
+        <min z for id 0>,
+        <max x for id 0>,
+        <max y for id 0>,
+        <max z for id 0>,
+        <min x for id 1>,
+        <min y for id 1>,
+        ...
+    ]
+}
+
+3D:
+{
+    "data": [
+        <min x for id 0>,
+        <min y for id 0>,
+        <min z for id 0>,
+        <max x for id 0>,
+        <max y for id 0>,
+        <max z for id 0>,
+        <min x for id 1>,
+        <min y for id 1>,
         ...
     ]
 }
@@ -649,7 +740,7 @@ Multiple backdrops sharing the same source can be included by specifying differe
 
 If a min and max value is provided, the backdrop channel will be displayed using a transfer function that maps from raw data values to an intensity value. Values at `min` will be mapped to 0, and values at `max` will be mapped to 1, and values between will be ramped linearly. Values outside this range will be clamped to the nearest value.
 
-If `centroids` data are provided, they will be assumed to be in voxel coordinates.
+If `centroids` data are provided, they will be assumed to be in voxel coordinates, regardless of the scaling or units of the OME-Zarr file. Centroids should also be 3D coordinates in this case, where the data array is three times as long as the number of object IDs; if 2D data is provided, the z-coordinate will be assumed to be 0.
 
 ## 3. Collections
 

@@ -257,6 +257,7 @@ def update_collection(
                     )
                 )
                 collection = None
+        logging.info("Updating collection file: {}".format(collection_filepath))
     else:
         if collection_filepath.suffix == "":
             # Directory, append default collection.json filename
@@ -268,6 +269,7 @@ def update_collection(
                 )
             )
         os.makedirs(collection_filepath.parent, exist_ok=True)
+        logging.info("Creating new collection file: {}".format(collection_filepath))
 
     # TODO: Check that the dataset path exists?
     dataset_path = sanitize_path_by_platform(dataset_path)
