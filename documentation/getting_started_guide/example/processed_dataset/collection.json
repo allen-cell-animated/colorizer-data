@@ -1,0 +1,12 @@
+{
+  "datasets": [
+    {
+      "name": "Dataset 1",
+      "path": "dataset_1/manifest.json"
+    },
+    {
+      "name": "Dataset 2",
+      "path": "dataset_2/manifest.json"
+    }
+  ]
+}

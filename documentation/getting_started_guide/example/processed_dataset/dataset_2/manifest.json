@@ -1,0 +1,84 @@
+{
+  "features": [
+    {
+      "name": "Area",
+      "data": "feature_0.parquet",
+      "unit": "px\u00b2",
+      "type": "continuous",
+      "key": "area",
+      "min": 28.3,
+      "max": 804.2,
+      "description": "Area of object in square pixels, calculated from radius."
+    },
+    {
+      "name": "Radius",
+      "data": "feature_1.parquet",
+      "unit": "px",
+      "type": "discrete",
+      "key": "radius",
+      "min": 3,
+      "max": 16,
+      "description": "Radius of object in pixels."
+    },
+    {
+      "name": "Location",
+      "data": "feature_2.parquet",
+      "unit": "",
+      "type": "categorical",
+      "key": "location",
+      "min": 0,
+      "max": 2,
+      "description": "Y position of object's centroid in the frame, as either 'top' (y < 40%), 'middle' (40% \u2264 y \u2264 60%), or 'bottom' (y > 60%) of the frame.",
+      "categories": [
+        "top",
+        "middle",
+        "bottom"
+      ]
+    }
+  ],
+  "tracks": "tracks.parquet",
+  "times": "times.parquet",
+  "segIds": "seg_ids.parquet",
+  "centroids": "centroids.parquet",
+  "frames": [
+    "frame_0.png",
+    "frame_1.png",
+    "frame_2.png",
+    "frame_3.png",
+    "frame_4.png",
+    "frame_5.png",
+    "frame_6.png",
+    "frame_7.png",
+    "frame_8.png",
+    "frame_9.png",
+    "frame_10.png",
+    "frame_11.png",
+    "frame_12.png",
+    "frame_13.png",
+    "frame_14.png",
+    "frame_15.png",
+    "frame_16.png",
+    "frame_17.png",
+    "frame_18.png",
+    "frame_19.png"
+  ],
+  "metadata": {
+    "name": "Example dataset 1",
+    "description": "An example dataset for the Timelapse Feature Explorer!",
+    "author": "Jane Doe et al.",
+    "datasetVersion": "v1.0",
+    "dateCreated": "2025-09-09T01:10:56.588793Z",
+    "lastModified": "2025-09-09T01:10:56.588793Z",
+    "revision": 0,
+    "writerVersion": "v1.6.4",
+    "frameDims": {
+      "width": 100,
+      "height": 100,
+      "units": "nm"
+    },
+    "startingTimeSeconds": 0,
+    "startingFrameNumber": 0,
+    "frameDurationSeconds": 1
+  },
+  "backdrops": []
+}

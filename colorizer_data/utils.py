@@ -218,9 +218,9 @@ def update_metadata(
 
 # TODO: Should collections have their own writer?
 def update_collection(
-    collection_filepath,
-    dataset_name,
-    dataset_path,
+    collection_path: str,
+    dataset_name: str,
+    dataset_path: str,
     *,
     metadata: Optional[CollectionMetadata] = None,
 ):
@@ -229,27 +229,50 @@ def update_collection(
     If the dataset is already in the collection, the existing dataset path will be updated.
 
     Args:
-        collection_filepath: The path of the collection file to create or update. Must be a .json file.
+        collection_path: The path of the collection file to create or update. If a directory is provided,
+            a default `collection.json` file will be created or updated in that directory.
         dataset_name: The name of the dataset to add to the collection.
         dataset_path: The relative path to the dataset, from the root directory of the `collection_filepath`.
         metadata: Optional metadata to update the collection with. If not provided, the existing metadata will
-        be used, and fields will be automatically updated. Define fields in the `metadata` argument to override
-        this behavior.
+            be used, and fields will be automatically updated. Define fields in the `metadata` argument to override
+            this behavior.
     """
     collection: Optional[CollectionManifest] = None
 
     # Read in the existing collection, if it exists
+    collection_filepath = pathlib.Path(sanitize_path_by_platform(collection_path))
+
     if os.path.exists(collection_filepath):
-        try:
-            with open(collection_filepath, "r") as f:
-                collection = json.load(f)
-        except Exception as e:
+        if os.path.isdir(collection_filepath):
+            # Write default collection.json
+            collection_filepath = collection_filepath / "collection.json"
+        else:
+            try:
+                with open(collection_filepath, "r") as f:
+                    collection = json.load(f)
+            except Exception as e:
+                logging.warning(
+                    "update_collection: Failed to read collection file '{}': {}".format(
+                        collection_filepath, str(e)
+                    )
+                )
+                collection = None
+        logging.info("Updating collection file: {}".format(collection_filepath))
+    else:
+        if collection_filepath.suffix == "":
+            # Directory, append default collection.json filename
+            collection_filepath = collection_filepath / "collection.json"
+        elif collection_filepath.suffix != ".json":
             logging.warning(
-                "update_collection: Failed to read collection file '{}': {}".format(
-                    collection_filepath, str(e)
+                "update_collection: Collection file '{}' should have a .json extension.".format(
+                    collection_filepath
                 )
             )
-            collection = None
+        os.makedirs(collection_filepath.parent, exist_ok=True)
+        logging.info("Creating new collection file: {}".format(collection_filepath))
+
+    # TODO: Check that the dataset path exists?
+    dataset_path = sanitize_path_by_platform(dataset_path)
 
     if collection is None:
         collection: CollectionManifest = {

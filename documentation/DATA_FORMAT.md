@@ -2,17 +2,18 @@
 
 Last release: v1.6.4
 
-**NOTE:** If you are looking to create a dataset, you can use the utilities provided in the package to write your data in the correct format. Follow our [getting started guide (`GETTING_STARTED.ipynb`)](./getting_started_guide/GETTING_STARTED.ipynb), and see the [readme (`README.md`)](../README.md) for more details on how to install this package.
+**NOTE:** If you are looking to create a dataset, follow our [getting started guide (`GETTING_STARTED.ipynb`)](./getting_started_guide/GETTING_STARTED.ipynb), and see the [readme (`README.md`)](../README.md) for more details on how to install this package.
 
-Timelapse Feature Explorer can only load datasets that follow the defined data specification, described here.
+This document describes the dataset format used by Timelapse Feature Explorer. Utilities in `colorizer_data` automatically write datasets in this format, but this document exists as a technical resource users who want to create or edit their own datasets manually.
 
 ## 1. Terms
 
-Here are a few important terms:
+A few important terms:
 
 - **Dataset**: A dataset is a single time-series, and can have any number of tracked objects and features.
-- **Collection**: An arbitrary grouping of datasets.
-- **Object ID**: Every segmentation object in every frame has an integer identifier that is unique across all time steps. This identifier will be used to map an object to relevant data. Object IDs must be sequential, starting from 0, across the whole dataset.
+- **Collection**: A grouping of datasets.
+- **Segmentation ID**: An integer identifier for a segmented object at a single time step, usually as the output of a segmentation algorithm. Segmentation IDs are unique within a single time step, but are not guaranteed to be unique across time steps. This is also interchangeably called a "label," "label ID," or "raw pixel value".
+- **Global/object ID**: An integer identifier for each segmented object which is unique across ALL time steps. A tracked object will have a different object ID at each time step.
 
 ## 2. Dataset
 
@@ -33,7 +34,7 @@ The most important file is the **manifest**, which is a JSON file that describes
         {
             "key": <feature key>,                                 // See note on keys below.
             "name": <feature display name>,
-            "data": <relative path to feature JSON>,
+            "data": <relative path to feature file>,
             // Optional fields:
             "unit": <unit label>,
             "type": <"continuous" | "discrete" | "categorical">,
@@ -48,24 +49,29 @@ The most important file is the **manifest**, which is a JSON file that describes
         },
         ...
     ],
-    "tracks": <relative path to tracks JSON>,
-    "times": <relative path to times JSON>,
-    "outliers": <relative path to outlier JSON>,    //< optional
-    "centroids": <relative path to centroids JSON>, //< optional
-    "bounds": <relative path to bounds JSON>        //< optional
+    "tracks": <relative path to tracks file>,
+    "times": <relative path to times file>,
+    "segIds": <relative path to segmentation IDs file>, //< optional, for 3D datasets
+    "outliers": <relative path to outlier file>,    //< optional
+    "centroids": <relative path to centroids file>, //< optional
+    "bounds": <relative path to bounds file>        //< optional
     "backdrops": <array of backdrop image sets>     //< optional, see 2. Backdrops for more details
 }
 ```
 
 _Note: all paths are relative to the location of the manifest file._
 
+A complete example dataset is also available in the [`documentation`](./example_dataset) directory of this project, and can be [viewed on Timelapse Feature Explorer](https://timelapse.allencell.org/viewer?dataset=https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/example_dataset/manifest.json).
+
+### File formats
+
+Linked data files (e.g. `tracks`, `times`, `segIds`, `outliers`, `centroids`, `bounds`, features, etc.) should either be a `.json` file or `.parquet` file. JSON files should be an object with a `data` array property. `.parquet` files should contain a single column.
+
 Note that the `outliers`, `centroids`, and `bounds` files are optional, but certain features of Timelapse Feature Explorer won't work without them.
 
 **Features** can also define additional optional metadata, such as the units and type. Note that there are additional restrictions on some of these fields. **`type`** must have values `continuous` for floats or decimals, `discrete` for integers, or `categorical` for distinct labels.
 
 Features that have the `categorical` type must also define an array of string `categories`, up to a maximum of 12.
-
-A complete example dataset is also available in the [`documentation`](./example_dataset) directory of this project, and can be [viewed on Timelapse Feature Explorer](https://timelapse.allencell.org/viewer?dataset=https://raw.githubusercontent.com/allen-cell-animated/colorizer-data/main/documentation/example_dataset/manifest.json).
 
 ### Note on keys
 
@@ -179,7 +185,7 @@ Besides the details shown above, these are additional parameters that the manife
 }
 ```
 
-These metadata parameters are used to configure additional features of the Timelapse Feature Explorer UI, such as showing scale bars or timestamps on the main display. Additional metadata will likely be added as the project progresses.
+These metadata parameters are used to configure additional features of the Timelapse Feature Explorer UI, such as showing scale bars or timestamps on the main display. Additional metadata fields will likely be added over time.
 
 Note that the interface will directly show the unit labels and does not scale or convert units from one type to another (for example, it will not convert 1000 µm to 1 mm). If you need to present your data with different units, create a (scaled) duplicate of the feature with a different unit label.
 
@@ -386,10 +392,10 @@ The times JSON is similar to the tracks JSON. It also contains a `data` array th
 }
 ```
 
-### 2.5. Frames
+### 2.5. 2D Frames and Segmentation IDs
 
 _Example frame:_
-![Segmented cell nuclei on a black background, in various shades of green, yellow, red.](./frame_example.png)
+![Segmented cell nuclei on a black background, in various shades of green, yellow, red.](./assets/frame_example.png)
 _Each unique color in this frame is a different object ID._
 
 **Frames** are image textures that store the object IDs for each time step in the time series. Each pixel in the image can encode a single object ID in its RGB value (`object ID = R + G*256 + B*256*256 - 1`), and background pixels are `#000000` (black).
@@ -420,7 +426,55 @@ The RGB value for ID `640` will be `RGB(129, 2, 0)`, or `#810200`.
 
 The resulting frame would look like this:
 
-!["A magnified 3x3 frame with a single red pixel (#810200) in the center, surrounded by black pixels."](./frame_example_simple.png)
+!["A magnified 3x3 frame with a single red pixel (#810200) in the center, surrounded by black pixels."](./assets/frame_example_simple.png)
+
+---
+
+</details>
+
+#### Segmentation IDs (optional)
+
+It's also possible to load frames where segmentation IDs are not unique across
+all time steps, by providing a `segIds` file. This is typically used for very
+large image files like 3D OME-Zarr data (see section on 3D frames) where
+remapping the segmentation IDs would be expensive.
+
+For each object ID `i`, the `segIds[i]` is the segmentation ID (e.g. "label" or
+"raw pixel value") of that object in the frame data at some time `t`.
+
+`segIds.json:`
+
+```txt
+{
+    "data": [
+        <segmentation id for object id 0>,
+        <segmentation id for object id 1>,
+        <segmentation id for object id 2>,
+        ...
+    ]
+}
+```
+
+<details>
+<summary><b>[🔍 Show me an example!]</b></summary>
+
+---
+
+Let's say we have a series of images with the following segmentation IDs:
+
+![Label: "Original segmentations." A series of three frame images have various sized bubbles, moving and changing in size over time. There are three bubbles are labeled 1, 2, and 3 in each image.](./assets/segmentation_ids-original.png)
+
+Normally, we would require that the images be remapped so that the segmentation IDs are unique across all time steps, like this.
+
+![Label: "Remapped to store global IDs." The same image as above with three image frames, only now the bubbles have been relabeled so that each bubble has a unique ID across all frames. The count starts at 1 and goes to 8.](./assets/segmentation_ids-remapped.png)
+
+However, this can be expensive, especially when hundreds of frames are involved.
+Instead, we can provide a `segIds.json` file that stores a segmentation ID for
+each object. This, along with the `times` file, can be used to look up the
+segmentation ID for each object ID in the dataset, and allows us to keep the
+original images without remapping them.
+
+!["Label: "With segIds." The same three images as the first segmentations are shown, to indicate that no processing needed to happen. Below it is a visualization of the segmentation IDs array.](./assets/segmentation_ids-segids.png)
 
 ---
 
@@ -508,14 +562,22 @@ Our feature file should look something like this.
 
 ### 2.7. Centroids (optional)
 
-The centroids file defines the center of each object ID in the dataset. It follows the same format as the feature file, but each ID has two entries corresponding to the `x` and `y` coordinates of the object's centroid, making the `data` array twice as long.
+The centroids file defines the center of each object ID in the dataset. It
+follows the same format as the feature file, but each ID has 2-3 entries
+corresponding to the `x`, `y`, and, optionally, `z` coordinates of the object's
+centroid, making the `data` array exactly two OR three times as long as the
+number of object IDs. If only two coordinates per point are provided, the
+z-coordinate will be assumed to be 0 for all centroids.
 
-For each index `i`, the coordinates are `(x: data[2i], y: data[2i + 1])`.
-Coordinates are defined in pixels in the frame, where the upper left corner of the frame is (0, 0).
+For each index `i`, the coordinates are `(x: data[2i], y: data[2i + 1], z: 0)`
+for 2D data and `(x: data[3i], y: data[3i + 1], z: data[3i + 2])` for 3D data.
+Coordinates are defined in pixels in the frame, where the upper left corner of
+the frame is (0, 0).
 
 `centroids.json:`
 
 ```txt
+2D:
 {
     "data": [
         // <x coordinate for id 0>,
@@ -525,27 +587,68 @@ Coordinates are defined in pixels in the frame, where the upper left corner of t
         // ...
     ]
 }
+
+3D:
+{
+    "data": [
+        // <x coordinate for id 0>,
+        // <y coordinate for id 0>,
+        // <z coordinate for id 0>,
+        // <x coordinate for id 1>,
+        // <y coordinate for id 1>,
+        // <z coordinate for id 1>,
+        // ...
+    ]
+}
 ```
 
 ### 2.8. Bounds (optional)
 
-The bounds file defines the rectangular boundary occupied by each object ID. Like centroids and features, the file defines a `data` array, but has four entries for each object ID to represent the `x` and `y` coordinates of the upper left and lower right corners of the bounding box.
+The bounds file defines the rectangular boundary occupied by each object ID.
+Like centroids and features, the file defines a `data` array, but has either 4
+or 6 entries for each object ID to represent the `x`, `y` (and optionally `z`)
+coordinates of the upper left and lower right corners of the bounding box.
 
-For each object ID `i`, the minimum bounding box coordinates (upper left corner) are given by `(x: data[4i], y: data[4i + 1])`, and the maximum bounding box coordinates (lower right corner) are given by `(x: data[4i + 2], y: data[4i + 3])`.
+For each object ID `i`, the minimum bounding box coordinates (upper left corner
+in 2D) are given by `(x: data[4i], y: data[4i + 1], z: 0)`, and the maximum
+bounding box coordinates (lower right corner in 3D) are given by
+`(x: data[4i + 2], y: data[4i + 3], z: 0)`. If 3D data is provided, the minimum
+bounding box coordinates are given by `(x: data[6i], y: data[6i + 1], z: data[6i + 2])`,
+and the maximum bounding box coordinates are given by
+`(x: data[6i + 3], y: data[6i + 4], z: data[6i + 5])`.
 
-Again, coordinates are defined in pixels in the image frame, where the upper left corner is (0, 0).
+Again, coordinates are defined in pixels (or voxels) in the image. For 2D
+images, the upper left corner is (0, 0).
 
 `bounds.json:`
 
 ```txt
+2D:
 {
     "data": [
-        <upper left x for id 0>,
-        <upper left y for id 0>,
-        <lower right x for id 0>,
-        <lower right y for id 0>,
-        <upper left x for id 1>,
-        <upper left y for id 1>,
+        <min x for id 0>,
+        <min y for id 0>,
+        <min z for id 0>,
+        <max x for id 0>,
+        <max y for id 0>,
+        <max z for id 0>,
+        <min x for id 1>,
+        <min y for id 1>,
+        ...
+    ]
+}
+
+3D:
+{
+    "data": [
+        <min x for id 0>,
+        <min y for id 0>,
+        <min z for id 0>,
+        <max x for id 0>,
+        <max y for id 0>,
+        <max z for id 0>,
+        <min x for id 1>,
+        <min y for id 1>,
         ...
     ]
 }
@@ -598,6 +701,46 @@ For example, if a dataset had the following tracks and outliers, the file might 
 ---
 
 </details>
+
+### 2.10. 3D Frames (experimental)
+
+Timelapse Feature Explorer has experimental support for viewing and interacting with 3D segmentation data.
+
+For best performance, 3D segmentation sources should be stored as a multiscale [OME-Zarr file](https://link.springer.com/article/10.1007/s00418-023-02209-1) ending in `.ome.zarr`. It should be a time-series Zarr that directly stores the integer segmentation IDs (if the `segIds` file is provided) or the global object IDs.
+
+To do so, include the `frames3d` key in the manifest file, which will replace the `frames` and `backdrops` parameters.
+
+`manifest.json:`
+
+```txt
+{
+    "frames3d": {
+        "source": <relative path or URL of an OME-Zarr file>,
+        "segmentationChannel": <channel index for segmentation IDs>, // optional, defaults to 0
+        "totalFrames": <total number of frames in the time series>,
+        "backdrops": [...] <array of backdrop parameters>
+    },
+}
+```
+
+If you want to include additional channels as backdrop images, you can specify them in the `backdrops` array. Each backdrop object should have the following format:
+
+```text
+{
+    "source": <relative path or URL of an OME-Zarr file>, // can be the same as the main source
+    "name": <name of the backdrop>,
+    "description": <description of the backdrop>, // optional
+    "channel": <channel index for the backdrop>,  // optional, defaults to 0
+    "min": <min value for transfer function>, // optional
+    "max": <max value for transfer function>, // optional
+}
+```
+
+Multiple backdrops sharing the same source can be included by specifying different `channel` indices.
+
+If a min and max value is provided, the backdrop channel will be displayed using a transfer function that maps from raw data values to an intensity value. Values at `min` will be mapped to 0, and values at `max` will be mapped to 1, and values between will be ramped linearly. Values outside this range will be clamped to the nearest value.
+
+If `centroids` data are provided, they will be assumed to be in voxel coordinates, regardless of the scaling or units of the OME-Zarr file. Centroids should also be 3D coordinates in this case, where the data array is three times as long as the number of object IDs; if 2D data is provided, the z-coordinate will be assumed to be 0.
 
 ## 3. Collections
 

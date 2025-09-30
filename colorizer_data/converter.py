@@ -39,7 +39,7 @@ from colorizer_data.writer import ColorizerDatasetWriter
 
 @dataclass
 class ConverterConfig:
-    object_id_column: str
+    segmentation_id_column: str
     times_column: str
     track_column: str
     centroid_x_column: str
@@ -140,10 +140,10 @@ def _write_data(
                 f"All objects are marked as outliers in column '{config.outlier_column}'. At least one object must not be an outlier."
             )
 
-    seg_ids = _get_data_or_none(dataset, config.object_id_column)
+    seg_ids = _get_data_or_none(dataset, config.segmentation_id_column)
     if seg_ids is None:
         logging.warning(
-            f"No object ID data found in the dataset for column name '{config.object_id_column}'."
+            f"No object ID data found in the dataset for column name '{config.segmentation_id_column}'."
             + "\n  The pixel value for each object in image frames will be assumed to be (= row index + 1)."
             + "\n  This may cause issues if the dataset does not have globally-unique object IDs in the image."
         )
@@ -261,7 +261,7 @@ def _write_backdrops(
 
 def _get_reserved_column_names(config: ConverterConfig) -> List[str]:
     reserved_columns = [
-        config.object_id_column,
+        config.segmentation_id_column,
         config.times_column,
         config.track_column,
         config.centroid_x_column,
@@ -393,7 +393,8 @@ def convert_colorizer_data(
     *,
     source_dir: Optional[Union[str, pathlib.Path]] = None,
     metadata: Optional[ColorizerMetadata] = None,
-    object_id_column: str = "ID",
+    object_id_column: str = "ID",  # DEPRECATED
+    segmentation_id_column: str = None,
     times_column: str = "Frame",
     track_column: str = "Track",
     # 2D image source
@@ -430,8 +431,11 @@ def convert_colorizer_data(
             as the dataset name, author, dataset description, frame resolution, and time units.
             See `ColorizerMetadata` for more information. Note that some information will be
             written automatically, such as a timestamp and revision number.
-        object_id_column (str): The name of the column containing the segmentation ID of a given object
-            in the frame or image data. Defaults to "ID."
+        object_id_column (str): DEPRECATED. The name of the column containing the segmentation ID
+            of a given object in the frame or image data. Overridden by `segmentation_id_column`
+            if both are provided. Defaults to "ID."
+        segmentation_id_column (str): The name of the column containing the segmentation ID of a
+            given object in the frame or image data.
         times_column (str): The name of the column containing time steps. Defaults to "Frame."
         track_column (str): The name of the column containing track IDs. Defaults to "Track."
         image_column (str | None): The name of the column containing filepaths to the segmentation images.
@@ -525,9 +529,20 @@ def convert_colorizer_data(
         ```
     """
 
+    configureLogging(output_dir=output_dir, log_name="debug.log")
+
+    if object_id_column is not None and segmentation_id_column is None:
+        # TODO: When `object_id_column` is removed, change
+        # `segmentation_id_column` to have "ID" as the default value. It
+        # currently defaults to None for backwards compatibility.
+        segmentation_id_column = object_id_column
+        logging.warning(
+            "The 'object_id_column' argument is deprecated and will be removed in a future release. Please use 'segmentation_id_column' instead."
+        )
+
     # TODO: Trim spaces from column names and data
     config = ConverterConfig(
-        object_id_column=object_id_column,
+        segmentation_id_column=segmentation_id_column,
         times_column=times_column,
         track_column=track_column,
         centroid_x_column=centroid_x_column,
@@ -550,10 +565,6 @@ def convert_colorizer_data(
     if source_dir is None:
         source_dir = pathlib.Path.cwd()
     original_cwd = pathlib.Path.cwd()
-
-    configureLogging(output_dir=output_dir, log_name="debug.log")
-
-    configureLogging(output_dir=output_dir, log_name="debug.log")
 
     writer = ColorizerDatasetWriter(parent_directory, dataset_name)
 
@@ -586,7 +597,7 @@ def convert_colorizer_data(
                 columns=[
                     config.times_column,
                     config.image_column,
-                    config.object_id_column,
+                    config.segmentation_id_column,
                 ]
             )
             reduced_dataset = reduced_dataset.reset_index(drop=True)
