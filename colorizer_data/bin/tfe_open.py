@@ -5,12 +5,34 @@ from multiprocessing import Process
 import argparse
 import os
 import signal
+import socket
 import webbrowser
 
 # 6465 and 6470 are unassigned ports according to
 # https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml
 default_tfe_port = 6465
 default_directory_port = 6470
+
+
+def get_available_port(default_port):
+    try:
+        # Try binding to the default port
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("localhost", default_port))
+            return default_port
+    except OSError:
+        # If the default port is in use, find an available port
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("localhost", 0))  # Bind to an available port
+            return s.getsockname()[1]  # Return the dynamically assigned port
+
+
+# Use the default ports or dynamically assign available ones
+default_tfe_port = get_available_port(default_tfe_port)
+default_directory_port = get_available_port(default_directory_port)
+
+print(f"TFE will run on port {default_tfe_port}")
+print(f"Directory server will run on port {default_directory_port}")
 
 
 # Adapted from https://stackoverflow.com/a/21957017.
