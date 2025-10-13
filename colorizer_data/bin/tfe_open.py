@@ -6,6 +6,7 @@ import argparse
 import os
 import signal
 import socket
+from time import sleep
 import webbrowser
 
 # 6465 and 6470 are unassigned ports according to
@@ -25,14 +26,6 @@ def get_available_port(default_port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("localhost", 0))  # Bind to an available port
             return s.getsockname()[1]  # Return the dynamically assigned port
-
-
-# Use the default ports or dynamically assign available ones
-default_tfe_port = get_available_port(default_tfe_port)
-default_directory_port = get_available_port(default_directory_port)
-
-print(f"TFE will run on port {default_tfe_port}")
-print(f"Directory server will run on port {default_directory_port}")
 
 
 # Adapted from https://stackoverflow.com/a/21957017.
@@ -135,8 +128,16 @@ def main():
 
     args = parser.parse_args()
     dataset_path = os.path.abspath(args.dataset_path)
-    tfe_port = args.tfe_port
-    directory_port = args.port
+
+    tfe_port = get_available_port(args.tfe_port)
+    directory_port = get_available_port(args.port)
+
+    if tfe_port != args.tfe_port:
+        print(f"Port {args.tfe_port} is in use. Using port {tfe_port} for TFE instead.")
+    if directory_port != args.port:
+        print(
+            f"Port {args.port} is in use. Using port {directory_port} for the directory server instead."
+        )
 
     # Change working directory to the provided dataset directory
     new_cwd = os.getcwd()
@@ -170,6 +171,7 @@ def main():
     tfe_process = Process(target=serve_tfe, args=(tfe_port,))
     tfe_process.start()
 
+    sleep(1)  # Prevents a bug where the page fails to load
     print("Opening TFE at", url)
     webbrowser.open(url)
 
