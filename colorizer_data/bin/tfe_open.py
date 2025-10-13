@@ -5,12 +5,27 @@ from multiprocessing import Process
 import argparse
 import os
 import signal
+import socket
+from time import sleep
 import webbrowser
 
 # 6465 and 6470 are unassigned ports according to
 # https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml
 default_tfe_port = 6465
 default_directory_port = 6470
+
+
+def get_available_port(default_port):
+    try:
+        # Try binding to the default port
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("localhost", default_port))
+            return default_port
+    except OSError:
+        # If the default port is in use, find an available port
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("localhost", 0))  # Bind to an available port
+            return s.getsockname()[1]  # Return the dynamically assigned port
 
 
 # Adapted from https://stackoverflow.com/a/21957017.
@@ -113,8 +128,16 @@ def main():
 
     args = parser.parse_args()
     dataset_path = os.path.abspath(args.dataset_path)
-    tfe_port = args.tfe_port
-    directory_port = args.port
+
+    tfe_port = get_available_port(args.tfe_port)
+    directory_port = get_available_port(args.port)
+
+    if tfe_port != args.tfe_port:
+        print(f"Port {args.tfe_port} is in use. Using port {tfe_port} for TFE instead.")
+    if directory_port != args.port:
+        print(
+            f"Port {args.port} is in use. Using port {directory_port} for the directory server instead."
+        )
 
     # Change working directory to the provided dataset directory
     new_cwd = os.getcwd()
@@ -148,6 +171,7 @@ def main():
     tfe_process = Process(target=serve_tfe, args=(tfe_port,))
     tfe_process.start()
 
+    sleep(1)  # Prevents a bug where the page fails to load
     print("Opening TFE at", url)
     webbrowser.open(url)
 
