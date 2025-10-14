@@ -4,13 +4,112 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 from multiprocessing import Process
 import argparse
 import os
+import re
+import requests
 import signal
 import socket
 from time import sleep
 import webbrowser
+import zipfile
+
+
+def get_viewer_path():
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    return os.path.join(script_dir, "viewer")
+
+
+def fetch_latest_viewer_info() -> tuple[str, str] | None:
+    """
+    Returns a tuple of the latest version string and the download URL for the
+    latest release, or None if the request fails.
+    """
+    url = "https://api.github.com/repos/allen-cell-animated/timelapse-colorizer/releases/latest"
+    url_headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    response = requests.get(url, headers=url_headers, timeout=1)
+    if response.status_code != 200:
+        return None
+    release_info = response.json()
+    tag_name = release_info["tag_name"][1:]  # Strip leading 'v'
+    download_url = release_info["assets"][0]["browser_download_url"]
+    return tag_name, download_url
+
+
+def update_to_latest_viewer(download_url: str):
+    print("\nUpdating to the latest version...")
+    response = requests.get(download_url, timeout=10)
+    if response.status_code != 200:
+        print("Warning: Could not download the latest TFE version.")
+        return
+    zip_path = os.path.join(get_viewer_path(), "tfe_latest.zip")
+    with open(zip_path, "wb") as f:
+        f.write(response.content)
+
+    # Clear existing viewer files
+    for root, dirs, files in os.walk(get_viewer_path()):
+        for file in files:
+            if file != "tfe_latest.zip":
+                os.remove(os.path.join(root, file))
+        for dir in dirs:
+            os.rmdir(os.path.join(root, dir))
+    # Replace with new files
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(get_viewer_path())
+
+    print("Update complete.\n")
+    pass
+
+
+def get_version_from_html(html_content: str) -> str | None:
+    # Find meta tag with name="version"
+    match = re.search(r'<meta\s+name="version"\s+content="([^"]+)"', html_content)
+    if match:
+        return match.group(1)
+    return None
+
+
+def get_current_viewer_version() -> str | None:
+    """
+    Gets the current version of the viewer from the built viewer file, as a
+    "X.Y.Z" semver string.
+    """
+    index_html_path = os.path.join(get_viewer_path(), "index.html")
+    with open(index_html_path, "r") as f:
+        html_content = f.read()
+        return get_version_from_html(html_content)
+
+
+def check_for_and_update_tfe(allow_update: bool) -> None:
+    # Check for TFE version updates
+    try:
+        current_version = get_current_viewer_version()
+        latest_version_info = fetch_latest_viewer_info()
+        if latest_version_info is None:
+            print("Warning: Could not fetch latest TFE version.")
+        else:
+            if current_version != latest_version_info[0]:
+                print(
+                    "A new version of TFE is available: {} (current: {})".format(
+                        latest_version_info[0], current_version
+                    )
+                )
+                if allow_update:
+                    update_to_latest_viewer(latest_version_info[1])
+                else:
+                    print(
+                        "Run this script with the --latest flag to automatically update to the latest version."
+                    )
+            else:
+                print("TFE is up to date. (version {})".format(current_version))
+    except Exception as e:
+        print("Warning: Could not fetch latest TFE version:", e)
+
 
 # 6465 and 6470 are unassigned ports according to
 # https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml
+
 default_tfe_port = 6465
 default_directory_port = 6470
 
@@ -42,7 +141,7 @@ class ReactAppRequestHandler(CORSRequestHandler):
         path = super().translate_path(path)
         if os.path.exists(path):
             return path
-        return os.path.join(os.getcwd(), "viewer/index.html")
+        return os.path.join(os.getcwd(), "index.html")
 
 
 # Adapted from https://stackoverflow.com/questions/18499497/how-to-process-sigterm-signal-gracefully
@@ -87,8 +186,8 @@ def serve_until_terminated(httpd: HTTPServer):
 
 
 def serve_tfe(port):
-    script_dir = os.path.dirname(os.path.realpath(__file__))
-    os.chdir(script_dir)
+    os.chdir(get_viewer_path())
+
     httpd = HTTPServer(
         ("localhost", port),
         ReactAppRequestHandler,
@@ -125,6 +224,12 @@ def main():
             default_directory_port
         ),
     )
+    parser.add_argument(
+        "--latest",
+        action="store_true",
+        default=False,
+        help="Whether to automatically upgrade to the latest version of TFE.",
+    )
 
     args = parser.parse_args()
     dataset_path = os.path.abspath(args.dataset_path)
@@ -151,7 +256,9 @@ def main():
         raise ValueError("The specified path does not exist: {}".format(dataset_path))
     os.chdir(new_cwd)
 
-    url = "http://localhost:{}/viewer/viewer?".format(tfe_port)
+    check_for_and_update_tfe(args.latest)
+
+    url = "http://localhost:{}/viewer?".format(tfe_port)
     abs_path = os.path.abspath(dataset_path)
     if is_collection(abs_path):
         url += "collection=http://localhost:{}/{}".format(
@@ -173,6 +280,7 @@ def main():
 
     sleep(1)  # Prevents a bug where the page fails to load
     print("Opening TFE at", url)
+    print("Press Ctrl+C to exit.\n")
     webbrowser.open(url)
 
     # Blocks until the server kills the process.
