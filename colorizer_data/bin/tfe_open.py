@@ -7,15 +7,34 @@ import os
 import re
 import requests
 import signal
+import shutil
 import socket
 from time import sleep
 import webbrowser
 import zipfile
 
 
-def get_viewer_path():
+def get_base_viewer_path():
     script_dir = os.path.dirname(os.path.realpath(__file__))
     return os.path.join(script_dir, "viewer")
+
+
+def get_viewer_path():
+    return os.path.join(get_base_viewer_path(), "latest")
+
+
+def initialize_viewer():
+    """
+    Copy files from the `viewer/default` to `viewer/latest` if `latest` doesn't
+    exist. `latest` is set to be ignored by git, so users can modify it without
+    affecting the repo.
+    """
+    latest_viewer_path = get_viewer_path()
+    default_viewer_path = os.path.join(get_base_viewer_path(), "default")
+    if not os.path.exists(latest_viewer_path) or not os.path.exists(
+        os.path.join(latest_viewer_path, "index.html")
+    ):
+        shutil.copytree(default_viewer_path, latest_viewer_path, dirs_exist_ok=True)
 
 
 def fetch_latest_viewer_info() -> tuple[str, str] | None:
@@ -39,27 +58,34 @@ def fetch_latest_viewer_info() -> tuple[str, str] | None:
 
 def update_to_latest_viewer(download_url: str):
     print("\nUpdating to the latest version...")
+    viewer_path = get_viewer_path()
+
     response = requests.get(download_url, timeout=10)
     if response.status_code != 200:
         print("Warning: Could not download the latest TFE version.")
         return
-    zip_path = os.path.join(get_viewer_path(), "tfe_latest.zip")
+
+    # Clear existing viewer files
+    if os.path.exists(viewer_path):
+        shutil.rmtree(viewer_path)
+    os.makedirs(viewer_path, exist_ok=True)
+
+    zip_path = os.path.join(viewer_path, "tfe_latest.zip")
     with open(zip_path, "wb") as f:
         f.write(response.content)
 
-    # Clear existing viewer files
-    for root, dirs, files in os.walk(get_viewer_path()):
-        for file in files:
-            if file != "tfe_latest.zip":
-                os.remove(os.path.join(root, file))
-        for dir in dirs:
-            os.rmdir(os.path.join(root, dir))
     # Replace with new files
+    parent_path = os.path.dirname(viewer_path)
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
-        zip_ref.extractall(get_viewer_path())
+        zip_ref.extractall(parent_path)
+    # Move files from the extracted folder to viewer_path
+    extracted_folder = os.path.join(parent_path, "viewer")
+    shutil.copytree(extracted_folder, viewer_path, dirs_exist_ok=True)
+    # Cleanup files
+    os.remove(zip_path)
+    shutil.rmtree(extracted_folder)
 
-    print("Update complete.\n")
-    pass
+    print("Update complete.")
 
 
 def get_version_from_html(html_content: str) -> str | None:
@@ -82,16 +108,26 @@ def get_current_viewer_version() -> str | None:
 
 
 def check_for_and_update_tfe(allow_update: bool) -> None:
+    initialize_viewer()
+
     # Check for TFE version updates
+    current_version = None
+    latest_version_info = None
     try:
         current_version = get_current_viewer_version()
+    except Exception as e:
+        print(
+            "Warning: Could not get current TFE version. Files may be corrupted or missing.",
+            e,
+        )
+    try:
         latest_version_info = fetch_latest_viewer_info()
         if latest_version_info is None:
             print("Warning: Could not fetch latest TFE version.")
         else:
             if current_version != latest_version_info[0]:
                 print(
-                    "A new version of TFE is available: {} (current: {})".format(
+                    "A new version of TFE is available! (new: {}, current: {})".format(
                         latest_version_info[0], current_version
                     )
                 )
@@ -105,6 +141,7 @@ def check_for_and_update_tfe(allow_update: bool) -> None:
                 print("TFE is up to date. (version {})".format(current_version))
     except Exception as e:
         print("Warning: Could not fetch latest TFE version:", e)
+    print()
 
 
 # 6465 and 6470 are unassigned ports according to

@@ -6,3 +6,4 @@ venv/
 *.pyc
 .ipynb_checkpoints/
 __pycache__/
+colorizer_data/bin/viewer/latest
