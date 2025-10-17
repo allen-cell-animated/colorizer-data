@@ -14,6 +14,18 @@ import webbrowser
 import zipfile
 
 
+"""
+# Directory layout:
+
+tfe_open.py       # This script
+viewer/
+    default/      # Built-in viewer files (committed to git)
+    latest/       # User-modifiable viewer files, can be updated (gitignored).
+                  # Will be initialized by copying from `default/` on first run.
+
+"""
+
+
 def get_base_viewer_path():
     script_dir = os.path.dirname(os.path.realpath(__file__))
     return os.path.join(script_dir, "viewer")
@@ -73,11 +85,11 @@ def update_to_latest_viewer(download_url: str):
             shutil.rmtree(viewer_path)
         os.makedirs(viewer_path, exist_ok=True)
 
+        # Write and extract the zip file.
+        # Files in the zip are contained in a top-level "viewer/" folder.
         zip_path = os.path.join(viewer_path, "tfe_latest.zip")
         with open(zip_path, "wb") as f:
             f.write(response.content)
-
-        # Replace with new files
         parent_path = os.path.dirname(viewer_path)
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
             zip_ref.extractall(parent_path)
@@ -95,7 +107,7 @@ def update_to_latest_viewer(download_url: str):
 
 
 def get_version_from_html(html_content: str) -> str | None:
-    # Find meta tag with name="version"
+    # Find meta tag: <meta name="version" content="x.x.x">
     match = re.search(r'<meta\s+name="version"\s+content="([^"]+)"', html_content)
     if match:
         return match.group(1)
@@ -115,7 +127,6 @@ def get_current_viewer_version() -> str | None:
 
 def check_for_and_update_tfe(allow_update: bool) -> None:
     initialize_viewer_directory()
-
     # Check for TFE version updates
     current_version = None
     latest_version_info = None
@@ -152,7 +163,6 @@ def check_for_and_update_tfe(allow_update: bool) -> None:
 
 # 6465 and 6470 are unassigned ports according to
 # https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml
-
 default_tfe_port = 6465
 default_directory_port = 6470
 
