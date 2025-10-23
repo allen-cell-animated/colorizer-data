@@ -7,7 +7,7 @@ import os
 import signal
 import socket
 from time import sleep
-from typing import List
+from typing import List, Tuple
 import webbrowser
 
 # 6465 and 6470 are unassigned ports according to
@@ -16,28 +16,32 @@ default_tfe_port = 6465
 default_directory_port = 6470
 
 
-def get_available_ports(default_ports: List[int]) -> List[int]:
+def acquire_ports(default_ports: List[int]) -> List[Tuple[int, socket.socket]]:
     """
-    Returns a list of available port numbers, attempting to use the provided
-    list of defaults. If a default port is in use, returns another available
-    port instead.
+    Returns a list of tuples containing reserved port numbers and open sockets
+    on those ports, attempting to use the provided list of defaults. If a
+    default port is in use, returns another available port instead. The open
+    sockets can be used to prevent other processes from acquiring the same
+    ports.
+
+    Note that the returned sockets must be closed by the caller when no longer
+    needed.
     """
-    # Recursive function. Calls itself while still inside the socket `with`
-    # block to prevent the same port from being allocated multiple times after
-    # being released.
-    if len(default_ports) == 0:
-        return []
-    default_port = default_ports[0]
-    try:
-        # Try binding to the default port
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    ports = []
+    for default_port in default_ports:
+        if not (0 <= default_port <= 65535):
+            raise ValueError("Port numbers must be between 0 and 65535.")
+        try:
+            # Try binding to the default port
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.bind(("localhost", default_port))
-            return [default_port] + get_available_ports(default_ports[1:])
-    except OSError:
-        # If the default port is in use, find an available port
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            ports.append((default_port, s))
+        except OSError:
+            # If the default port is in use, find an available port
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.bind(("localhost", 0))  # Bind to an available port
-            return [s.getsockname()[1]] + get_available_ports(default_ports[1:])
+            ports.append((s.getsockname()[1], s))
+    return ports
 
 
 # Adapted from https://stackoverflow.com/a/21957017.
@@ -141,7 +145,9 @@ def main():
     args = parser.parse_args()
     dataset_path = os.path.abspath(args.dataset_path)
 
-    tfe_port, directory_port = get_available_ports([args.tfe_port, args.port])
+    (tfe_port, tfe_reserved_socket), (directory_port, directory_reserved_socket) = (
+        acquire_ports([args.tfe_port, args.port])
+    )
 
     if tfe_port != args.tfe_port:
         print(f"Port {args.tfe_port} is in use. Using port {tfe_port} for TFE instead.")
@@ -179,14 +185,19 @@ def main():
             )
         )
 
+    # Start TFE server in a separate process
+    tfe_reserved_socket.close()
     tfe_process = Process(target=serve_tfe, args=(tfe_port,))
     tfe_process.start()
 
-    sleep(1)  # Prevents a bug where the page fails to load
+    # Prevents a bug where the page fails to load because the TFE server hasn't
+    # been initialized yet.
+    sleep(1)
     print("Opening TFE at", url)
     webbrowser.open(url)
 
     # Blocks until the server kills the process.
+    directory_reserved_socket.close()
     serve_directory(directory_port)
 
     # Exit gracefully
