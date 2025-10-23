@@ -7,6 +7,7 @@ import os
 import signal
 import socket
 from time import sleep
+from typing import List
 import webbrowser
 
 # 6465 and 6470 are unassigned ports according to
@@ -15,17 +16,28 @@ default_tfe_port = 6465
 default_directory_port = 6470
 
 
-def get_available_port(default_port):
+def get_available_ports(default_ports: List[int]) -> List[int]:
+    """
+    Returns a list of available port numbers, attempting to use the provided
+    list of defaults. If a default port is in use, returns another available
+    port instead.
+    """
+    # Recursive function. Calls itself while still inside the socket `with`
+    # block to prevent the same port from being allocated multiple times after
+    # being released.
+    if len(default_ports) == 0:
+        return []
+    default_port = default_ports[0]
     try:
         # Try binding to the default port
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("localhost", default_port))
-            return default_port
+            return [default_port] + get_available_ports(default_ports[1:])
     except OSError:
         # If the default port is in use, find an available port
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("localhost", 0))  # Bind to an available port
-            return s.getsockname()[1]  # Return the dynamically assigned port
+            return [s.getsockname()[1]] + get_available_ports(default_ports[1:])
 
 
 # Adapted from https://stackoverflow.com/a/21957017.
@@ -129,8 +141,7 @@ def main():
     args = parser.parse_args()
     dataset_path = os.path.abspath(args.dataset_path)
 
-    tfe_port = get_available_port(args.tfe_port)
-    directory_port = get_available_port(args.port)
+    tfe_port, directory_port = get_available_ports([args.tfe_port, args.port])
 
     if tfe_port != args.tfe_port:
         print(f"Port {args.tfe_port} is in use. Using port {tfe_port} for TFE instead.")
