@@ -5,12 +5,43 @@ from multiprocessing import Process
 import argparse
 import os
 import signal
+import socket
+from time import sleep
+from typing import List, Tuple
 import webbrowser
 
 # 6465 and 6470 are unassigned ports according to
 # https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml
 default_tfe_port = 6465
 default_directory_port = 6470
+
+
+def acquire_ports(default_ports: List[int]) -> List[Tuple[int, socket.socket]]:
+    """
+    Returns a list of tuples containing reserved port numbers and open sockets
+    on those ports, attempting to use the provided list of defaults. If a
+    default port is in use, returns another available port instead. The open
+    sockets can be used to prevent other processes from acquiring the same
+    ports.
+
+    Note that the returned sockets must be closed by the caller when no longer
+    needed.
+    """
+    ports = []
+    for default_port in default_ports:
+        if not (0 <= default_port <= 65535):
+            raise ValueError("Port numbers must be between 0 and 65535.")
+        try:
+            # Try binding to the default port
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.bind(("localhost", default_port))
+            ports.append((default_port, s))
+        except OSError:
+            # If the default port is in use, find an available port
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.bind(("localhost", 0))  # Bind to an available port
+            ports.append((s.getsockname()[1], s))
+    return ports
 
 
 # Adapted from https://stackoverflow.com/a/21957017.
@@ -113,8 +144,17 @@ def main():
 
     args = parser.parse_args()
     dataset_path = os.path.abspath(args.dataset_path)
-    tfe_port = args.tfe_port
-    directory_port = args.port
+
+    (tfe_port, tfe_reserved_socket), (directory_port, directory_reserved_socket) = (
+        acquire_ports([args.tfe_port, args.port])
+    )
+
+    if tfe_port != args.tfe_port:
+        print(f"Port {args.tfe_port} is in use. Using port {tfe_port} for TFE instead.")
+    if directory_port != args.port:
+        print(
+            f"Port {args.port} is in use. Using port {directory_port} for the directory server instead."
+        )
 
     # Change working directory to the provided dataset directory
     new_cwd = os.getcwd()
@@ -145,13 +185,19 @@ def main():
             )
         )
 
+    # Start TFE server in a separate process
+    tfe_reserved_socket.close()
     tfe_process = Process(target=serve_tfe, args=(tfe_port,))
     tfe_process.start()
 
+    # Prevents a bug where the page fails to load because the TFE server hasn't
+    # been initialized yet.
+    sleep(1)
     print("Opening TFE at", url)
     webbrowser.open(url)
 
     # Blocks until the server kills the process.
+    directory_reserved_socket.close()
     serve_directory(directory_port)
 
     # Exit gracefully
