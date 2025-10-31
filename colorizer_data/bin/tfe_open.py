@@ -26,14 +26,18 @@ viewer/
 
 """
 
+viewer_directory = "viewer"
+viewer_directory_default = "default"
+viewer_directory_latest = "latest"
+
 
 def get_base_viewer_path():
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(script_dir, "viewer")
+    return os.path.join(script_dir, viewer_directory)
 
 
 def get_viewer_path():
-    return os.path.join(get_base_viewer_path(), "latest")
+    return os.path.join(get_base_viewer_path(), viewer_directory_latest)
 
 
 def initialize_viewer_directory(force=False):
@@ -43,7 +47,7 @@ def initialize_viewer_directory(force=False):
     affecting the repo.
     """
     latest_viewer_path = get_viewer_path()
-    default_viewer_path = os.path.join(get_base_viewer_path(), "default")
+    default_viewer_path = os.path.join(get_base_viewer_path(), viewer_directory_default)
 
     path_exists = os.path.exists(latest_viewer_path)
     has_html = os.path.exists(os.path.join(latest_viewer_path, "index.html"))
@@ -153,7 +157,7 @@ def check_for_and_update_tfe(allow_update: bool) -> None:
                     update_to_latest_viewer(latest_version_info[1])
                 else:
                     print(
-                        "Run this script with the --latest flag to automatically update to the latest version."
+                        "Run this script with the '--latest' flag to automatically update to the latest version."
                     )
             else:
                 print("TFE is up to date. (version {})".format(current_version))
