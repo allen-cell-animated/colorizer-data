@@ -121,6 +121,34 @@ class FrameDimensions(TypedDict):
 
 
 @dataclass
+class Backdrop3dMetadata(DataClassJsonMixin):
+    serialize_config = config(letter_case=LetterCase.CAMEL, undefined=None)
+    dataclass_json_config = serialize_config["dataclasses_json"]
+
+    name: str
+    source: str
+    """
+    HTTPS or local path to an OME-Zarr source volume (e.g. ends with
+    `.ome.zarr`). Can be the same source as the segmentations defined in
+    `Frames3dMetadata`.
+    """
+    channel_index: str
+    """
+    The index of the channel within the source volume.
+    """
+    min: Optional[float] = None
+    """
+    Optional minimum raw intensity value to use when ramping. Values between
+    `min` and `max` will be linearly mapped from 0% to 100% opacity.
+    """
+    max: Optional[float] = None
+    """
+    Optional maximum raw intensity value to use when ramping. Values between
+    `min` and `max` will be linearly mapped from 0% to 100% opacity.
+    """
+
+
+@dataclass
 class Frames3dMetadata(DataClassJsonMixin):
     serialize_config = config(letter_case=LetterCase.CAMEL, undefined=None)
     dataclass_json_config = serialize_config["dataclasses_json"]
@@ -136,6 +164,12 @@ class Frames3dMetadata(DataClassJsonMixin):
     """
     The total number of frames in the 3D data. If not provided, the number of
     frames will be inferred from the source data.
+    """
+    backdrops: Optional[List[Backdrop3dMetadata]] = None
+    """
+    Optional list of additional channels that can be toggled on and off in the
+    viewer. Backdrops can specify the same or additional volume sources as the
+    segmentations.
     """
 
 
