@@ -451,6 +451,7 @@ def test_writes_3d_data(tmp_path):
             "segmentationChannel": 1,
             # Total frames derived from times array if data source does not exist
             "totalFrames": 2,
+            "backdrops": None,
         }
 
 
