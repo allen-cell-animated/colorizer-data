@@ -4,11 +4,167 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 from multiprocessing import Process
 import argparse
 import os
+import re
+import requests
 import signal
+import shutil
 import socket
 from time import sleep
 from typing import List, Tuple
 import webbrowser
+import zipfile
+
+
+"""
+# Directory layout:
+
+tfe_open.py       # This script
+viewer/
+    default/      # Built-in viewer files (committed to git)
+    latest/       # User-modifiable viewer files, can be updated (gitignored).
+                  # Will be initialized by copying from `default/` on first run.
+
+"""
+
+viewer_directory = "viewer"
+viewer_directory_default = "default"
+viewer_directory_latest = "latest"
+
+
+def get_base_viewer_path():
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    return os.path.join(script_dir, viewer_directory)
+
+
+def get_viewer_path():
+    return os.path.join(get_base_viewer_path(), viewer_directory_latest)
+
+
+def initialize_viewer_directory(force=False):
+    """
+    Copy files from the `viewer/default` to `viewer/latest` if `latest` doesn't
+    exist. `latest` is set to be ignored by git, so users can modify it without
+    affecting the repo.
+    """
+    latest_viewer_path = get_viewer_path()
+    default_viewer_path = os.path.join(get_base_viewer_path(), viewer_directory_default)
+
+    path_exists = os.path.exists(latest_viewer_path)
+    has_html = os.path.exists(os.path.join(latest_viewer_path, "index.html"))
+    if (not path_exists) or (not has_html) or force:
+        shutil.rmtree(latest_viewer_path, ignore_errors=True)
+        shutil.copytree(default_viewer_path, latest_viewer_path)
+
+
+def fetch_latest_viewer_info() -> tuple[str, str] | None:
+    """
+    Returns a tuple of the latest version string and the download URL for the
+    latest release, or None if the request fails.
+    """
+    url = "https://api.github.com/repos/allen-cell-animated/timelapse-colorizer/releases/latest"
+    url_headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    response = requests.get(url, headers=url_headers, timeout=1)
+    if response.status_code != 200:
+        return None
+    release_info = response.json()
+    tag_name = release_info["tag_name"][1:]  # Strip leading 'v'
+    download_url = release_info["assets"][0]["browser_download_url"]
+    return tag_name, download_url
+
+
+def update_to_latest_viewer(download_url: str):
+    print("\nUpdating to the latest version...")
+    viewer_path = get_viewer_path()
+
+    response = requests.get(download_url, timeout=10)
+    if response.status_code != 200:
+        print("Warning: Could not download the latest TFE version.")
+        return
+
+    try:
+        # Clear existing viewer files
+        if os.path.exists(viewer_path):
+            shutil.rmtree(viewer_path)
+        os.makedirs(viewer_path, exist_ok=True)
+
+        # Write and extract the zip file.
+        # Files in the zip are contained in a top-level "viewer/" folder.
+        zip_path = os.path.join(viewer_path, "tfe_latest.zip")
+        with open(zip_path, "wb") as f:
+            f.write(response.content)
+        parent_path = os.path.dirname(viewer_path)
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(parent_path)
+
+        # Move files from the extracted folder to viewer_path and cleanup
+        extracted_folder = os.path.join(parent_path, "viewer")
+        shutil.copytree(extracted_folder, viewer_path, dirs_exist_ok=True)
+        os.remove(zip_path)
+        shutil.rmtree(extracted_folder)
+        print("Update complete.")
+    except Exception as e:
+        print("Error: Could not install the latest TFE version:", e)
+        print("Restoring the built-in version.")
+        initialize_viewer_directory(force=True)
+
+
+def get_version_from_html(html_content: str) -> str | None:
+    # Find meta tag: <meta name="version" content="x.x.x">
+    match = re.search(r'<meta\s+name="version"\s+content="([^"]+)"', html_content)
+    if match:
+        return match.group(1)
+    return None
+
+
+def get_current_viewer_version() -> str | None:
+    """
+    Gets the current version of the viewer from the built viewer file, as a
+    "X.Y.Z" semver string.
+    """
+    index_html_path = os.path.join(get_viewer_path(), "index.html")
+    with open(index_html_path, "r") as f:
+        html_content = f.read()
+        return get_version_from_html(html_content)
+
+
+def check_for_and_update_tfe(allow_update: bool) -> None:
+    initialize_viewer_directory()
+    # Check for TFE version updates
+    current_version = None
+    latest_version_info = None
+    try:
+        current_version = get_current_viewer_version()
+    except Exception as e:
+        print(
+            "Warning: Could not get current TFE version. Files may be corrupted or missing.",
+            e,
+        )
+    try:
+        latest_version_info = fetch_latest_viewer_info()
+        if latest_version_info is None:
+            print("Warning: Could not fetch latest TFE version.")
+        else:
+            if current_version != latest_version_info[0]:
+                print(
+                    "A new version of TFE is available! (new: {}, current: {})".format(
+                        latest_version_info[0], current_version
+                    )
+                )
+                if allow_update:
+                    update_to_latest_viewer(latest_version_info[1])
+                else:
+                    print(
+                        "Run this script with the '--latest' flag to automatically update to the latest version."
+                    )
+            else:
+                print("TFE is up to date. (version {})".format(current_version))
+    except Exception as e:
+        print("Warning: Could not fetch latest TFE version:", e)
+    print()
+
 
 # 6465 and 6470 are unassigned ports according to
 # https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml
@@ -58,7 +214,7 @@ class ReactAppRequestHandler(CORSRequestHandler):
         path = super().translate_path(path)
         if os.path.exists(path):
             return path
-        return os.path.join(os.getcwd(), "viewer/index.html")
+        return os.path.join(os.getcwd(), "index.html")
 
 
 # Adapted from https://stackoverflow.com/questions/18499497/how-to-process-sigterm-signal-gracefully
@@ -103,8 +259,8 @@ def serve_until_terminated(httpd: HTTPServer):
 
 
 def serve_tfe(port):
-    script_dir = os.path.dirname(os.path.realpath(__file__))
-    os.chdir(script_dir)
+    os.chdir(get_viewer_path())
+
     httpd = HTTPServer(
         ("localhost", port),
         ReactAppRequestHandler,
@@ -141,6 +297,12 @@ def main():
             default_directory_port
         ),
     )
+    parser.add_argument(
+        "--latest",
+        action="store_true",
+        default=False,
+        help="Whether to automatically upgrade to the latest version of TFE.",
+    )
 
     args = parser.parse_args()
     dataset_path = os.path.abspath(args.dataset_path)
@@ -168,7 +330,9 @@ def main():
         raise ValueError("The specified path does not exist: {}".format(dataset_path))
     os.chdir(new_cwd)
 
-    url = "http://localhost:{}/viewer/viewer?".format(tfe_port)
+    check_for_and_update_tfe(args.latest)
+
+    url = "http://localhost:{}/viewer?".format(tfe_port)
     abs_path = os.path.abspath(dataset_path)
     if is_collection(abs_path):
         url += "collection=http://localhost:{}/{}".format(
@@ -194,6 +358,7 @@ def main():
     # been initialized yet.
     sleep(1)
     print("Opening TFE at", url)
+    print("Press Ctrl+C to exit.\n")
     webbrowser.open(url)
 
     # Blocks until the server kills the process.

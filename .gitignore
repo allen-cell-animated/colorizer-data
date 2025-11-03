@@ -6,3 +6,6 @@ venv/
 *.pyc
 .ipynb_checkpoints/
 __pycache__/
+
+# Ignore local installed viewer
+colorizer_data/bin/viewer/latest
