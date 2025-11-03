@@ -12,7 +12,7 @@ namespaces = false
 
 [project]
 name = "colorizer_data"
-version = "1.6.4"
+version = "1.7.0"
 authors = [
     {name = "", email = "danielt@alleninstitute.org"},
     {name = "", email = "peyton.lee@alleninstitute.org"},

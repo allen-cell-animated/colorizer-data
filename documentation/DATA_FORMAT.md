@@ -1,6 +1,6 @@
 # Timelapse Feature Explorer - Data Format
 
-Last release: v1.6.4
+Last release: v1.7.0
 
 **NOTE:** If you are looking to create a dataset, follow our [getting started guide (`GETTING_STARTED.ipynb`)](./getting_started_guide/GETTING_STARTED.ipynb), and see the [readme (`README.md`)](../README.md) for more details on how to install this package.
 
