@@ -37,7 +37,7 @@ from colorizer_data import convert_colorizer_data
 from pathlib import Path
 
 # Open an example CSV dataset:
-csv = """ID,Track,Time,X,Y,Continuous Feature,Discrete Feature,Categorical Feature,Outlier,Segmentation Image Path
+csv = """Segmentation ID,Track,Time,X,Y,Continuous Feature,Discrete Feature,Categorical Feature,Outlier,Segmentation Image Path
 0,1,0,50,50,0.5,0,A,0,frame_0.tiff
 1,1,1,55,60,0.6,1,B,0,frame_1.tiff
 2,2,0,60,70,0.7,2,C,0,frame_0.tiff
@@ -53,12 +53,12 @@ convert_colorizer_data(
     data,
     output_dir,
     source_dir=source_dir,
-    object_id_column="ID",
+    segmentation_id_column="Segmentation ID",
     track_column="Track",
     times_column="Time",
     centroid_x_column="X",
     centroid_y_column="Y",
-    image_column="Segmentation File Path",
+    image_column="Segmentation Image Path",
     # Columns that aren't specified are automatically parsed as features,
     #  e.g. `Continuous Feature`, `Discrete Feature` and `Categorical Feature`.
 )

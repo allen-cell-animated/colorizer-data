@@ -45,6 +45,8 @@ RESERVED_INDICES = 1
 """Reserved indices that cannot be used for cell data. 
 0 is reserved for the background."""
 
+LOG_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
+
 
 class NumpyValuesEncoder(json.JSONEncoder):
     """Handles numpy numeric values (float32, double, float64, int16, int32, int64)."""
@@ -76,19 +78,50 @@ class NumpyValuesEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-# TODO: snake_case
-def configureLogging(output_dir: Union[str, pathlib.Path], log_name="debug.log"):
+# Adapted from https://stackoverflow.com/a/56944256
+class TextColorFormatter(logging.Formatter):
+    grey = "\x1b[38;20m"
+    yellow = "\x1b[33;20m"
+    red = "\x1b[31;20m"
+    bold_red = "\x1b[31;1m"
+    reset = "\x1b[0m"
+    format = LOG_FORMAT
+
+    FORMATS = {
+        logging.DEBUG: grey + format + reset,
+        logging.INFO: grey + format + reset,
+        logging.WARNING: yellow + format + reset,
+        logging.ERROR: red + format + reset,
+        logging.CRITICAL: bold_red + format + reset,
+    }
+
+    def format(self, record):
+        log_formatter = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_formatter)
+        return formatter.format(record)
+
+
+def configure_logging(output_dir: Union[str, pathlib.Path], log_name="debug.log"):
     # Set up logging so logs are written to a file in the output directory
+    # Clear debug file if it exists
     output_dir_path = pathlib.Path(output_dir)
     os.makedirs(output_dir_path, exist_ok=True)
     debug_file = output_dir_path / log_name
-    open(debug_file, "w").close()  # clear debug file if it exists
+    open(debug_file, "w").close()
+
+    cliHandler = logging.StreamHandler()
+    cliHandler.setFormatter(TextColorFormatter())
+    cliHandler.setLevel(logging.INFO)
+
+    fileHandler = logging.FileHandler(debug_file)
+    fileHandler.setFormatter(logging.Formatter(LOG_FORMAT))
+    fileHandler.setLevel(logging.DEBUG)
+
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=[  # output to both log file and stdout stream
-            logging.FileHandler(debug_file),
-            logging.StreamHandler(),
+            fileHandler,
+            cliHandler,
         ],
     )
 

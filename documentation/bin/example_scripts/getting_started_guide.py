@@ -114,7 +114,7 @@ def main():
             source_dir=dataset_src_dir,
             metadata=metadata,
             feature_info=feature_info,
-            object_id_column="segmentation_id",
+            segmentation_id_column="segmentation_id",
             times_column="time",
             track_column="track_id",
             image_column="segmentation_path",

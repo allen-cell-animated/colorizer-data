@@ -25,7 +25,7 @@ from colorizer_data.types import (
 from colorizer_data.utils import (
     INITIAL_INDEX_COLUMN,
     _get_frame_count_from_3d_source,
-    configureLogging,
+    configure_logging,
     generate_frame_paths,
     get_total_objects,
     merge_dictionaries,
@@ -529,7 +529,7 @@ def convert_colorizer_data(
         ```
     """
 
-    configureLogging(output_dir=output_dir, log_name="debug.log")
+    configure_logging(output_dir=output_dir, log_name="debug.log")
 
     if object_id_column is not None and segmentation_id_column is None:
         # TODO: When `object_id_column` is removed, change
