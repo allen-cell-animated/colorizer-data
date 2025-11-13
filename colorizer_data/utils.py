@@ -96,8 +96,8 @@ class TextColorFormatter(logging.Formatter):
     }
 
     def format(self, record):
-        log_fmt = self.FORMATS.get(record.levelno)
-        formatter = logging.Formatter(log_fmt)
+        log_formatter = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_formatter)
         return formatter.format(record)
 
 
