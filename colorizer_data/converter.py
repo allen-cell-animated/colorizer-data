@@ -24,7 +24,7 @@ from colorizer_data.types import (
 )
 from colorizer_data.utils import (
     INITIAL_INDEX_COLUMN,
-    _get_frame_count_from_3d_source,
+    get_frame_count_from_3d_source,
     configureLogging,
     generate_frame_paths,
     get_total_objects,
@@ -33,6 +33,7 @@ from colorizer_data.utils import (
     sanitize_key_name,
     sanitize_path_by_platform,
     scale_image,
+    validate_frames_3d_paths,
 )
 from colorizer_data.writer import ColorizerDatasetWriter
 
@@ -371,37 +372,16 @@ def _validate_manifest(writer: ColorizerDatasetWriter):
 def _handle_3d_frames(
     data: DataFrame, writer: ColorizerDatasetWriter, config: ConverterConfig
 ) -> None:
-    # Check if provided path is either a URL or a path inside of the dataset directory.
-    # TODO: Need to also do this for all sources...
     source = config.frames_3d.source
-    original_source = source
-    if source is None:
-        raise ValueError("3D frame source path (frames_3d.source) cannot be None.")
-    is_url = source.startswith("http://") or source.startswith("https://")
-    if not is_url:
-        # Check if path is inside dataset directory and fix to make relative
-        source_path = pathlib.Path(source).resolve()
-        if not os.path.isabs(source_path):
-            source_path = pathlib.Path(writer.outpath / source).resolve()
-        if writer.outpath in source_path.parents:
-            source = source_path.relative_to(writer.outpath).as_posix()
-            config.frames_3d.source = source
-            # Check if the path exists
-            if not (writer.outpath / source).exists():
-                raise FileNotFoundError(
-                    f"3D frame source path (frames_3d.source) does not exist in the dataset directory: {source}"
-                )
-        else:
-            raise ValueError(
-                f"3D frame source path (frames_3d.source) must be either a HTTP(S) URL or a path inside the dataset directory. Received: {original_source}"
-            )
-
     # Check for 3D frame src (TODO: safe to assume Zarr?)
+    if source is None:
+        raise ValueError("Frames3dMetadata.source cannot be None.")
+
     # If 3D frame src is provided, go to 3D source (using bioio) and check the number of frames.
     fallback_frame_count = int(data[config.times_column].max()) + 1
     if config.frames_3d.total_frames is None:
         try:
-            config.frames_3d.total_frames = _get_frame_count_from_3d_source(
+            config.frames_3d.total_frames = get_frame_count_from_3d_source(
                 config.frames_3d.source
             )
         except Exception as e:
@@ -410,6 +390,7 @@ def _handle_3d_frames(
             )
             config.frames_3d.total_frames = fallback_frame_count
 
+    validate_frames_3d_paths(config.frames_3d, writer.outpath)
     writer.set_3d_frame_data(config.frames_3d)
 
 

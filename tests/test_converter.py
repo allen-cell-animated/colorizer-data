@@ -9,7 +9,12 @@ import pytest
 from typing import Dict, List, Union
 
 from colorizer_data import convert_colorizer_data
-from colorizer_data.types import DataFileType, FeatureMetadata, Frames3dMetadata
+from colorizer_data.types import (
+    Backdrop3dMetadata,
+    DataFileType,
+    FeatureMetadata,
+    Frames3dMetadata,
+)
 from colorizer_data.utils import read_data_array_file
 
 asset_path = pathlib.Path(__file__).parent / "assets"
@@ -440,6 +445,7 @@ class TestFrames3DWriting:
         convert_colorizer_data(
             csv_data,
             tmp_path,
+            image_column=None,
             frames_3d=Frames3dMetadata(
                 source=source, segmentation_channel=1, total_frames=2
             ),
@@ -501,8 +507,109 @@ class TestFrames3DWriting:
             convert_colorizer_data(
                 csv_data,
                 tmp_path / "dataset",
+                image_column=None,
                 frames_3d=Frames3dMetadata(
                     source="../data.zarr", segmentation_channel=1, total_frames=2
+                ),
+            )
+
+    def test_3d_writes_backdrop_paths(self, tmp_path):
+        os.chdir(tmp_path)
+        os.makedirs(tmp_path / "data.zarr")
+        os.makedirs(tmp_path / "backdrop1.zarr")
+        os.makedirs(tmp_path / "backdrop2.zarr")
+
+        csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+        csv_data = pd.read_csv(StringIO(csv_content))
+
+        convert_colorizer_data(
+            csv_data,
+            tmp_path,
+            image_column=None,
+            frames_3d=Frames3dMetadata(
+                source="data.zarr",
+                segmentation_channel=0,
+                total_frames=2,
+                backdrops=[
+                    Backdrop3dMetadata(
+                        name="Backdrop 1",
+                        source="backdrop1.zarr",
+                        channel_index=0,
+                        min=0,
+                        max=10,
+                    ),
+                    Backdrop3dMetadata(
+                        name="Backdrop 2",
+                        source="backdrop1.zarr",
+                        channel_index=1,
+                        min=255,
+                        max=512,
+                    ),
+                    Backdrop3dMetadata(
+                        name="Backdrop 3",
+                        source="backdrop2.zarr",
+                        channel_index=3,
+                        min=-100,
+                        max=100,
+                    ),
+                ],
+            ),
+        )
+        with open(tmp_path / "manifest.json", "r") as f:
+            assert json.load(f)["frames3d"] == {
+                "source": "data.zarr",
+                "segmentationChannel": 0,
+                # Total frames derived from times array if data source does not exist
+                "totalFrames": 2,
+                "backdrops": [
+                    {
+                        "name": "Backdrop 1",
+                        "source": "backdrop1.zarr",
+                        "channelIndex": 0,
+                        "min": 0,
+                        "max": 10,
+                    },
+                    {
+                        "name": "Backdrop 2",
+                        "source": "backdrop1.zarr",
+                        "channelIndex": 1,
+                        "min": 255,
+                        "max": 512,
+                    },
+                    {
+                        "name": "Backdrop 3",
+                        "source": "backdrop2.zarr",
+                        "channelIndex": 3,
+                        "min": -100,
+                        "max": 100,
+                    },
+                ],
+            }
+
+    def test_3d_throws_error_for_backdrop_paths_outside_dir(self, tmp_path):
+        os.chdir(tmp_path)
+        os.makedirs(tmp_path / "dataset" / "data.zarr")
+        os.makedirs(tmp_path / "backdrop.zarr")
+
+        csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+        csv_data = pd.read_csv(StringIO(csv_content))
+
+        with pytest.raises(ValueError):
+            convert_colorizer_data(
+                csv_data,
+                tmp_path / "dataset",
+                image_column=None,
+                frames_3d=Frames3dMetadata(
+                    source="data.zarr",
+                    segmentation_channel=1,
+                    total_frames=2,
+                    backdrops=[
+                        Backdrop3dMetadata(
+                            name="Invalid Backdrop",
+                            source="../backdrop.zarr",
+                            channel_index=1,
+                        )
+                    ],
                 ),
             )
 

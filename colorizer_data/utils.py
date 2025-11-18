@@ -25,6 +25,7 @@ from colorizer_data.types import (
     ColorizerMetadata,
     FeatureInfo,
     FeatureType,
+    Frames3dMetadata,
 )
 
 MAX_CATEGORIES = 12
@@ -772,7 +773,7 @@ def get_duplicate_items(input: List[str]) -> List[str]:
     return [item for item, count in collections.Counter(input).items() if count > 1]
 
 
-def _get_frame_count_from_3d_source(source: str) -> int:
+def get_frame_count_from_3d_source(source: str) -> int:
     # Attempt to read the image to get info (such as length)
     img = BioImage(source)
     return int(img.dims.T)
@@ -785,7 +786,7 @@ def is_url(source: str) -> bool:
     return source.startswith("http://") or source.startswith("https://")
 
 
-def check_file_source(name: str, source: str | None, outpath: pathlib.Path):
+def check_file_source(name: str, source: str | None, outpath: pathlib.Path) -> None:
     """
     Logs warnings for missing or unreachable file sources.
     """
@@ -804,4 +805,67 @@ def check_file_source(name: str, source: str | None, outpath: pathlib.Path):
         elif not os.path.exists(outpath / source):
             logging.warning(
                 f"{name} path could not be found. Please check that it exists. Received: '{source}'"
+            )
+
+
+def get_relative_path_or_url(directory_path: pathlib.Path, path: str) -> str | None:
+    """
+    Validates and formats a path or URL. Paths will be made relative to
+    `directory_path` if possible.
+
+    Args:
+        - directory_path (pathlib.Path): The base directory path (usually
+          `writer.outpath`).
+        - path (str): The path or URL to validate and format.
+
+    Returns:
+        - If the provided path is a path inside of the `directory_path`, returns
+          the relative path from `directory_path` to `path`.
+        - If `path` is a URL, returns it.
+        - `None` if `path` is a file path but is not inside of `directory_path`.
+    """
+    is_url = path.startswith("http://") or path.startswith("https://")
+    if not is_url:
+        # Check if path is inside dataset directory and fix to make relative
+        path = pathlib.Path(path).resolve()
+        if not os.path.isabs(path):
+            path = pathlib.Path(directory_path / path).resolve()
+        if directory_path in path.parents:
+            path = path.relative_to(directory_path).as_posix()
+        else:
+            return None
+    return path
+
+
+def validate_path_or_url(name: str, path: str | None, outpath: pathlib.Path) -> str:
+    relative_path = get_relative_path_or_url(outpath, path)
+    if relative_path is None:
+        raise ValueError(
+            f"{name} '{path}' must be an HTTP(S) URL or inside the output directory '{outpath}'."
+        )
+    if not (
+        relative_path.startswith("http://") or relative_path.startswith("https://")
+    ):
+        full_path = pathlib.Path(outpath / relative_path).resolve()
+        if not full_path.exists():
+            raise FileNotFoundError(f"{name} '{full_path}' does not exist.")
+    return relative_path
+
+
+def validate_frames_3d_paths(data: Frames3dMetadata, outpath: pathlib.Path) -> None:
+    if data.source is None:
+        raise ValueError("Frames3dMetadata.source must be defined.")
+    data.source = validate_path_or_url("Frames3dMetadata.source", data.source, outpath)
+
+    # Repeat for the backdrops, if defined
+    if data.backdrops is not None:
+        for i in range(len(data.backdrops)):
+            if data.backdrops[i].source is None:
+                raise ValueError(
+                    "Frames3dMetadata.backdrops[{}].source must be defined.".format(i)
+                )
+            data.backdrops[i].source = validate_path_or_url(
+                "Frames3dMetadata.backdrops[{}]".format(i),
+                data.backdrops[i].source,
+                outpath,
             )

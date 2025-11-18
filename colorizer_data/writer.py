@@ -21,7 +21,7 @@ from colorizer_data.types import (
 from colorizer_data.utils import (
     DEFAULT_FRAME_PREFIX,
     DEFAULT_FRAME_SUFFIX,
-    _get_frame_count_from_3d_source,
+    get_frame_count_from_3d_source,
     check_file_source,
     cast_feature_to_info_type,
     copy_remote_or_local_file,
@@ -35,6 +35,7 @@ from colorizer_data.utils import (
     MAX_CATEGORIES,
     NumpyValuesEncoder,
     update_metadata,
+    validate_frames_3d_paths,
     write_data_array,
 )
 
@@ -508,11 +509,14 @@ class ColorizerDatasetWriter:
         self.manifest["frames"] = paths
 
     def set_3d_frame_data(self, data: Frames3dMetadata) -> None:
+        # Data validation
         if data.total_frames is None:
             logging.warning(
                 "ColorizerDatasetWriter: The `total_frames` property of the Frames3dMetadata object is `None`. Will attempt to infer the number of frames from the provided data."
             )
-            data.total_frames = _get_frame_count_from_3d_source(data.source)
+            data.total_frames = get_frame_count_from_3d_source(data.source)
+        validate_frames_3d_paths(data, self.outpath)
+
         self.manifest["frames3d"] = data.to_dict()
         # TODO: when DatasetManifest is a dataclass, it can serialize Frames3dMetadata directly
         # instead of needing to call to_dict() here.
