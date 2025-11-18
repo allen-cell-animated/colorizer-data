@@ -371,6 +371,31 @@ def _validate_manifest(writer: ColorizerDatasetWriter):
 def _handle_3d_frames(
     data: DataFrame, writer: ColorizerDatasetWriter, config: ConverterConfig
 ) -> None:
+    # Check if provided path is either a URL or a path inside of the dataset directory.
+    # TODO: Need to also do this for all sources...
+    source = config.frames_3d.source
+    original_source = source
+    if source is None:
+        raise ValueError("3D frame source path (frames_3d.source) cannot be None.")
+    is_url = source.startswith("http://") or source.startswith("https://")
+    if not is_url:
+        # Check if path is inside dataset directory and fix to make relative
+        source_path = pathlib.Path(source).resolve()
+        if not os.path.isabs(source_path):
+            source_path = pathlib.Path(writer.outpath / source).resolve()
+        if writer.outpath in source_path.parents:
+            source = source_path.relative_to(writer.outpath).as_posix()
+            config.frames_3d.source = source
+            # Check if the path exists
+            if not (writer.outpath / source).exists():
+                raise FileNotFoundError(
+                    f"3D frame source path (frames_3d.source) does not exist in the dataset directory: {source}"
+                )
+        else:
+            raise ValueError(
+                f"3D frame source path (frames_3d.source) must be either a HTTP(S) URL or a path inside the dataset directory. Received: {original_source}"
+            )
+
     # Check for 3D frame src (TODO: safe to assume Zarr?)
     # If 3D frame src is provided, go to 3D source (using bioio) and check the number of frames.
     fallback_frame_count = int(data[config.times_column].max()) + 1
@@ -380,10 +405,11 @@ def _handle_3d_frames(
                 config.frames_3d.source
             )
         except Exception as e:
-            logging.error(
-                f"Error getting frame count from 3D source: {e}. Using fallback frame count of {fallback_frame_count}."
+            logging.warning(
+                f"Encountered an error while getting frame count from 3D source; auto-detected fallback frame count ({fallback_frame_count} frames) will be used instead. If this is incorrect, please define 'total_frames' in Frames3dMetadata. Error: {e}. "
             )
             config.frames_3d.total_frames = fallback_frame_count
+
     writer.set_3d_frame_data(config.frames_3d)
 
 
@@ -443,7 +469,9 @@ def convert_colorizer_data(
             be flattened along the Z-axis using a max projection. If `None`, 2D frame generation
             will be skipped.
         frames_3d (Frames3dMetadata | None): A `Frames3dMetadata` object containing the 3D image source
-            ("source") and channel ("segmentation_channel") to use for the 3D image source.
+            ("source") and channel ("segmentation_channel") to use for the 3D image source. The source
+            must be either a URL or a path inside the output dataset directory. If `None`, 3D frames
+            will not be included in the dataset.
         centroid_x_column (str): The name of the column containing x-coordinates of object
             centroids, in pixels relative to the frame image, where 0 is the left edge of the
             image. Defaults to "Centroid X."
@@ -587,7 +615,7 @@ def convert_colorizer_data(
             logging.info(
                 "No image column provided, so 2D frame generation will be skipped."
             )
-        elif image_column not in data.columns:
+        elif image_column not in data.columns or data[image_column].isnull().all():
             logging.warning(
                 f"Image column '{image_column}' not found in the dataset. 2D frame generation will be skipped."
             )

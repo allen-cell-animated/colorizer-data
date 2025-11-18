@@ -432,27 +432,79 @@ def test_skips_frame_generation_if_no_image_column(existing_dataset):
 # ///////////////////////// 3D FRAME TESTS /////////////////////////
 
 
-def test_writes_3d_data(tmp_path):
-    csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
-    csv_data = pd.read_csv(StringIO(csv_content))
+class TestFrames3DWriting:
+    def convert_3d_data_with_source(self, tmp_path, source: str):
+        csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+        csv_data = pd.read_csv(StringIO(csv_content))
 
-    convert_colorizer_data(
-        csv_data,
-        tmp_path,
-        frames_3d=Frames3dMetadata(
-            source="https://example.com/3d.ome.zarr", segmentation_channel=1
-        ),
-    )
+        convert_colorizer_data(
+            csv_data,
+            tmp_path,
+            frames_3d=Frames3dMetadata(
+                source=source, segmentation_channel=1, total_frames=2
+            ),
+        )
 
-    with open(tmp_path / "manifest.json", "r") as f:
-        manifest = json.load(f)
-        assert manifest["frames3d"] == {
-            "source": "https://example.com/3d.ome.zarr",
+    def make_3d_manifest(self, source: str):
+        return {
+            "source": source,
             "segmentationChannel": 1,
             # Total frames derived from times array if data source does not exist
             "totalFrames": 2,
             "backdrops": None,
         }
+
+    def test_3d_allows_source_urls(self, tmp_path):
+        self.convert_3d_data_with_source(tmp_path, "https://example.com/3d.ome.zarr")
+        with open(tmp_path / "manifest.json", "r") as f:
+            manifest = json.load(f)
+            assert manifest["frames3d"] == self.make_3d_manifest(
+                "https://example.com/3d.ome.zarr"
+            )
+
+    def test_3d_writes_local_paths(self, tmp_path):
+        os.chdir(tmp_path)
+        os.makedirs(tmp_path / "data.zarr")
+        self.convert_3d_data_with_source(tmp_path, "data.zarr")
+        with open(tmp_path / "manifest.json", "r") as f:
+            manifest = json.load(f)
+            assert manifest["frames3d"] == self.make_3d_manifest("data.zarr")
+
+    def test_3d_allows_absolute_paths(self, tmp_path):
+        os.chdir(tmp_path)
+        os.makedirs(tmp_path / "data.zarr")
+        abs_path = tmp_path / "data.zarr"
+        self.convert_3d_data_with_source(tmp_path, str(abs_path))
+        with open(tmp_path / "manifest.json", "r") as f:
+            manifest = json.load(f)
+            # should transform into relative path
+            assert manifest["frames3d"] == self.make_3d_manifest("data.zarr")
+
+    def test_3d_throws_error_for_none_path(self, tmp_path):
+        with pytest.raises(ValueError):
+            self.convert_3d_data_with_source(tmp_path, None)
+
+    def test_3d_throws_error_for_missing_paths(self, tmp_path):
+        os.chdir(tmp_path)
+        with pytest.raises(FileNotFoundError):
+            self.convert_3d_data_with_source(tmp_path, "data.zarr")
+
+    def test_3d_throws_error_for_paths_outside_dir(self, tmp_path):
+        os.chdir(tmp_path)
+        # Create a zarr outside of the directory
+        os.makedirs(tmp_path / "data.zarr")
+
+        csv_content = f"{sample_csv_headers}\n{sample_csv_data}"
+        csv_data = pd.read_csv(StringIO(csv_content))
+
+        with pytest.raises(ValueError):
+            convert_colorizer_data(
+                csv_data,
+                tmp_path / "dataset",
+                frames_3d=Frames3dMetadata(
+                    source="../data.zarr", segmentation_channel=1, total_frames=2
+                ),
+            )
 
 
 # ///////////////////////// BACKDROP TESTS /////////////////////////
