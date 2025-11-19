@@ -719,9 +719,9 @@ class ColorizerDatasetWriter:
             source = frames3d_metadata.source
             check_file_source("3D frames source", source, self.outpath)
             # Validate backdrops
-            if frames3d_metadata["backdrops"] is not None:
-                for i in range(len(frames3d_metadata["backdrops"])):
-                    backdrop_source = frames3d_metadata["backdrops"][i]["source"]
+            if frames3d_metadata.backdrops is not None:
+                for i in range(len(frames3d_metadata.backdrops)):
+                    backdrop_source = frames3d_metadata.backdrops[i].source
                     check_file_source(
                         f"3D frames backdrop {i} source", backdrop_source, self.outpath
                     )
