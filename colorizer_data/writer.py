@@ -22,6 +22,7 @@ from colorizer_data.utils import (
     DEFAULT_FRAME_PREFIX,
     DEFAULT_FRAME_SUFFIX,
     _get_frame_count_from_3d_source,
+    check_file_source,
     cast_feature_to_info_type,
     copy_remote_or_local_file,
     generate_frame_paths,
@@ -711,3 +712,16 @@ class ColorizerDatasetWriter:
                     + " or add an offset if your frame numbers do not start at 0."
                     + " You may also need to generate the list of frames yourself if your dataset is skipping frames."
                 )
+
+        # Check that frames3d sources are reachable
+        if "frames3d" in self.manifest:
+            frames3d_metadata = Frames3dMetadata.from_dict(self.manifest["frames3d"])
+            source = frames3d_metadata.source
+            check_file_source("3D frames source", source, self.outpath)
+            # Validate backdrops
+            if frames3d_metadata["backdrops"] is not None:
+                for i in range(len(frames3d_metadata["backdrops"])):
+                    backdrop_source = frames3d_metadata["backdrops"][i]["source"]
+                    check_file_source(
+                        f"3D frames backdrop {i} source", backdrop_source, self.outpath
+                    )
