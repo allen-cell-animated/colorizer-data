@@ -35,7 +35,6 @@ from colorizer_data.utils import (
     MAX_CATEGORIES,
     NumpyValuesEncoder,
     update_metadata,
-    validate_frames_3d_paths,
     write_data_array,
 )
 
@@ -515,7 +514,6 @@ class ColorizerDatasetWriter:
                 "ColorizerDatasetWriter: The `total_frames` property of the Frames3dMetadata object is `None`. Will attempt to infer the number of frames from the provided data."
             )
             data.total_frames = get_frame_count_from_3d_source(data.source)
-        validate_frames_3d_paths(data, self.outpath)
 
         self.manifest["frames3d"] = data.to_dict()
         # TODO: when DatasetManifest is a dataclass, it can serialize Frames3dMetadata directly

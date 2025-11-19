@@ -808,10 +808,11 @@ def check_file_source(name: str, source: str | None, outpath: pathlib.Path) -> N
             )
 
 
-def get_relative_path_or_url(directory_path: pathlib.Path, path: str) -> str | None:
+def get_relative_path_or_url(directory_path: pathlib.Path, source: str) -> str | None:
     """
-    Validates and formats a path or URL. Paths will be made relative to
-    `directory_path` if possible.
+    Validates and formats a path or URL from a source file string. Paths will be
+    made relative to `directory_path` if they are inside of it. Paths outside of
+    `directory_path` will return `None`. URLs will be returned as-is.
 
     Args:
         - directory_path (pathlib.Path): The base directory path (usually
@@ -824,29 +825,30 @@ def get_relative_path_or_url(directory_path: pathlib.Path, path: str) -> str | N
         - If `path` is a URL, returns it.
         - `None` if `path` is a file path but is not inside of `directory_path`.
     """
-    is_url = path.startswith("http://") or path.startswith("https://")
+    is_url = source.startswith("http://") or source.startswith("https://")
     if not is_url:
         # Check if path is inside dataset directory and fix to make relative
-        path = pathlib.Path(path).resolve()
-        if not os.path.isabs(path):
-            path = pathlib.Path(directory_path / path).resolve()
-        if directory_path in path.parents:
-            path = path.relative_to(directory_path).as_posix()
-        else:
+        source = pathlib.Path(source).resolve()
+        if not os.path.isabs(source):
+            source = pathlib.Path(directory_path / source).resolve()
+        if directory_path not in source.parents:
             return None
-    return path
+        source = source.relative_to(directory_path).as_posix()
+    return source
 
 
-def validate_path_or_url(name: str, path: str | None, outpath: pathlib.Path) -> str:
-    relative_path = get_relative_path_or_url(outpath, path)
+def format_and_validate_file_source(
+    name: str, path: str | None, out_dir: pathlib.Path
+) -> str:
+    relative_path = get_relative_path_or_url(out_dir, path)
     if relative_path is None:
         raise ValueError(
-            f"{name} '{path}' must be an HTTP(S) URL or inside the output directory '{outpath}'."
+            f"{name} '{path}' must be an HTTP(S) URL or inside the output directory '{out_dir}'."
         )
     if not (
         relative_path.startswith("http://") or relative_path.startswith("https://")
     ):
-        full_path = pathlib.Path(outpath / relative_path).resolve()
+        full_path = pathlib.Path(out_dir / relative_path).resolve()
         if not full_path.exists():
             raise FileNotFoundError(f"{name} '{full_path}' does not exist.")
     return relative_path
@@ -855,7 +857,9 @@ def validate_path_or_url(name: str, path: str | None, outpath: pathlib.Path) -> 
 def validate_frames_3d_paths(data: Frames3dMetadata, outpath: pathlib.Path) -> None:
     if data.source is None:
         raise ValueError("Frames3dMetadata.source must be defined.")
-    data.source = validate_path_or_url("Frames3dMetadata.source", data.source, outpath)
+    data.source = format_and_validate_file_source(
+        "Frames3dMetadata.source", data.source, outpath
+    )
 
     # Repeat for the backdrops, if defined
     if data.backdrops is not None:
@@ -864,7 +868,7 @@ def validate_frames_3d_paths(data: Frames3dMetadata, outpath: pathlib.Path) -> N
                 raise ValueError(
                     "Frames3dMetadata.backdrops[{}].source must be defined.".format(i)
                 )
-            data.backdrops[i].source = validate_path_or_url(
+            data.backdrops[i].source = format_and_validate_file_source(
                 "Frames3dMetadata.backdrops[{}]".format(i),
                 data.backdrops[i].source,
                 outpath,
