@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from multiprocessing import Process
 import argparse
 import os
@@ -200,10 +200,16 @@ def acquire_ports(default_ports: List[int]) -> List[Tuple[int, socket.socket]]:
     return ports
 
 
-# Adapted from https://stackoverflow.com/a/21957017.
+# Adapted from https://stackoverflow.com/a/21957017 and
+# https://gist.github.com/dustingetz/5348582.
 class CORSRequestHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
+        # Allow CORS for all domains
         self.send_header("Access-Control-Allow-Origin", "*")
+        # Request browser not to cache files
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         SimpleHTTPRequestHandler.end_headers(self)
 
 
@@ -244,7 +250,7 @@ def is_dataset(path):
     return os.path.isdir(path) and os.path.isfile(os.path.join(path, "manifest.json"))
 
 
-def serve_until_terminated(httpd: HTTPServer):
+def serve_until_terminated(httpd: ThreadingHTTPServer):
     # Poll for exit signal every second
     httpd.timeout = 1
     httpd.handle_timeout = lambda: None
@@ -261,7 +267,7 @@ def serve_until_terminated(httpd: HTTPServer):
 def serve_tfe(port):
     os.chdir(get_viewer_path())
 
-    httpd = HTTPServer(
+    httpd = ThreadingHTTPServer(
         ("localhost", port),
         ReactAppRequestHandler,
     )
@@ -269,7 +275,7 @@ def serve_tfe(port):
 
 
 def serve_directory(port):
-    httpd = HTTPServer(
+    httpd = ThreadingHTTPServer(
         ("localhost", port),
         CORSRequestHandler,
     )
