@@ -137,7 +137,7 @@ class ColorizerDatasetWriter:
         categories, indexed_data = np.unique(data.astype(str), return_inverse=True)
         if len(categories) > MAX_CATEGORIES:
             logging.warning(
-                "write_categorical_feature: Too many unique categories in provided data for feature column '{}' ({} > max {}) and will be skipped.".format(
+                "write_categorical_feature: Too many unique categories were present in feature column '{}' ({} > max {}). Feature will be skipped.".format(
                     info.get_name(), len(categories), MAX_CATEGORIES
                 )
                 + "\n\tCategories provided (up to first 25 shown): {}".format(
@@ -312,7 +312,7 @@ class ColorizerDatasetWriter:
             # Throw a warning that we are overwriting data
             old_feature_data = self.features[key]
             logging.warning(
-                "Feature '{}' ({}) already exists and will overwrite existing feature '{}'. Overwriting...".format(
+                "Feature '{}' has an identical key '{}' as the existing feature '{}' and will overwrite it. Set `FeatureInfo.key` to a unique value to avoid this.".format(
                     label,
                     key,
                     old_feature_data["name"],
