@@ -155,8 +155,8 @@ class Frames3dMetadata(DataClassJsonMixin):
 
     source: str
     """
-    HTTPS or local path to 3D data, ideally in OME-Zarr format (e.g. ends with
-    `.ome.zarr`).
+    HTTPS or relative path from the dataset directory to 3D data, ideally in
+    OME-Zarr format (e.g. ends with `.ome.zarr`).
     """
     segmentation_channel: int = 0
     """The channel of segmentation data. `0` by default."""
