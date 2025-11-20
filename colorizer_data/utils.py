@@ -630,7 +630,7 @@ def infer_feature_type(data: np.ndarray, info: FeatureInfo) -> FeatureType:
     elif kind in {"f"}:
         return FeatureType.CONTINUOUS
     else:
-        logging.warning(
+        logging.info(
             "Feature '{}' has non-numeric data, and will be assumed to be type CATEGORICAL.".format(
                 info.get_name()
             )
@@ -681,10 +681,8 @@ def cast_feature_to_info_type(
     info = info.clone()
 
     if info.type == FeatureType.INDETERMINATE:
-        logging.warning(
-            "Info type for feature '{}' is INDETERMINATE. Will attempt to infer feature type.".format(
-                info.get_name()
-            )
+        logging.debug(
+            f"Info type for feature '{info.get_name()}' is INDETERMINATE. Will attempt to infer feature type."
         )
         info.type = infer_feature_type(data, info)
 
@@ -692,17 +690,13 @@ def cast_feature_to_info_type(
     if info.type == FeatureType.CONTINUOUS:
         if kind not in {"f", "u", "i"}:
             raise RuntimeError(
-                "Feature '{}' has type set to CONTINUOUS, but has non-numeric data.".format(
-                    info.get_name()
-                )
+                f"Feature '{info.get_name()}' has type set to CONTINUOUS, but has non-numeric data."
             )
         return (data.astype(float), info)
     if info.type == FeatureType.DISCRETE:
         if kind not in {"f", "u", "i"}:
             raise RuntimeError(
-                "Feature '{}' has type set to DISCRETE, but has non-numeric data.".format(
-                    info.get_name()
-                )
+                f"Feature '{info.get_name()}' has type set to DISCRETE, but has non-numeric data."
             )
         return (safely_cast_array_to_int(data), info)
     if info.type == FeatureType.CATEGORICAL:
@@ -711,29 +705,20 @@ def cast_feature_to_info_type(
             return (safely_cast_array_to_int(data), info)
         # Attempt to parse the data
         if info.categories is None:
-            logging.warning(
-                "Feature '{}' has type set to CATEGORICAL, but is missing a categories array.".format(
-                    info.get_name()
-                )
-            )
-            logging.warning(
-                "Categories will be automatically inferred from the data. Set `FeatureInfo.categories` to override this behavior."
+            logging.info(
+                f"Feature '{info.get_name()}' is missing a categories array, so categories will be automatically inferred from the data. Set `FeatureInfo.categories` to override this behavior."
             )
             info.categories = get_categories_from_feature_array(data)
         else:
             # Feature has predefined categories, warn that we are mapping to preexisting categories.
-            logging.warning(
-                "CATEGORICAL feature '{}' has a categories array defined, but data type is not an int or float. Feature values will be mapped as integer indexes to categories.".format(
-                    info.get_name()
-                )
+            logging.info(
+                f"Feature '{info.get_name()}' has a categories array defined, but data type is not an int or float. Feature values will be mapped as integer indexes to categories."
             )
         indexed_data = remap_categorical_feature_array(data, info.categories)
         dropped_categories = get_unused_categories(data, info.categories)
         if len(dropped_categories) > 0:
             logging.warning(
-                "\tThe following values were not in the categories array and will be replaced with NaN (up to first 25): {}".format(
-                    dropped_categories
-                )
+                f"Feature '{info.get_name()}' had values not present in the categories array, which will be replaced with NaN (up to first 25 shown): {dropped_categories[:25]}"
             )
         return (safely_cast_array_to_int(indexed_data), info)
 
