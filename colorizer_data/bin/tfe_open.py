@@ -207,7 +207,9 @@ class CORSRequestHandler(SimpleHTTPRequestHandler):
         # Allow CORS for all domains
         self.send_header("Access-Control-Allow-Origin", "*")
         # Request browser not to cache files
-        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.send_header(
+            "Cache-Control", "no-cache, no-store, must-revalidate, max-age=0"
+        )
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
         SimpleHTTPRequestHandler.end_headers(self)
