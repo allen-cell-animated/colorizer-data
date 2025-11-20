@@ -386,7 +386,7 @@ def _handle_3d_frames(
             )
         except Exception as e:
             logging.warning(
-                f"Encountered an error while getting frame count from 3D source; auto-detected fallback frame count ({fallback_frame_count} frames) will be used instead. If this is incorrect, please define 'total_frames' in Frames3dMetadata. Error: {e}. "
+                f"Encountered an error while getting frame count from 3D source; auto-detected fallback frame count ({fallback_frame_count} frames) will be used instead. If this is incorrect, please define 'Frames3dMetadata.totalFrames'. Error: {e}. "
             )
             config.frames_3d.total_frames = fallback_frame_count
 

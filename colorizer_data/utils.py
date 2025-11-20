@@ -866,10 +866,10 @@ def validate_frames_3d_paths(data: Frames3dMetadata, outpath: pathlib.Path) -> N
         for i in range(len(data.backdrops)):
             if data.backdrops[i].source is None:
                 raise ValueError(
-                    "Frames3dMetadata.backdrops[{}].source must be defined.".format(i)
+                    f"Frames3dMetadata.backdrops[{i}].source must be defined."
                 )
             data.backdrops[i].source = format_and_validate_file_source(
-                "Frames3dMetadata.backdrops[{}]".format(i),
+                f"Frames3dMetadata.backdrops[{i}].source",
                 data.backdrops[i].source,
                 outpath,
             )
