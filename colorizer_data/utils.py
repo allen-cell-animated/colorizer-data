@@ -791,13 +791,13 @@ def check_file_source(name: str, source: str | None, outpath: pathlib.Path):
     """
     if source is None:
         logging.error(
-            f"{name} is undefined and will fail to load. Please provide a relative path inside the dataset directory or an HTTP(S) URL to an OME-Zarr (preferred) or OME-TIFF file."
+            f"{name} is undefined and will fail to load. Please provide a relative path inside the dataset directory or an HTTPS URL to an OME-Zarr (preferred) or OME-TIFF file."
         )
     elif not is_url(source):
         # Check for absolute paths, parent paths, or missing files/folders.
         if os.path.isabs(source):
             logging.error(
-                f"{name} cannot be an absolute path and will fail to load. Please provide a relative path inside the dataset directory or an HTTP(S) URL. Received: '{source}'"
+                f"{name} cannot be an absolute path and will fail to load. Please provide a relative path inside the dataset directory or an HTTPS URL. Received: '{source}'"
             )
         elif ".." in pathlib.Path(source).parts:
             logging.warning(

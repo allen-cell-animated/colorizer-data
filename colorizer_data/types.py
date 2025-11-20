@@ -128,9 +128,13 @@ class Backdrop3dMetadata(DataClassJsonMixin):
     name: str
     source: str
     """
-    HTTPS or local path to an OME-Zarr source volume (e.g. ends with
-    `.ome.zarr`). Can be the same source as the segmentations defined in
-    `Frames3dMetadata`.
+    HTTPS URL or relative path from the dataset directory to an OME-Zarr source
+    volume (e.g. ends with `.ome.zarr`). Can be the same source as the
+    segmentations defined in `Frames3dMetadata`.
+    
+    Example: 
+     - `volumes/sample_data.ome.zarr`
+     - `https://example.com/data/sample_data.ome.zarr`
     """
     channel_index: str
     """
@@ -155,8 +159,12 @@ class Frames3dMetadata(DataClassJsonMixin):
 
     source: str
     """
-    HTTPS or relative path from the dataset directory to 3D data, ideally in
+    HTTPS URL or relative path from the dataset directory to 3D data, ideally in
     OME-Zarr format (e.g. ends with `.ome.zarr`).
+
+    Example: 
+     - `volumes/sample_data.ome.zarr`
+     - `https://example.com/data/sample_data.ome.zarr`
     """
     segmentation_channel: int = 0
     """The channel of segmentation data. `0` by default."""
