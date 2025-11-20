@@ -24,9 +24,10 @@ from colorizer_data.types import (
 )
 from colorizer_data.utils import (
     INITIAL_INDEX_COLUMN,
-    _get_frame_count_from_3d_source,
+    get_frame_count_from_3d_source,
     configureLogging,
     generate_frame_paths,
+    get_relative_path_or_url,
     get_total_objects,
     merge_dictionaries,
     read_data_array_file,
@@ -368,22 +369,66 @@ def _validate_manifest(writer: ColorizerDatasetWriter):
         )
 
 
+def _format_and_validate_file_source(
+    name: str, path: str | None, out_dir: pathlib.Path
+) -> str:
+    relative_path = get_relative_path_or_url(out_dir, path)
+    if relative_path is None:
+        raise ValueError(
+            f"{name} '{path}' must be an HTTP(S) URL or inside the output directory '{out_dir}'."
+        )
+    if not (
+        relative_path.startswith("http://") or relative_path.startswith("https://")
+    ):
+        full_path = pathlib.Path(out_dir / relative_path).resolve()
+        if not full_path.exists():
+            raise FileNotFoundError(f"{name} '{full_path}' does not exist.")
+    return relative_path
+
+
+def _validate_frames_3d_paths(data: Frames3dMetadata, outpath: pathlib.Path) -> None:
+    if data.source is None:
+        raise ValueError("Frames3dMetadata.source must be defined.")
+    data.source = _format_and_validate_file_source(
+        "Frames3dMetadata.source", data.source, outpath
+    )
+
+    # Repeat for the backdrops, if defined
+    if data.backdrops is not None:
+        for i in range(len(data.backdrops)):
+            if data.backdrops[i].source is None:
+                raise ValueError(
+                    f"Frames3dMetadata.backdrops[{i}].source must be defined."
+                )
+            data.backdrops[i].source = _format_and_validate_file_source(
+                f"Frames3dMetadata.backdrops[{i}].source",
+                data.backdrops[i].source,
+                outpath,
+            )
+
+
 def _handle_3d_frames(
     data: DataFrame, writer: ColorizerDatasetWriter, config: ConverterConfig
 ) -> None:
+    source = config.frames_3d.source
     # Check for 3D frame src (TODO: safe to assume Zarr?)
+    if source is None:
+        raise ValueError("Frames3dMetadata.source cannot be None.")
+
     # If 3D frame src is provided, go to 3D source (using bioio) and check the number of frames.
     fallback_frame_count = int(data[config.times_column].max()) + 1
     if config.frames_3d.total_frames is None:
         try:
-            config.frames_3d.total_frames = _get_frame_count_from_3d_source(
+            config.frames_3d.total_frames = get_frame_count_from_3d_source(
                 config.frames_3d.source
             )
         except Exception as e:
-            logging.error(
-                f"Error getting frame count from 3D source: {e}. Using fallback frame count of {fallback_frame_count}."
+            logging.warning(
+                f"Encountered an error while getting frame count from 3D source; auto-detected fallback frame count ({fallback_frame_count} frames) will be used instead. If this is incorrect, please define 'Frames3dMetadata.totalFrames'. Error: {e}. "
             )
             config.frames_3d.total_frames = fallback_frame_count
+
+    _validate_frames_3d_paths(config.frames_3d, writer.outpath)
     writer.set_3d_frame_data(config.frames_3d)
 
 
@@ -443,7 +488,9 @@ def convert_colorizer_data(
             be flattened along the Z-axis using a max projection. If `None`, 2D frame generation
             will be skipped.
         frames_3d (Frames3dMetadata | None): A `Frames3dMetadata` object containing the 3D image source
-            ("source") and channel ("segmentation_channel") to use for the 3D image source.
+            ("source") and channel ("segmentation_channel") to use for the 3D image source. The source
+            must be either a URL or a path inside the output dataset directory. If `None`, 3D frames
+            will not be included in the dataset.
         centroid_x_column (str): The name of the column containing x-coordinates of object
             centroids, in pixels relative to the frame image, where 0 is the left edge of the
             image. Defaults to "Centroid X."
@@ -587,7 +634,7 @@ def convert_colorizer_data(
             logging.info(
                 "No image column provided, so 2D frame generation will be skipped."
             )
-        elif image_column not in data.columns:
+        elif image_column not in data.columns or data[image_column].isnull().all():
             logging.warning(
                 f"Image column '{image_column}' not found in the dataset. 2D frame generation will be skipped."
             )

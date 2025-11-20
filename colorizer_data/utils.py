@@ -772,7 +772,7 @@ def get_duplicate_items(input: List[str]) -> List[str]:
     return [item for item, count in collections.Counter(input).items() if count > 1]
 
 
-def _get_frame_count_from_3d_source(source: str) -> int:
+def get_frame_count_from_3d_source(source: str) -> int:
     # Attempt to read the image to get info (such as length)
     img = BioImage(source)
     return int(img.dims.T)
@@ -785,7 +785,7 @@ def is_url(source: str) -> bool:
     return source.startswith("http://") or source.startswith("https://")
 
 
-def check_file_source(name: str, source: str | None, outpath: pathlib.Path):
+def check_file_source(name: str, source: str | None, outpath: pathlib.Path) -> None:
     """
     Logs warnings for missing or unreachable file sources.
     """
@@ -805,3 +805,32 @@ def check_file_source(name: str, source: str | None, outpath: pathlib.Path):
             logging.warning(
                 f"{name} path could not be found. Please check that it exists. Received: '{source}'"
             )
+
+
+def get_relative_path_or_url(directory_path: pathlib.Path, source: str) -> str | None:
+    """
+    Validates and formats a path or URL from a source file string. Paths will be
+    made relative to `directory_path` if they are inside of it. Paths outside of
+    `directory_path` will return `None`. URLs will be returned as-is.
+
+    Args:
+        - directory_path (pathlib.Path): The base directory path (usually
+          `writer.outpath`).
+        - path (str): The path or URL to validate and format.
+
+    Returns:
+        - If the provided path is a path inside of the `directory_path`, returns
+          the relative path from `directory_path` to `path`.
+        - If `path` is a URL, returns it.
+        - `None` if `path` is a file path but is not inside of `directory_path`.
+    """
+    is_url = source.startswith("http://") or source.startswith("https://")
+    if not is_url:
+        # Check if path is inside dataset directory and fix to make relative
+        source = pathlib.Path(source).resolve()
+        if not os.path.isabs(source):
+            source = pathlib.Path(directory_path / source).resolve()
+        if directory_path not in source.parents:
+            return None
+        source = source.relative_to(directory_path).as_posix()
+    return source
