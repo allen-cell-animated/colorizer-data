@@ -210,7 +210,7 @@ class CORSRequestHandler(SimpleHTTPRequestHandler):
         self.send_header(
             "Cache-Control", "no-cache, no-store, must-revalidate, max-age=0"
         )
-        self.send_header("Pragma", "no-cache")
+        self.send_header("Pragma", "no-cache")  # For compatibility with HTTP/1.0
         self.send_header("Expires", "0")
         SimpleHTTPRequestHandler.end_headers(self)
 
