@@ -27,13 +27,13 @@ from colorizer_data.utils import (
     get_frame_count_from_3d_source,
     configureLogging,
     generate_frame_paths,
+    get_relative_path_or_url,
     get_total_objects,
     merge_dictionaries,
     read_data_array_file,
     sanitize_key_name,
     sanitize_path_by_platform,
     scale_image,
-    validate_frames_3d_paths,
 )
 from colorizer_data.writer import ColorizerDatasetWriter
 
@@ -369,6 +369,44 @@ def _validate_manifest(writer: ColorizerDatasetWriter):
         )
 
 
+def _format_and_validate_file_source(
+    name: str, path: str | None, out_dir: pathlib.Path
+) -> str:
+    relative_path = get_relative_path_or_url(out_dir, path)
+    if relative_path is None:
+        raise ValueError(
+            f"{name} '{path}' must be an HTTP(S) URL or inside the output directory '{out_dir}'."
+        )
+    if not (
+        relative_path.startswith("http://") or relative_path.startswith("https://")
+    ):
+        full_path = pathlib.Path(out_dir / relative_path).resolve()
+        if not full_path.exists():
+            raise FileNotFoundError(f"{name} '{full_path}' does not exist.")
+    return relative_path
+
+
+def _validate_frames_3d_paths(data: Frames3dMetadata, outpath: pathlib.Path) -> None:
+    if data.source is None:
+        raise ValueError("Frames3dMetadata.source must be defined.")
+    data.source = _format_and_validate_file_source(
+        "Frames3dMetadata.source", data.source, outpath
+    )
+
+    # Repeat for the backdrops, if defined
+    if data.backdrops is not None:
+        for i in range(len(data.backdrops)):
+            if data.backdrops[i].source is None:
+                raise ValueError(
+                    f"Frames3dMetadata.backdrops[{i}].source must be defined."
+                )
+            data.backdrops[i].source = _format_and_validate_file_source(
+                f"Frames3dMetadata.backdrops[{i}].source",
+                data.backdrops[i].source,
+                outpath,
+            )
+
+
 def _handle_3d_frames(
     data: DataFrame, writer: ColorizerDatasetWriter, config: ConverterConfig
 ) -> None:
@@ -390,7 +428,7 @@ def _handle_3d_frames(
             )
             config.frames_3d.total_frames = fallback_frame_count
 
-    validate_frames_3d_paths(config.frames_3d, writer.outpath)
+    _validate_frames_3d_paths(config.frames_3d, writer.outpath)
     writer.set_3d_frame_data(config.frames_3d)
 
 

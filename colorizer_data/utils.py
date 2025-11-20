@@ -25,7 +25,6 @@ from colorizer_data.types import (
     ColorizerMetadata,
     FeatureInfo,
     FeatureType,
-    Frames3dMetadata,
 )
 
 MAX_CATEGORIES = 12
@@ -835,41 +834,3 @@ def get_relative_path_or_url(directory_path: pathlib.Path, source: str) -> str |
             return None
         source = source.relative_to(directory_path).as_posix()
     return source
-
-
-def format_and_validate_file_source(
-    name: str, path: str | None, out_dir: pathlib.Path
-) -> str:
-    relative_path = get_relative_path_or_url(out_dir, path)
-    if relative_path is None:
-        raise ValueError(
-            f"{name} '{path}' must be an HTTP(S) URL or inside the output directory '{out_dir}'."
-        )
-    if not (
-        relative_path.startswith("http://") or relative_path.startswith("https://")
-    ):
-        full_path = pathlib.Path(out_dir / relative_path).resolve()
-        if not full_path.exists():
-            raise FileNotFoundError(f"{name} '{full_path}' does not exist.")
-    return relative_path
-
-
-def validate_frames_3d_paths(data: Frames3dMetadata, outpath: pathlib.Path) -> None:
-    if data.source is None:
-        raise ValueError("Frames3dMetadata.source must be defined.")
-    data.source = format_and_validate_file_source(
-        "Frames3dMetadata.source", data.source, outpath
-    )
-
-    # Repeat for the backdrops, if defined
-    if data.backdrops is not None:
-        for i in range(len(data.backdrops)):
-            if data.backdrops[i].source is None:
-                raise ValueError(
-                    f"Frames3dMetadata.backdrops[{i}].source must be defined."
-                )
-            data.backdrops[i].source = format_and_validate_file_source(
-                f"Frames3dMetadata.backdrops[{i}].source",
-                data.backdrops[i].source,
-                outpath,
-            )
