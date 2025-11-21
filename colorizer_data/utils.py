@@ -809,3 +809,34 @@ def _get_frame_count_from_3d_source(source: str) -> int:
     # Attempt to read the image to get info (such as length)
     img = BioImage(source)
     return int(img.dims.T)
+
+
+def is_url(source: str) -> bool:
+    """
+    Checks if a source string is an HTTP(S) URL.
+    """
+    return source.startswith("http://") or source.startswith("https://")
+
+
+def check_file_source(name: str, source: str | None, outpath: pathlib.Path):
+    """
+    Logs warnings for missing or unreachable file sources.
+    """
+    if source is None:
+        logging.error(
+            f"{name} is undefined and will fail to load. Please provide a relative path inside the dataset directory or an HTTPS URL to an OME-Zarr (preferred) or OME-TIFF file."
+        )
+    elif not is_url(source):
+        # Check for absolute paths, parent paths, or missing files/folders.
+        if os.path.isabs(source):
+            logging.error(
+                f"{name} cannot be an absolute path and will fail to load. Please provide a relative path inside the dataset directory or an HTTPS URL. Received: '{source}'"
+            )
+        elif ".." in pathlib.Path(source).parts:
+            logging.warning(
+                f"{name} should not contain parent directory references ('..'), as it may fail to load in certain deploy environments. Received: '{source}'"
+            )
+        elif not os.path.exists(outpath / source):
+            logging.warning(
+                f"{name} path could not be found. Please check that it exists. Received: '{source}'"
+            )

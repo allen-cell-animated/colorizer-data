@@ -443,7 +443,8 @@ def convert_colorizer_data(
             be flattened along the Z-axis using a max projection. If `None`, 2D frame generation
             will be skipped.
         frames_3d (Frames3dMetadata | None): A `Frames3dMetadata` object containing the 3D image source
-            ("source") and channel ("segmentation_channel") to use for the 3D image source.
+            ("source") and channel ("segmentation_channel") to use for the 3D image source. The source
+            should be the path to or the URL of an OME-Zarr array (preferred) or OME-TIFF file.
         centroid_x_column (str): The name of the column containing x-coordinates of object
             centroids, in pixels relative to the frame image, where 0 is the left edge of the
             image. Defaults to "Centroid X."
