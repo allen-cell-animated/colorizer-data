@@ -138,12 +138,13 @@ class ColorizerDatasetWriter:
         categories, indexed_data = np.unique(data.astype(str), return_inverse=True)
         if len(categories) > MAX_CATEGORIES:
             logging.warning(
-                "write_feature_categorical: Too many unique categories in provided data for feature column '{}' ({} > max {}).".format(
+                "write_categorical_feature: Too many unique categories were present in feature column '{}' ({} > max {}). Feature will be skipped.".format(
                     info.get_name(), len(categories), MAX_CATEGORIES
                 )
+                + "\n\tCategories provided (up to first 25 shown): {}".format(
+                    categories[:25]
+                )
             )
-            logging.warning("\tFEATURE WILL BE SKIPPED.")
-            logging.warning("\tCategories provided: {}".format(categories))
             return
         info.categories = categories.tolist()
         info.type = FeatureType.CATEGORICAL
@@ -190,7 +191,7 @@ class ColorizerDatasetWriter:
         except RuntimeError as error:
             logging.error("RuntimeError: {}".format(error))
             logging.warning(
-                "Could not parse feature '{}'. FEATURE WILL BE SKIPPED.".format(
+                "Could not parse feature '{}'. Feature will be skipped.".format(
                     info.get_name()
                 )
             )
@@ -199,24 +200,20 @@ class ColorizerDatasetWriter:
         if info.type == FeatureType.CATEGORICAL:
             if len(info.categories) > MAX_CATEGORIES:
                 logging.warning(
-                    "Feature '{}' has too many categories ({} > max {}).".format(
+                    "Feature '{}' has too many categories ({} > max {}) and will be skipped.".format(
                         info.get_name(), len(info.categories), MAX_CATEGORIES
                     )
-                )
-                logging.warning("\tFEATURE WILL BE SKIPPED.")
-                logging.warning(
-                    "\tCategories provided (up to first 25): {}".format(
+                    + "\n\tCategories provided (up to first 25 shown): {}".format(
                         info.categories[:25]
                     )
                 )
                 return
             if np.min(data) < 0 or np.max(data) >= len(info.categories):
                 logging.warning(
-                    "Feature '{}' has values out of range of the defined categories.".format(
+                    "Feature '{}' has values out of range of the defined categories. Bad values will be replaced with NaN.".format(
                         info.get_name()
                     )
                 )
-                logging.warning("\tBad values will be replaced with NaN.")
                 replace_out_of_bounds_values_with_nan(data, 0, len(info.categories) - 1)
 
         num_features = len(self.features.keys())
@@ -316,9 +313,9 @@ class ColorizerDatasetWriter:
             # Throw a warning that we are overwriting data
             old_feature_data = self.features[key]
             logging.warning(
-                "Feature key '{}' already exists in manifest. Feature '{}' will overwrite existing feature '{}'. Overwriting...".format(
-                    key,
+                "Feature '{}' has an identical key '{}' as the existing feature '{}' and will overwrite it. Set `FeatureInfo.key` to a unique value to avoid this.".format(
                     label,
+                    key,
                     old_feature_data["name"],
                 )
             )
@@ -509,7 +506,7 @@ class ColorizerDatasetWriter:
 
     def set_3d_frame_data(self, data: Frames3dMetadata) -> None:
         if data.total_frames is None:
-            logging.warning(
+            logging.info(
                 "ColorizerDatasetWriter: The `total_frames` property of the Frames3dMetadata object is `None`. Will attempt to infer the number of frames from the provided data."
             )
             data.total_frames = _get_frame_count_from_3d_source(data.source)
@@ -675,7 +672,7 @@ class ColorizerDatasetWriter:
                 for i in range(min(10, len(gaps))):
                     time, segId1, segId2 = gaps[i]
                     logging.warning(
-                        f"  Time {time}: Segmentation ID gap between {segId1} and {segId2}."
+                        f"\tTime {time}: Segmentation ID gap between {segId1} and {segId2}."
                     )
 
         # Check that all features + backdrops have unique keys. This should be guaranteed because
@@ -689,7 +686,7 @@ class ColorizerDatasetWriter:
         # Check for missing frames
         if "frames" not in self.manifest and "frames3d" not in self.manifest:
             logging.warning(
-                "No frames are provided! Did you forget to call `set_frame_paths` on the writer?"
+                "No frames are provided! Did you forget to call `set_frame_paths()` on the writer?"
             )
         elif "frames" in self.manifest:
             # Check that all the 2D frame paths exist
@@ -706,7 +703,7 @@ class ColorizerDatasetWriter:
                 )
                 for i in range(len(missing_frames)):
                     index, path = missing_frames[i]
-                    logging.warning("  {}: '{}'".format(index, path))
+                    logging.warning("\t{}: '{}'".format(index, path))
                 logging.warning(
                     "For auto-generated frame numbers, check that no frames are missing data in the original dataset,"
                     + " or add an offset if your frame numbers do not start at 0."

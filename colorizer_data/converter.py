@@ -144,8 +144,8 @@ def _write_data(
     if seg_ids is None:
         logging.warning(
             f"No object ID data found in the dataset for column name '{config.segmentation_id_column}'."
-            + "\n  The pixel value for each object in image frames will be assumed to be (= row index + 1)."
-            + "\n  This may cause issues if the dataset does not have globally-unique object IDs in the image."
+            + "\n\tThe pixel value for each object in image frames will be assumed to be (= row index + 1)."
+            + "\n\tThis may cause issues if the dataset does not have globally-unique object IDs in the image."
         )
         seg_ids = np.arange(1, len(dataset) + 1)
 
@@ -619,7 +619,7 @@ def convert_colorizer_data(
         # TODO: Add validation step to check for either frames or frames3d property
         _validate_manifest(writer)
         writer.write_manifest(metadata=metadata)
-        logging.info("Dataset conversion completed successfully.")
+        logging.info("Dataset conversion completed successfully.\n")
     except Exception as e:
         raise e
     finally:
