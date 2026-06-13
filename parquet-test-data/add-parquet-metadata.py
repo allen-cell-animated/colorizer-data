@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import pdb
 
+import pyarrow as pa
 import pyarrow.parquet as pq
 
 
@@ -39,7 +41,19 @@ def add_metadata(
     existing_metadata.update(new_metadata)
     updated_table = table.replace_schema_metadata(existing_metadata)
 
-    pq.write_table(updated_table, output_path)
+    field = table.schema.field("is_split_node")
+    new_field = field.with_metadata(
+        {b"categories": b"False,True", b"min": b"0", b"max": b"1"}
+    )
+    updated_schema = updated_table.schema.set(
+        updated_table.schema.get_field_index("is_split_node"), new_field
+    )
+
+    updated_table = updated_table.cast(updated_schema)
+    with pq.ParquetWriter(output_path, updated_schema) as writer:
+        # Writes first row group
+        writer.write_table(updated_table)
+        # writer.write_table(updated_table)
 
 
 def read_metadata(input_path: Path) -> None:
