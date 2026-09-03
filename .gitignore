@@ -9,3 +9,6 @@ __pycache__/
 
 # Ignore local installed viewer
 colorizer_data/bin/viewer/latest
+
+# Ignore uv lock file (better not commited for a library)
+uv.lock
