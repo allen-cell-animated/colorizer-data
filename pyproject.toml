@@ -19,7 +19,7 @@ authors = [
 ]
 description = "Utilities to convert data for viewing in Timelapse Feature Explorer"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = {text = "BSD-3-Clause"}
 classifiers = [
     "Programming Language :: Python :: 3",
